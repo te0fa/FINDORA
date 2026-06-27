@@ -1,0 +1,15 @@
+const fs = require('fs');
+const path = require('path');
+
+const migrationsDir = 'e:/FINDORA/supabase/migrations';
+const files = fs.readdirSync(migrationsDir);
+
+for (const file of files) {
+  if (file.endsWith('.sql')) {
+    const filePath = path.join(migrationsDir, file);
+    const content = fs.readFileSync(filePath, 'utf8');
+    if (content.includes('fn_exec_sql')) {
+      console.log(`Found fn_exec_sql in: ${file}`);
+    }
+  }
+}

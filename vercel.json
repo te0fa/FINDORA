@@ -1,0 +1,24 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/fraud-audit",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/network-survival",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/recalculate-networks",
+      "schedule": "0 4 * * 0"
+    },
+    {
+      "path": "/api/cron/task-recycler",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/trend-detector",
+      "schedule": "0 5 * * *"
+    }
+  ]
+}
