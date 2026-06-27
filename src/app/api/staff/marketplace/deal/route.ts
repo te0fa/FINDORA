@@ -1,5 +1,7 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createProduct, createDeal } from '@/lib/dal/marketplace'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
   try {
