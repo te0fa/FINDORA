@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "scratch/**",
     "src/types/database.types.ts",
+    "scripts/**",
+    "public/sw.js",
+    "playwright.config.ts",
+    "e2e/**",
   ]),
   {
     rules: {
@@ -20,6 +24,7 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-require-imports": "warn",
       "prefer-const": "warn",
       "react/no-unescaped-entities": "warn",
+      "react/jsx-no-comment-textnodes": "warn",
     },
   },
 ]);
