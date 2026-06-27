@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ToastProvider } from "@/components/ui/Toast";
 import { Suspense } from "react";
 import PWARegistration from "@/components/PWARegistration";
+import { Analytics } from "@vercel/analytics/next";
 
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -107,6 +108,7 @@ export default async function RootLayout({
               {children}
             </Suspense>
           </CMSLayoutWrapper>
+          <Analytics />
         </ToastProvider>
       </body>
     </html>
