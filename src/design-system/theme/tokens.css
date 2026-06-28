@@ -1,0 +1,303 @@
+/* Findora Enterprise Design System & Brand DNA Tokens */
+
+:root {
+  /* ==========================================================================
+     COLOR SYSTEM (DARK THEME - DEFAULT)
+     ========================================================================== */
+  --primary: #f8fafc;
+  --primary-hover: #e2e8f0;
+  --primary-active: #cbd5e1;
+  
+  --background: #020617;
+  --background-rgb: 2, 6, 23;
+  --surface: #0b0f19;
+  --surface-rgb: 11, 15, 25;
+  --surface-secondary: #131926;
+  --card: rgba(15, 23, 42, 0.4);
+  --card-rgb: 15, 23, 42;
+  
+  --border: rgba(255, 255, 255, 0.08);
+  --divider: rgba(255, 255, 255, 0.04);
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --success: #22c55e;
+  --success-hover: #16a34a;
+  --success-active: #15803d;
+  --success-bg: rgba(34, 197, 94, 0.1);
+  
+  --warning: #f59e0b;
+  --warning-hover: #d97706;
+  --warning-active: #b45309;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-active: #b91c1c;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  
+  --info: #3b82f6;
+  --info-hover: #2563eb;
+  --info-active: #1d4ed8;
+  --info-bg: rgba(59, 130, 246, 0.1);
+
+  --accent: #c8973b; /* Findora Gold */
+  --accent-hover: #d4a63c;
+  --accent-active: #b08130;
+  --accent-bg: rgba(200, 151, 59, 0.1);
+  
+  --premium-glow: 0 0 25px rgba(200, 151, 59, 0.15);
+  --premium-glow-strong: 0 0 40px rgba(200, 151, 59, 0.3);
+  
+  --disabled: rgba(255, 255, 255, 0.12);
+  --disabled-text: rgba(255, 255, 255, 0.35);
+  --overlay: rgba(2, 6, 23, 0.8);
+
+  /* ==========================================================================
+     SPACING SYSTEM (Based on 4px base grid)
+     ========================================================================== */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-64: 64px;
+  --space-80: 80px;
+  --space-96: 96px;
+  --space-128: 128px;
+
+  /* ==========================================================================
+     RADIUS & BORDERS
+     ========================================================================== */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-full: 9999px;
+  
+  --border-width-1: 1px;
+  --border-width-2: 2px;
+  --border-width-3: 3px;
+
+  /* ==========================================================================
+     ELEVATION & SHADOWS
+     ========================================================================== */
+  --elevation-none: none;
+  --elevation-low: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --elevation-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --elevation-high: 0 20px 48px rgba(0, 0, 0, 0.5);
+  --elevation-premium: 0 12px 40px 0 rgba(0, 0, 0, 0.4), 0 0 20px rgba(200, 151, 59, 0.08);
+
+  /* ==========================================================================
+     OPACITY
+     ========================================================================== */
+  --opacity-disabled: 0.38;
+  --opacity-muted: 0.6;
+  --opacity-hover: 0.85;
+  --opacity-active: 0.95;
+
+  /* ==========================================================================
+     MOTION & ANIMATIONS
+     ========================================================================== */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 450ms;
+  --duration-premium: 600ms;
+  
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1); /* ultra-smooth ease-out */
+  --ease-premium-in-out: cubic-bezier(0.85, 0, 0.15, 1);
+
+  /* ==========================================================================
+     BLURS & GLASSMORPHISM
+     ========================================================================== */
+  --blur-sm: 4px;
+  --blur-md: 8px;
+  --blur-lg: 16px;
+  --blur-xl: 24px;
+  
+  /* ==========================================================================
+     LAYERING & Z-INDEX
+     ========================================================================== */
+  --z-index-base: 0;
+  --z-index-dropdown: 100;
+  --z-index-sticky: 200;
+  --z-index-overlay: 500;
+  --z-index-drawer: 600;
+  --z-index-modal: 1000;
+  --z-index-toast: 2000;
+  --z-index-tooltip: 3000;
+
+  /* ==========================================================================
+     BREAKPOINTS
+     ========================================================================== */
+  --breakpoint-mobile: 480px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-laptop: 1024px;
+  --breakpoint-desktop: 1440px;
+  --breakpoint-ultrawide: 1920px;
+}
+
+/* Future Light Theme Support Structure (Overrides) */
+[data-theme="light"] {
+  --primary: #0f172a;
+  --primary-hover: #1e293b;
+  --primary-active: #334155;
+  
+  --background: #f8fafc;
+  --background-rgb: 248, 250, 252;
+  --surface: #ffffff;
+  --surface-rgb: 255, 255, 255;
+  --surface-secondary: #f1f5f9;
+  --card: rgba(255, 255, 255, 0.8);
+  --card-rgb: 255, 255, 255;
+  
+  --border: rgba(15, 23, 42, 0.08);
+  --divider: rgba(15, 23, 42, 0.04);
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  
+  --success: #16a34a;
+  --success-hover: #15803d;
+  --success-active: #166534;
+  --success-bg: rgba(22, 163, 74, 0.1);
+  
+  --warning: #d97706;
+  --warning-hover: #b45309;
+  --warning-active: #92400e;
+  --warning-bg: rgba(217, 119, 6, 0.1);
+  
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-active: #991b1b;
+  --danger-bg: rgba(220, 38, 38, 0.1);
+  
+  --info: #2563eb;
+  --info-hover: #1d4ed8;
+  --info-active: #1e40af;
+  --info-bg: rgba(37, 99, 235, 0.1);
+
+  --accent: #b08130;
+  --accent-hover: #9c7128;
+  --accent-active: #7c581c;
+  --accent-bg: rgba(176, 129, 48, 0.15);
+  
+  --premium-glow: 0 0 25px rgba(176, 129, 48, 0.1);
+  --premium-glow-strong: 0 0 40px rgba(176, 129, 48, 0.2);
+  
+  --disabled: rgba(15, 23, 42, 0.08);
+  --disabled-text: rgba(15, 23, 42, 0.3);
+  --overlay: rgba(15, 23, 42, 0.6);
+
+  --elevation-low: 0 2px 8px rgba(15, 23, 42, 0.05);
+  --elevation-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --elevation-high: 0 20px 48px rgba(15, 23, 42, 0.15);
+  --elevation-premium: 0 12px 40px rgba(15, 23, 42, 0.08), 0 0 20px rgba(176, 129, 48, 0.05);
+}
+
+/* ==========================================================================
+   TYPOGRAPHY SYSTEM
+   Cairo is used for Arabic, Inter for English (configured in layout.tsx)
+   ========================================================================== */
+
+/* Typography utilities */
+.font-display-xl {
+  font-size: 3.5rem;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.font-display-lg {
+  font-size: 2.75rem;
+  line-height: 1.15;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.font-h1 {
+  font-size: 2.25rem;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.font-h2 {
+  font-size: 1.75rem;
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.font-h3 {
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.font-h4 {
+  font-size: 1.25rem;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.font-body-lg {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.font-body {
+  font-size: 1rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.font-body-sm {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.font-caption {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.font-button {
+  font-size: 0.9375rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.font-label {
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* RTL Layout Primitives & Flex Alignments */
+[dir="rtl"] {
+  text-align: right;
+}
+[dir="ltr"] {
+  text-align: left;
+}

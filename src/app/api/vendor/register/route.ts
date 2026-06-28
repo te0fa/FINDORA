@@ -136,8 +136,8 @@ async function handler(request: NextRequest): Promise<NextResponse> {
   }
 
   // Set is_phone_verified to true since OTP is verified
-  await adminClient
-    .from('vendors')
+  await (adminClient
+    .from('vendors') as any)
     .update({ is_phone_verified: true })
     .eq('id', vendorId);
 

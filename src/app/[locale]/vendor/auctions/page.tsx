@@ -31,8 +31,8 @@ export default async function VendorAuctionsPage({
   if (!user) redirect(`/${locale}/vendor/login`)
 
   // 1. Fetch vendor profile linked to this authenticated user ID
-  const { data: vendor } = await supabase
-    .from('vendors')
+  const { data: vendor } = await (supabase
+    .from('vendors') as any)
     .select('id, display_name, trust_score')
     .eq('auth_user_id', user.id)
     .maybeSingle()

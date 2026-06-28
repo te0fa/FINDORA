@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Fetch the vendor to ensure they exist and get their auth user status
-    const { data: vendor, error: vendorErr } = await adminClient
-      .from('vendors')
+    const { data: vendor, error: vendorErr } = await (adminClient
+      .from('vendors') as any)
       .select('id, display_name, auth_user_id, system_status')
       .eq('whatsapp_number', phoneNumber)
       .maybeSingle();
@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Link the auth_user_id back to vendors table
-      await adminClient
-        .from('vendors')
+      await (adminClient
+        .from('vendors') as any)
         .update({ auth_user_id: finalAuthUserId, is_phone_verified: true })
         .eq('id', vendor.id);
     }

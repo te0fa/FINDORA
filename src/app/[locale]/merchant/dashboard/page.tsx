@@ -14,10 +14,12 @@ export default async function MerchantDashboardPage({
   const { locale } = await params;
   const db = createAdminClient();
 
+  const merchantRaw = null;
+
   // Redirect to general login page as merchant profiles auth is deprecated and being unified to vendors
   redirect(`/${locale}/auth/login`);
 
-  const merchant = merchantRaw as {
+  const merchant = merchantRaw as any as {
     id: string;
     business_name_ar: string;
     business_name_en: string;

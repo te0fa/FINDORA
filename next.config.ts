@@ -62,7 +62,7 @@ const nextConfig: NextConfig = {
 
   // Redirect www to non-www in production + legacy merchant routes to vendor routes
   async redirects() {
-    const baseRedirects = [
+    const baseRedirects: any[] = [
       {
         source: '/:locale/merchant/dashboard',
         destination: '/:locale/vendor/auctions',

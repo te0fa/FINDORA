@@ -74,8 +74,8 @@ export async function login(formData: FormData) {
 
   // 4b. Check Vendor if Not Staff or Customer
   const adminClient = await createAdminClient()
-  const { data: vendor } = await adminClient
-    .from('vendors')
+  const { data: vendor } = await (adminClient
+    .from('vendors') as any)
     .select('id, display_name, system_status')
     .eq('auth_user_id', user.id)
     .maybeSingle()

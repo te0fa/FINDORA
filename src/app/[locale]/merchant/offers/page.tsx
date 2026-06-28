@@ -12,6 +12,9 @@ export default async function MerchantOffersPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const db = null as any;
+  const merchantId = null as any;
+
   redirect(`/${locale}/auth/login`);
 
   const [requestsRes, myOffersRes] = await Promise.all([
