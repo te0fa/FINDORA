@@ -1,5 +1,16 @@
 import type { NextConfig } from "next";
 
+interface CustomRedirect {
+  source: string;
+  destination: string;
+  permanent: boolean;
+  has?: Array<{
+    type: 'header' | 'query' | 'cookie' | 'host';
+    key?: string;
+    value?: string;
+  }>;
+}
+
 const securityHeaders = [
   // Prevent clickjacking
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
@@ -62,7 +73,7 @@ const nextConfig: NextConfig = {
 
   // Redirect www to non-www in production + legacy merchant routes to vendor routes
   async redirects() {
-    const baseRedirects: any[] = [
+    const baseRedirects: CustomRedirect[] = [
       {
         source: '/:locale/merchant/dashboard',
         destination: '/:locale/vendor/auctions',
@@ -88,7 +99,7 @@ const nextConfig: NextConfig = {
         permanent: true,
       });
     }
-    return baseRedirects;
+    return baseRedirects as any;
   },
 
   // Image optimization
