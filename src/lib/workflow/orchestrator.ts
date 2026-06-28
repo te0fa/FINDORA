@@ -1,4 +1,4 @@
-// src/lib/workflow/orchestrator.ts
+import { after } from 'next/server';
 import { createAdminClient } from '@/lib/dal/customers';
 import { callAI } from '@/lib/ai/provider';
 import { sendApprovalEmail } from './notifications';
@@ -9,8 +9,8 @@ const log = createLogger('workflow/orchestrator')
 export async function onRequestApproved(requestId: string): Promise<void> {
   log.info("[WORKFLOW_INITIATED]", requestId);
 
-  // Run in background non-blocking context
-  (async () => {
+  // Run in background non-blocking context (guaranteed by Vercel lambda lifecycle using Next.js after)
+  after(async () => {
     const adminClient = await createAdminClient();
 
     // 1. Initialise tracking row in workflow_runs
@@ -31,7 +31,7 @@ export async function onRequestApproved(requestId: string): Promise<void> {
     }
 
     await runWorkflowSteps(requestId, adminClient);
-  })();
+  });
 }
 
 export async function retryFailedWorkflow(requestId: string): Promise<void> {
@@ -59,10 +59,10 @@ export async function retryFailedWorkflow(requestId: string): Promise<void> {
     log.error(`[ORCHESTRATOR_RETRY_FAIL] Failed to update attempts:`, err.message);
   }
 
-  // Run in background non-blocking context
-  (async () => {
+  // Run in background non-blocking context (guaranteed by Vercel lambda lifecycle using Next.js after)
+  after(async () => {
     await runWorkflowSteps(requestId, adminClient);
-  })();
+  });
 }
 
 async function runWorkflowSteps(requestId: string, adminClient: any): Promise<void> {

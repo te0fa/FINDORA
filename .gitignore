@@ -42,3 +42,5 @@ next-env.d.ts
 
 # playwright auth
 /e2e/.auth/
+
+.vercel

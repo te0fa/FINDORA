@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { redirect } from 'next/navigation';
 import MerchantOffersClient from './MerchantOffersClient';
 
 export const metadata = {
@@ -11,16 +12,7 @@ export default async function MerchantOffersPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const db = createAdminClient();
-
-  // Get first active merchant (TODO: replace with real session)
-  const { data: merchantRaw } = await (db.from('merchant_profiles') as any)
-    .select('id')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const merchantId = (merchantRaw as { id: string } | null)?.id || '';
+  redirect(`/${locale}/auth/login`);
 
   const [requestsRes, myOffersRes] = await Promise.all([
     (db.from('customer_requests') as any)

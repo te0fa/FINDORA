@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FINDORA — Free OTP System
  * DB-based 6-digit OTP with expiry. SMS-provider-agnostic (plug any provider).
  * Currently: Console log in dev, ready for Twilio/Vonage/any SMS in prod.
@@ -9,7 +9,7 @@ import { createLogger } from '@/lib/utils/logger'
 const log = createLogger('notifications/otp')
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-export type OtpPurpose = 'contributor_registration' | 'merchant_registration' | 'withdrawal_verification';
+export type OtpPurpose = 'contributor_registration' | 'merchant_registration' | 'withdrawal_verification' | 'vendor_auth';
 
 export interface SendOtpResult {
   success: boolean;

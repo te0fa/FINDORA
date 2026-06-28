@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendOtp } from '@/lib/notifications/otp';
 
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate purpose
-    const validPurposes = ['contributor_registration', 'merchant_registration', 'withdrawal_verification'];
+    const validPurposes = ['contributor_registration', 'merchant_registration', 'withdrawal_verification', 'vendor_auth'];
     if (!validPurposes.includes(purpose)) {
       return NextResponse.json({ error: 'Invalid purpose' }, { status: 400 });
     }

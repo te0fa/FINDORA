@@ -67,14 +67,28 @@ export default function VendorRegistrationClient({
     website: '',
     notes: '',
   })
+  
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // OTP states
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpVerified, setOtpVerified] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [devCode, setDevCode] = useState('')
+  const [otpLoading, setOtpLoading] = useState(false)
+
   const update = (field: keyof VendorRegistrationForm, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }))
     setError(null)
+    if (field === 'primaryPhone') {
+      setOtpSent(false)
+      setOtpVerified(false)
+      setOtpCode('')
+      setDevCode('')
+    }
   }
 
   const validateStep1 = () => {
@@ -87,6 +101,7 @@ export default function VendorRegistrationClient({
   const validateStep2 = () => {
     if (!form.governorate) return isAr ? 'المحافظة مطلوبة' : 'Governorate is required'
     if (!form.primaryPhone.trim()) return isAr ? 'رقم الهاتف الأساسي مطلوب' : 'Primary phone is required'
+    if (!otpVerified) return isAr ? 'يجب التحقق من رقم الهاتف عن طريق كود OTP أولاً' : 'Phone number must be verified via OTP first'
     return null
   }
 
@@ -102,6 +117,68 @@ export default function VendorRegistrationClient({
     }
   }
 
+  const handleSendOtp = async () => {
+    if (!form.primaryPhone.trim()) {
+      setError(isAr ? 'برجاء إدخال رقم الهاتف أولاً' : 'Please enter primary phone number first');
+      return;
+    }
+    const phoneRegex = /^01[0-9]{9}$/;
+    if (!phoneRegex.test(form.primaryPhone.replace(/\s/g, ''))) {
+      setError(isAr ? 'رقم الهاتف المصري غير صحيح' : 'Invalid Egyptian phone number');
+      return;
+    }
+
+    setOtpLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: form.primaryPhone.trim(), purpose: 'vendor_auth' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send OTP');
+      }
+      setOtpSent(true);
+      if (data.devCode) {
+        setDevCode(data.devCode);
+      }
+      setError(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      setError(isAr ? 'برجاء إدخال كود التحقق المكون من 6 أرقام' : 'Please enter the 6-digit verification code');
+      return;
+    }
+
+    setOtpLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: form.primaryPhone.trim(), code: otpCode, purpose: 'vendor_auth' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Verification failed');
+      }
+      setOtpVerified(true);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true)
     setError(null)
@@ -110,7 +187,7 @@ export default function VendorRegistrationClient({
       const res = await fetch(`/api/vendor/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, otpCode }),
       })
 
       if (!res.ok) {
@@ -128,39 +205,40 @@ export default function VendorRegistrationClient({
 
   if (submitted) {
     return (
-      <div className="vendor-success">
-        <div className="vendor-success__icon">✅</div>
-        <h2 className="vendor-success__title">
-          {isAr ? 'تم استلام طلبك!' : 'Request Received!'}
+      <div className="vendor-success" style={{ textAlign: 'center', padding: '40px 20px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 20 }}>
+        <div className="vendor-success__icon" style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+        <h2 className="vendor-success__title" style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: 12 }}>
+          {isAr ? 'تم استلام طلبك وتفعيله!' : 'Registration Completed & Activated!'}
         </h2>
-        <p className="vendor-success__body">
+        <p className="vendor-success__body" style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 24, fontSize: '0.95rem' }}>
           {isAr
-            ? 'شكراً لتسجيلك كمورد في Findora. سيتواصل معك فريقنا خلال 2-3 أيام عمل للتحقق من بياناتك وتفعيل حسابك.'
-            : 'Thank you for registering as a vendor with Findora. Our team will contact you within 2-3 business days to verify your information and activate your account.'}
+            ? 'شكراً لتسجيلك. يمكنك الآن تسجيل الدخول مباشرة إلى حسابك لمتابعة المزادات المتاحة.'
+            : 'Thank you for registering. You can now log in directly to your vendor account and browse active auctions.'}
         </p>
         <button
           className="vendor-success__btn"
-          onClick={() => router.push(`/${locale}`)}
+          onClick={() => router.push(`/${locale}/vendor/login`)}
+          style={{ padding: '12px 28px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, cursor: 'pointer' }}
         >
-          {isAr ? 'العودة للرئيسية' : 'Back to Home'}
+          {isAr ? 'الانتقال لتسجيل الدخول' : 'Go to Login'}
         </button>
       </div>
     )
   }
 
   return (
-    <div className="vendor-reg">
+    <div className="vendor-reg" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 20, padding: 32 }}>
       {/* Progress Bar */}
-      <div className="vendor-reg__progress" aria-label="Registration progress">
+      <div className="vendor-reg__progress" aria-label="Registration progress" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 32, gap: 16 }}>
         {([1, 2, 3] as const).map((s) => (
           <div
             key={s}
-            className={`vendor-reg__step ${step >= s ? 'vendor-reg__step--active' : ''} ${step > s ? 'vendor-reg__step--done' : ''}`}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, opacity: step >= s ? 1 : 0.4 }}
           >
-            <span className="vendor-reg__step-num">{step > s ? '✓' : s}</span>
-            <span className="vendor-reg__step-label">
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: step > s ? '#10b981' : step === s ? '#6366f1' : 'rgba(255,255,255,0.1)', color: 'white', fontWeight: 700, fontSize: '0.85rem', marginBottom: 8 }}>{step > s ? '✓' : s}</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: step === s ? '#818cf8' : 'rgba(255,255,255,0.5)' }}>
               {s === 1 ? (isAr ? 'بيانات المنشأة' : 'Business Info') :
-               s === 2 ? (isAr ? 'العنوان والتواصل' : 'Location & Contact') :
+               s === 2 ? (isAr ? 'التواصل والتحقق' : 'Contact & OTP') :
                          (isAr ? 'المراجعة والإرسال' : 'Review & Submit')}
             </span>
           </div>
@@ -169,46 +247,48 @@ export default function VendorRegistrationClient({
 
       {/* Error message */}
       {error && (
-        <div className="vendor-reg__error" role="alert">{error}</div>
+        <div className="vendor-reg__error" role="alert" style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, color: '#ef4444', fontSize: '0.85rem', marginBottom: 20 }}>
+          ⚠️ {error}
+        </div>
       )}
 
       {/* Step 1: Business Info */}
       {step === 1 && (
         <div className="vendor-reg__form">
-          <h2 className="vendor-reg__step-title">
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 20 }}>
             {isAr ? 'بيانات المنشأة التجارية' : 'Business Information'}
           </h2>
 
-          <div className="vendor-reg__field">
-            <label htmlFor="businessNameAr">{isAr ? 'اسم المنشأة (عربي) *' : 'Business Name (Arabic) *'}</label>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{isAr ? 'اسم المنشأة (عربي) *' : 'Business Name (Arabic) *'}</label>
             <input
-              id="businessNameAr"
               type="text"
               value={form.businessNameAr}
               onChange={(e) => update('businessNameAr', e.target.value)}
               placeholder={isAr ? 'مثال: مؤسسة الأمل للتجارة' : 'e.g. Al-Amal Trading'}
+              style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none' }}
               dir="rtl"
             />
           </div>
 
-          <div className="vendor-reg__field">
-            <label htmlFor="businessNameEn">{isAr ? 'اسم المنشأة (انجليزي)' : 'Business Name (English)'}</label>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{isAr ? 'اسم المنشأة (انجليزي)' : 'Business Name (English)'}</label>
             <input
-              id="businessNameEn"
               type="text"
               value={form.businessNameEn}
               onChange={(e) => update('businessNameEn', e.target.value)}
               placeholder="e.g. Al-Amal Trading Co."
+              style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none' }}
               dir="ltr"
             />
           </div>
 
-          <div className="vendor-reg__field">
-            <label htmlFor="merchantType">{isAr ? 'نوع المنشأة *' : 'Business Type *'}</label>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{isAr ? 'نوع المنشأة *' : 'Business Type *'}</label>
             <select
-              id="merchantType"
               value={form.merchantType}
               onChange={(e) => update('merchantType', e.target.value)}
+              style={{ width: '100%', padding: '12px 16px', background: 'hsl(220,25%,8%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none' }}
             >
               <option value="">{isAr ? '-- اختر --' : '-- Select --'}</option>
               {MERCHANT_TYPES.map((t) => (
@@ -219,12 +299,12 @@ export default function VendorRegistrationClient({
             </select>
           </div>
 
-          <div className="vendor-reg__field">
-            <label htmlFor="category">{isAr ? 'الفئة الرئيسية *' : 'Main Category *'}</label>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{isAr ? 'الفئة الرئيسية *' : 'Main Category *'}</label>
             <select
-              id="category"
               value={form.category}
               onChange={(e) => update('category', e.target.value)}
+              style={{ width: '100%', padding: '12px 16px', background: 'hsl(220,25%,8%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none' }}
             >
               <option value="">{isAr ? '-- اختر --' : '-- Select --'}</option>
               {CATEGORIES.map((c) => (
@@ -233,25 +313,25 @@ export default function VendorRegistrationClient({
             </select>
           </div>
 
-          <button className="vendor-reg__btn vendor-reg__btn--primary" onClick={handleNext}>
-            {isAr ? 'التالي →' : 'Next →'}
+          <button onClick={handleNext} style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, cursor: 'pointer' }}>
+            {isAr ? 'التالي ←' : 'Next →'}
           </button>
         </div>
       )}
 
-      {/* Step 2: Location & Contact */}
+      {/* Step 2: Location, Contact & OTP */}
       {step === 2 && (
         <div className="vendor-reg__form">
-          <h2 className="vendor-reg__step-title">
-            {isAr ? 'العنوان وبيانات التواصل' : 'Location & Contact Details'}
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 20 }}>
+            {isAr ? 'العنوان وتأكيد رقم الهاتف' : 'Contact & Phone Verification'}
           </h2>
 
-          <div className="vendor-reg__field">
-            <label htmlFor="governorate">{isAr ? 'المحافظة *' : 'Governorate *'}</label>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{isAr ? 'المحافظة *' : 'Governorate *'}</label>
             <select
-              id="governorate"
               value={form.governorate}
               onChange={(e) => update('governorate', e.target.value)}
+              style={{ width: '100%', padding: '12px 16px', background: 'hsl(220,25%,8%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none' }}
             >
               <option value="">{isAr ? '-- اختر المحافظة --' : '-- Select Governorate --'}</option>
               {GOVERNORATES.map((g) => (
@@ -260,93 +340,107 @@ export default function VendorRegistrationClient({
             </select>
           </div>
 
-          <div className="vendor-reg__row">
-            <div className="vendor-reg__field">
-              <label htmlFor="city">{isAr ? 'المدينة / المركز' : 'City / District'}</label>
+          <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{isAr ? 'المدينة / المركز' : 'City / District'}</label>
               <input
-                id="city"
                 type="text"
                 value={form.city}
                 onChange={(e) => update('city', e.target.value)}
                 placeholder={isAr ? 'مثال: مدينة نصر' : 'e.g. Nasr City'}
+                style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none' }}
               />
             </div>
-            <div className="vendor-reg__field">
-              <label htmlFor="area">{isAr ? 'الحي / المنطقة' : 'Area / Neighborhood'}</label>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{isAr ? 'الحي / المنطقة' : 'Area / Neighborhood'}</label>
               <input
-                id="area"
                 type="text"
                 value={form.area}
                 onChange={(e) => update('area', e.target.value)}
                 placeholder={isAr ? 'مثال: الحي الأول' : 'e.g. Zone 1'}
+                style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none' }}
               />
             </div>
           </div>
 
-          <div className="vendor-reg__field">
-            <label htmlFor="address">{isAr ? 'العنوان التفصيلي' : 'Full Address'}</label>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{isAr ? 'العنوان التفصيلي' : 'Full Address'}</label>
             <input
-              id="address"
               type="text"
               value={form.address}
               onChange={(e) => update('address', e.target.value)}
               placeholder={isAr ? 'رقم العقار، الشارع...' : 'Building number, street name...'}
+              style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none' }}
             />
           </div>
 
-          <div className="vendor-reg__field">
-            <label htmlFor="primaryPhone">{isAr ? 'رقم الهاتف الأساسي *' : 'Primary Phone *'}</label>
-            <input
-              id="primaryPhone"
-              type="tel"
-              value={form.primaryPhone}
-              onChange={(e) => update('primaryPhone', e.target.value)}
-              placeholder="01xxxxxxxxx"
-              dir="ltr"
-            />
+          <div style={{ marginBottom: 16, border: '1px solid rgba(255,255,255,0.05)', padding: 16, borderRadius: 12, background: 'rgba(255,255,255,0.01)' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8, fontWeight: 700 }}>
+              {isAr ? 'رقم الهاتف الأساسي (لتلقي الـ OTP وتوثيق الحساب) *' : 'Primary Phone (for OTP & Authentication) *'}
+            </label>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <input
+                type="tel"
+                value={form.primaryPhone}
+                onChange={(e) => update('primaryPhone', e.target.value)}
+                placeholder="01xxxxxxxxx"
+                disabled={otpVerified || otpLoading}
+                style={{ flex: 1, padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none' }}
+                dir="ltr"
+              />
+              {!otpVerified && (
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={otpLoading || !form.primaryPhone}
+                  style={{ padding: '0 20px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10, color: '#818cf8', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+                >
+                  {otpSent ? (isAr ? 'إعادة الإرسال' : 'Resend') : (isAr ? 'إرسال OTP' : 'Send OTP')}
+                </button>
+              )}
+            </div>
+
+            {otpSent && !otpVerified && (
+              <div style={{ marginTop: 14 }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{isAr ? 'أدخل رمز التحقق (OTP) *' : 'Enter verification code (OTP) *'}</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    placeholder="123456"
+                    style={{ flex: 1, padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', textAlign: 'center', letterSpacing: '0.2em', outline: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    disabled={otpLoading || otpCode.length !== 6}
+                    style={{ padding: '0 20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+                  >
+                    {isAr ? 'تأكيد الرمز' : 'Verify'}
+                  </button>
+                </div>
+                {devCode && (
+                  <div style={{ marginTop: 8, padding: 8, background: 'rgba(99, 102, 241, 0.1)', border: '1px dashed rgba(99, 102, 241, 0.4)', borderRadius: 6, fontSize: '0.8rem', color: '#818cf8', textAlign: 'center' }}>
+                    {isAr ? `رمز التجريب: ${devCode}` : `Development Code: ${devCode}`}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {otpVerified && (
+              <div style={{ marginTop: 10, color: '#10b981', fontSize: '0.85rem', fontWeight: 700 }}>
+                ✓ {isAr ? 'تم التحقق من الهاتف وتوثيق الحساب بنجاح' : 'Phone verified & auth credentials ready'}
+              </div>
+            )}
           </div>
 
-          <div className="vendor-reg__field">
-            <label htmlFor="secondaryPhone">{isAr ? 'رقم هاتف إضافي' : 'Secondary Phone'}</label>
-            <input
-              id="secondaryPhone"
-              type="tel"
-              value={form.secondaryPhone}
-              onChange={(e) => update('secondaryPhone', e.target.value)}
-              placeholder="01xxxxxxxxx"
-              dir="ltr"
-            />
-          </div>
-
-          <div className="vendor-reg__field">
-            <label htmlFor="email">{isAr ? 'البريد الإلكتروني' : 'Email Address'}</label>
-            <input
-              id="email"
-              type="email"
-              value={form.email}
-              onChange={(e) => update('email', e.target.value)}
-              placeholder="info@business.com"
-              dir="ltr"
-            />
-          </div>
-
-          <div className="vendor-reg__field">
-            <label htmlFor="website">{isAr ? 'الموقع الإلكتروني' : 'Website'}</label>
-            <input
-              id="website"
-              type="url"
-              value={form.website}
-              onChange={(e) => update('website', e.target.value)}
-              placeholder="https://www.yourbusiness.com"
-              dir="ltr"
-            />
-          </div>
-
-          <div className="vendor-reg__buttons">
-            <button className="vendor-reg__btn vendor-reg__btn--secondary" onClick={() => setStep(1)}>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <button onClick={() => setStep(1)} style={{ flex: 1, padding: '14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', fontWeight: 700, cursor: 'pointer' }}>
               {isAr ? '← السابق' : '← Back'}
             </button>
-            <button className="vendor-reg__btn vendor-reg__btn--primary" onClick={handleNext}>
+            <button onClick={handleNext} disabled={!otpVerified} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, cursor: 'pointer', opacity: otpVerified ? 1 : 0.5 }}>
               {isAr ? 'التالي →' : 'Next →'}
             </button>
           </div>
@@ -356,52 +450,51 @@ export default function VendorRegistrationClient({
       {/* Step 3: Review & Submit */}
       {step === 3 && (
         <div className="vendor-reg__form">
-          <h2 className="vendor-reg__step-title">
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 20 }}>
             {isAr ? 'مراجعة البيانات وإرسال الطلب' : 'Review & Submit'}
           </h2>
 
-          <div className="vendor-reg__review">
-            <div className="vendor-reg__review-group">
-              <h3>{isAr ? 'بيانات المنشأة' : 'Business Info'}</h3>
-              <p><strong>{isAr ? 'الاسم بالعربي:' : 'Arabic Name:'}</strong> {form.businessNameAr}</p>
-              {form.businessNameEn && <p><strong>{isAr ? 'الاسم بالانجليزي:' : 'English Name:'}</strong> {form.businessNameEn}</p>}
-              <p><strong>{isAr ? 'نوع المنشأة:' : 'Type:'}</strong> {MERCHANT_TYPES.find(t => t.value === form.merchantType)?.[isAr ? 'labelAr' : 'labelEn']}</p>
-              <p><strong>{isAr ? 'الفئة:' : 'Category:'}</strong> {form.category}</p>
+          <div style={{ padding: 20, background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, marginBottom: 20 }}>
+            <div style={{ marginBottom: 12 }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 800, margin: '0 0 8px 0', color: '#818cf8' }}>{isAr ? 'بيانات المنشأة' : 'Business Info'}</h3>
+              <p style={{ margin: '4px 0', fontSize: '0.85rem' }}><strong>{isAr ? 'الاسم بالعربي:' : 'Arabic Name:'}</strong> {form.businessNameAr}</p>
+              {form.businessNameEn && <p style={{ margin: '4px 0', fontSize: '0.85rem' }}><strong>{isAr ? 'الاسم بالانجليزي:' : 'English Name:'}</strong> {form.businessNameEn}</p>}
+              <p style={{ margin: '4px 0', fontSize: '0.85rem' }}><strong>{isAr ? 'نوع المنشأة:' : 'Type:'}</strong> {MERCHANT_TYPES.find(t => t.value === form.merchantType)?.[isAr ? 'labelAr' : 'labelEn']}</p>
+              <p style={{ margin: '4px 0', fontSize: '0.85rem' }}><strong>{isAr ? 'الفئة:' : 'Category:'}</strong> {form.category}</p>
             </div>
 
-            <div className="vendor-reg__review-group">
-              <h3>{isAr ? 'العنوان والتواصل' : 'Location & Contact'}</h3>
-              <p><strong>{isAr ? 'المحافظة:' : 'Governorate:'}</strong> {form.governorate}</p>
-              {form.city && <p><strong>{isAr ? 'المدينة:' : 'City:'}</strong> {form.city}</p>}
-              {form.area && <p><strong>{isAr ? 'المنطقة:' : 'Area:'}</strong> {form.area}</p>}
-              <p><strong>{isAr ? 'الهاتف:' : 'Phone:'}</strong> {form.primaryPhone}</p>
-              {form.email && <p><strong>{isAr ? 'البريد:' : 'Email:'}</strong> {form.email}</p>}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 12 }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 800, margin: '0 0 8px 0', color: '#818cf8' }}>{isAr ? 'العنوان والتواصل' : 'Location & Contact'}</h3>
+              <p style={{ margin: '4px 0', fontSize: '0.85rem' }}><strong>{isAr ? 'المحافظة:' : 'Governorate:'}</strong> {form.governorate}</p>
+              {form.city && <p style={{ margin: '4px 0', fontSize: '0.85rem' }}><strong>{isAr ? 'المدينة:' : 'City:'}</strong> {form.city}</p>}
+              {form.area && <p style={{ margin: '4px 0', fontSize: '0.85rem' }}><strong>{isAr ? 'المنطقة:' : 'Area:'}</strong> {form.area}</p>}
+              <p style={{ margin: '4px 0', fontSize: '0.85rem' }}><strong>{isAr ? 'الهاتف:' : 'Phone:'}</strong> {form.primaryPhone}</p>
             </div>
           </div>
 
-          <div className="vendor-reg__field">
-            <label htmlFor="notes">{isAr ? 'ملاحظات إضافية (اختياري)' : 'Additional Notes (optional)'}</label>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{isAr ? 'ملاحظات إضافية (اختياري)' : 'Additional Notes (optional)'}</label>
             <textarea
-              id="notes"
               value={form.notes}
               onChange={(e) => update('notes', e.target.value)}
-              rows={4}
+              rows={3}
               placeholder={isAr ? 'أي معلومات إضافية تود مشاركتها معنا...' : "Any additional information you'd like to share..."}
+              style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none', resize: 'vertical' }}
             />
           </div>
 
-          <div className="vendor-reg__buttons">
-            <button className="vendor-reg__btn vendor-reg__btn--secondary" onClick={() => setStep(2)}>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <button onClick={() => setStep(2)} style={{ flex: 1, padding: '14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', fontWeight: 700, cursor: 'pointer' }}>
               {isAr ? '← السابق' : '← Back'}
             </button>
             <button
-              className="vendor-reg__btn vendor-reg__btn--submit"
               onClick={handleSubmit}
               disabled={submitting}
+              style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, cursor: 'pointer', opacity: submitting ? 0.7 : 1 }}
             >
               {submitting
                 ? (isAr ? 'جاري الإرسال...' : 'Submitting...')
-                : (isAr ? '✓ إرسال الطلب' : '✓ Submit Request')}
+                : (isAr ? '✓ إتمام التسجيل' : '✓ Register Vendor')}
             </button>
           </div>
         </div>

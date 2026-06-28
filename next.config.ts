@@ -60,18 +60,35 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Redirect www to non-www in production
+  // Redirect www to non-www in production + legacy merchant routes to vendor routes
   async redirects() {
-    return process.env.NODE_ENV === 'production'
-      ? [
-          {
-            source: '/',
-            has: [{ type: 'host', value: 'www.findora.app' }],
-            destination: 'https://findora.app/',
-            permanent: true,
-          },
-        ]
-      : [];
+    const baseRedirects = [
+      {
+        source: '/:locale/merchant/dashboard',
+        destination: '/:locale/vendor/auctions',
+        permanent: false,
+      },
+      {
+        source: '/:locale/merchant/offers',
+        destination: '/:locale/vendor/auctions',
+        permanent: false,
+      },
+      {
+        source: '/:locale/merchant/register',
+        destination: '/:locale/vendor/register',
+        permanent: false,
+      },
+    ];
+
+    if (process.env.NODE_ENV === 'production') {
+      baseRedirects.push({
+        source: '/',
+        has: [{ type: 'host', value: 'www.findora.app' }],
+        destination: 'https://findora.app/',
+        permanent: true,
+      });
+    }
+    return baseRedirects;
   },
 
   // Image optimization

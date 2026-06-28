@@ -72,7 +72,27 @@ export async function login(formData: FormData) {
     redirect(targetPath)
   }
 
-  // 5. Unauthorized (No active staff or customer profile)
+  // 4b. Check Vendor if Not Staff or Customer
+  const adminClient = await createAdminClient()
+  const { data: vendor } = await adminClient
+    .from('vendors')
+    .select('id, display_name, system_status')
+    .eq('auth_user_id', user.id)
+    .maybeSingle()
+
+  if (vendor) {
+    if (vendor.system_status === 'Suspended') {
+      await supabase.auth.signOut()
+      const nextSuffix = nextPath ? `&next=${encodeURIComponent(nextPath)}` : ''
+      redirect(`/${locale}/auth/login?error=account_suspended${nextSuffix}`)
+    }
+    const targetPath = getRedirectPath(`/${locale}/vendor/auctions`)
+    console.log('REDIRECT TARGET (VENDOR):', targetPath)
+    console.log('--- LOGIN TRACE END ---')
+    redirect(targetPath)
+  }
+
+  // 5. Unauthorized (No active staff, customer, or vendor profile)
   console.log('UNAUTHORIZED: No active profile found')
   console.log('--- LOGIN TRACE END ---')
   await supabase.auth.signOut()

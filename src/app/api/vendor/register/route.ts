@@ -1,13 +1,14 @@
 /**
  * POST /api/vendor/register
  * Public endpoint for vendor self-registration.
- * Creates a pending vendor record for staff review.
+ * Verifies OTP and registers vendor.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { withRateLimit, VENDOR_REGISTRATION_RATE_LIMIT } from '@/lib/middleware/rate-limiter'
 import { createLogger } from '@/lib/utils/logger'
+import { verifyOtp } from '@/lib/notifications/otp'
 
 const log = createLogger('API:vendor/register')
 
@@ -25,6 +26,7 @@ interface VendorRegistrationBody {
   email?: string
   website?: string
   notes?: string
+  otpCode: string
 }
 
 function validateBody(body: Partial<VendorRegistrationBody>): string | null {
@@ -33,6 +35,7 @@ function validateBody(body: Partial<VendorRegistrationBody>): string | null {
   if (!body.category?.trim()) return 'Category is required'
   if (!body.governorate?.trim()) return 'Governorate is required'
   if (!body.primaryPhone?.trim()) return 'Primary phone is required'
+  if (!body.otpCode?.trim()) return 'Verification OTP is required'
   if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
     return 'Invalid email address'
   }
@@ -58,7 +61,13 @@ async function handler(request: NextRequest): Promise<NextResponse> {
 
   const adminClient = createAdminClient()
 
-  // Check for duplicate phone number
+  // 1. Verify OTP first
+  const otpResult = await verifyOtp(body.primaryPhone!.trim(), body.otpCode!.trim(), 'vendor_auth', adminClient)
+  if (!otpResult.success) {
+    return NextResponse.json({ error: otpResult.error }, { status: 400 })
+  }
+
+  // 2. Check for duplicate phone number
   const { data: existing } = await adminClient
     .from('vendors')
     .select('id')
@@ -72,7 +81,35 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // Call the atomic postgres function to register the vendor
+  const email = `${body.primaryPhone!.trim()}@vendor.findora.com`;
+  const password = `${body.primaryPhone!.trim()}_vendor_secure_2026!`;
+
+  // 3. Create Supabase Auth user
+  let authUserId: string | null = null;
+  try {
+    const { data: usersList } = await adminClient.auth.admin.listUsers();
+    const existingAuthUser = usersList?.users?.find(u => u.email === email);
+    if (existingAuthUser) {
+      authUserId = existingAuthUser.id;
+    } else {
+      const { data: newAuth, error: authError } = await adminClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        phone: body.primaryPhone!.trim(),
+        phone_confirm: true,
+      });
+      if (authError || !newAuth.user) {
+        log.error('Failed to create auth user', { error: authError?.message })
+        return NextResponse.json({ error: 'Failed to create registration credentials.' }, { status: 500 })
+      }
+      authUserId = newAuth.user.id;
+    }
+  } catch (err: any) {
+    log.error('Auth check error', { error: err.message })
+  }
+
+  // 4. Call the atomic postgres function to register the vendor and link auth_user_id
   const { data: vendorId, error } = await adminClient.rpc('fn_register_vendor', {
     p_business_name_ar: body.businessNameAr!.trim(),
     p_business_name_en: body.businessNameEn?.trim() ?? '',
@@ -87,6 +124,7 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     p_email: body.email?.trim() ?? '',
     p_website: body.website?.trim() ?? '',
     p_notes: body.notes?.trim() ?? '',
+    p_auth_user_id: authUserId
   })
 
   if (error) {
@@ -97,6 +135,12 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     )
   }
 
+  // Set is_phone_verified to true since OTP is verified
+  await adminClient
+    .from('vendors')
+    .update({ is_phone_verified: true })
+    .eq('id', vendorId);
+
   log.info('New vendor registration submitted successfully', {
     vendorId,
     businessName: body.businessNameAr,
@@ -104,7 +148,7 @@ async function handler(request: NextRequest): Promise<NextResponse> {
   })
 
   return NextResponse.json(
-    { success: true, message: 'Registration submitted successfully. Our team will contact you soon.', id: vendorId },
+    { success: true, message: 'Registration submitted successfully. Welcome to FINDORA!', id: vendorId },
     { status: 201 }
   )
 }

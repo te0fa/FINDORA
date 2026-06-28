@@ -14,20 +14,8 @@ export default async function MerchantDashboardPage({
   const { locale } = await params;
   const db = createAdminClient();
 
-  // TODO: Add real merchant auth session check
-  // For now, fetch first active merchant as placeholder
-  const { data: merchantRaw } = await (db
-    .from('merchant_profiles') as any)
-    .select('*')
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  // Fallback: show register if no merchant
-  if (!merchantRaw) {
-    redirect(`/${locale}/merchant/register`);
-  }
+  // Redirect to general login page as merchant profiles auth is deprecated and being unified to vendors
+  redirect(`/${locale}/auth/login`);
 
   const merchant = merchantRaw as {
     id: string;

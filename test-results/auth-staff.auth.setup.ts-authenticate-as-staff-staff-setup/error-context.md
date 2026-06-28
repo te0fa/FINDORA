@@ -25,7 +25,7 @@ Call log:
 # Page snapshot
 
 ```yaml
-- generic [ref=e2]: "{\"error\":\"Too many requests. Please wait and try again later.\"}"
+- generic [ref=e2]: 404 page not found
 ```
 
 # Test source

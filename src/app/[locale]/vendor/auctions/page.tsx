@@ -28,18 +28,18 @@ export default async function VendorAuctionsPage({
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/${locale}/auth/login`)
+  if (!user) redirect(`/${locale}/vendor/login`)
 
-  // 1. Fetch vendor profile linked to this user email
+  // 1. Fetch vendor profile linked to this authenticated user ID
   const { data: vendor } = await supabase
     .from('vendors')
     .select('id, display_name, trust_score')
-    .eq('portal_email', user.email ?? '')
+    .eq('auth_user_id', user.id)
     .maybeSingle()
 
   if (!vendor) {
-    // If not a vendor, redirect to dashboard or registration
-    redirect(`/${locale}/staff/dashboard`)
+    // If not a vendor, redirect to login/registration
+    redirect(`/${locale}/vendor/login`)
   }
 
   const adminClient = await createAdminClient()
