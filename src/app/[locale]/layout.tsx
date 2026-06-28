@@ -8,6 +8,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { Suspense } from "react";
 import PWARegistration from "@/components/PWARegistration";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -109,6 +110,7 @@ export default async function RootLayout({
             </Suspense>
           </CMSLayoutWrapper>
           <Analytics />
+          <SpeedInsights />
         </ToastProvider>
       </body>
     </html>
