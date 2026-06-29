@@ -34,7 +34,7 @@ export default function MarketplaceManagerClient({
 
       {/* Tab Content */}
       {activeTab === 'vendors' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 bg-black/40 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
             <h2 className="text-xl font-bold text-white mb-6">{isAr ? 'إضافة مورد جديد' : 'Add New Vendor'}</h2>
             <form className="space-y-4" action="/api/staff/marketplace/vendor" method="POST">
@@ -76,7 +76,7 @@ export default function MarketplaceManagerClient({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 bg-black/40 border border-[hsl(43,96%,56%,0.3)] rounded-2xl p-6 backdrop-blur-xl shadow-[0_0_30px_hsl(43,96%,56%,0.05)]">
             <h2 className="text-xl font-bold text-[hsl(43,96%,56%)] mb-6">{isAr ? 'إضافة عرض جديد' : 'Publish New Deal'}</h2>
             <form className="space-y-4" action="/api/staff/marketplace/deal" method="POST">

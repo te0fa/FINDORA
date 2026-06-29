@@ -35,7 +35,7 @@ type Props = {
 
   };
 };
-const DESKTOP_NAV_BREAKPOINT = 1240;
+const DESKTOP_NAV_BREAKPOINT = 1120;
 const DESKTOP_ACTIONS_BREAKPOINT = 920;
 export default function LandingHeader({ locale, isRTL, labels }: Props) {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -51,7 +51,7 @@ export default function LandingHeader({ locale, isRTL, labels }: Props) {
       { href: `/${locale}#pricing`, label: labels.pricing },
       { href: `/${locale}#faq`, label: labels.faq },
       // Dropdown links
-      { href: `/${locale}#why`, label: labels.why },
+      { href: `/${locale}#trust-framework`, label: labels.why },
       { href: `/${locale}#categories`, label: labels.categories },
       { href: `/${locale}#flow`, label: labels.flow },
     ],
@@ -60,6 +60,18 @@ export default function LandingHeader({ locale, isRTL, labels }: Props) {
   const closeMenu = () => {
     setIsMobileMenuOpen(false);
     setMoreOpen(false);
+  };
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (href.includes("#")) {
+      const parts = href.split("#");
+      const id = parts[parts.length - 1];
+      const element = document.getElementById(id);
+      if (element) {
+        e.preventDefault();
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+        closeMenu();
+      }
+    }
   };
   useEffect(() => {
     const onScroll = () => {
@@ -204,7 +216,7 @@ export default function LandingHeader({ locale, isRTL, labels }: Props) {
                 key={item.href}
                 href={item.href}
                 className="section-link"
-                onClick={closeMenu}
+                onClick={(e) => handleLinkClick(e, item.href)}
               >
                 {item.label}
               </Link>
@@ -227,7 +239,7 @@ export default function LandingHeader({ locale, isRTL, labels }: Props) {
                         key={item.href}
                         href={item.href}
                         className="more-link"
-                        onClick={closeMenu}
+                        onClick={(e) => handleLinkClick(e, item.href)}
                       >
                         {item.label}
                       </Link>
@@ -399,21 +411,13 @@ export default function LandingHeader({ locale, isRTL, labels }: Props) {
           <div className="mobile-links-grid">
 
             {sectionLinks.map((item) => (
-
               <Link
-
                 key={item.href}
-
                 href={item.href}
-
                 className="mobile-link"
-
-                onClick={closeMenu}
-
+                onClick={(e) => handleLinkClick(e, item.href)}
               >
-
                 {item.label}
-
               </Link>
 
             ))}

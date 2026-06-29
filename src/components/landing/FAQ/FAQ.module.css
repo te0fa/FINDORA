@@ -4,6 +4,7 @@
   background: var(--surface-rgb);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
+  scroll-margin-top: 96px;
 }
 
 .container {

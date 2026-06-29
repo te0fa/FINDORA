@@ -301,7 +301,7 @@ export default function SavingsClient({
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex flex-wrap gap-2 border-b border-white/10 pb-4">
+      <div className="flex overflow-x-auto scrollbar-hide whitespace-nowrap gap-2 border-b border-white/10 pb-4">
         {[
           { id: 'overview', labelAr: 'سجل التوفير والـ VIP', labelEn: 'Savings & VIP Perks', icon: '📊' },
           { id: 'advisor', labelAr: 'استشارة الأسعار (هل أشتري؟)', labelEn: 'Buy Advisor Tool', icon: '🔮' },
@@ -311,7 +311,7 @@ export default function SavingsClient({
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`px-5 py-3 rounded-xl text-sm font-bold flex items-center gap-2 transition duration-200 cursor-pointer ${
+            className={`shrink-0 px-5 py-3 rounded-xl text-sm font-bold flex items-center gap-2 transition duration-200 cursor-pointer ${
               activeTab === tab.id 
                 ? 'bg-gradient-to-r from-[hsl(258,89%,66%)] to-[hsl(258,89%,76%)] text-white shadow-lg shadow-[hsl(258,89%,66%,0.2)]'
                 : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-white/5'
@@ -325,7 +325,7 @@ export default function SavingsClient({
 
       {/* Tab Contents */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
           
           {/* Sourcing Stats Column */}
           <div className="lg:col-span-2 space-y-6">
@@ -558,7 +558,7 @@ export default function SavingsClient({
       )}
 
       {activeTab === 'ledger' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
           
           {/* Points Transactions list */}
           <div className="lg:col-span-2 bg-black/40 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">
@@ -658,7 +658,7 @@ export default function SavingsClient({
       )}
 
       {activeTab === 'waitlist' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
           
           {/* Waitlist List */}
           <div className="lg:col-span-2 bg-black/40 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">

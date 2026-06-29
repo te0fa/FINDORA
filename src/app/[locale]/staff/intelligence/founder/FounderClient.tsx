@@ -279,11 +279,11 @@ export default function FounderClient({
       </header>
 
       {/* Tabs Header navigation menu */}
-      <nav className="tabs-header">
+      <nav className="tabs-header flex overflow-x-auto scrollbar-hide whitespace-nowrap">
         {tabsList.map(tab => (
           <button
             key={tab.id}
-            className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+            className={`tab-btn shrink-0 ${activeTab === tab.id ? 'active' : ''}`}
             onClick={() => { setActiveTab(tab.id); setShowItemForm(false); setEditingItemId(null); }}
           >
             <span>{tab.icon}</span>

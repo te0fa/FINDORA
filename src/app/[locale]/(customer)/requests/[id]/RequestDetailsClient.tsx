@@ -270,10 +270,10 @@ export default function RequestDetailsClient({ request, initialMessages, notific
       </div>
 
       {/* ── Main Layout: Sidebar + Content ──────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 items-start">
 
         {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        <div className="flex md:flex-col overflow-x-auto scrollbar-hide whitespace-nowrap gap-2 md:gap-[0.4rem] pb-2 md:pb-0 w-full">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.key
             const isLocked = tab.locked
@@ -283,6 +283,7 @@ export default function RequestDetailsClient({ request, initialMessages, notific
                 disabled={isLocked}
                 onClick={() => !isLocked && setActiveTab(tab.key as any)}
                 style={{
+                  flexShrink: 0,
                   width: '100%',
                   display: 'flex',
                   alignItems: 'center',

@@ -303,7 +303,7 @@ export default function CTA({ dict, locale, isRTL, pricing }: CTAProps) {
         </div>
 
         {/* Video Demo Section — Coming Soon */}
-        <div className={styles.videoSection} aria-label="Findora Video Walkthrough">
+        <div id="how" className={styles.videoSection} aria-label="Findora Video Walkthrough">
           <div className={styles.sectionHeader} style={{ marginBottom: "var(--space-32)" }}>
             <h3 className={styles.title} style={{ fontSize: "1.8rem" }}>
               {isRTL ? "شاهد كيف نعمل" : "See How It Works"}
@@ -373,8 +373,8 @@ export default function CTA({ dict, locale, isRTL, pricing }: CTAProps) {
                 maxWidth: "600px",
               }}>
                 {(isRTL
-                  ? ["📋 أرسل طلبك", "🔍 نبحث لك", "📊 نقارن العروض", "📄 تستلم التقرير"]
-                  : ["📋 Submit Request", "🔍 We Research", "📊 Compare Offers", "📄 Get Report"]
+                  ? ["📋 أرسل طلبك", "🔍 بحث أونلاين وأوفلاين بالمحلات", "📊 نقارن العروض", "📄 تستلم التقرير"]
+                  : ["📋 Submit Request", "🔍 Online & Offline Store Search", "📊 Compare Offers", "📄 Get Report"]
                 ).map((step, i) => (
                   <span key={i} style={{
                     fontSize: "0.72rem",
@@ -385,7 +385,7 @@ export default function CTA({ dict, locale, isRTL, pricing }: CTAProps) {
                     gap: "4px",
                   }}>
                     {step}
-                    {i < 3 && <span style={{ color: "rgba(200, 151, 59, 0.3)", marginInlineStart: "8px" }}>→</span>}
+                    {i < 3 && <span style={{ color: "rgba(200, 151, 59, 0.3)", marginInlineStart: "8px" }}>{isRTL ? "←" : "→"}</span>}
                   </span>
                 ))}
               </div>

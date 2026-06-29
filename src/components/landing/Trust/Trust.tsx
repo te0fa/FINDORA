@@ -88,7 +88,7 @@ export default function Trust({ dict, locale, isRTL }: TrustProps) {
         </div>
 
         {/* Trust principles cards */}
-        <div className={styles.sectionHeader} style={{ marginBottom: "var(--space-48)" }}>
+        <div id="trust-framework" className={styles.sectionHeader} style={{ marginBottom: "var(--space-48)", scrollMarginTop: "120px" }}>
           <h3 className={styles.title} style={{ fontSize: "1.8rem" }}>
             {trustCardsDict.title || "Customer Trust Framework"}
           </h3>

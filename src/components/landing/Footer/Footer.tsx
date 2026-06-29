@@ -38,6 +38,7 @@ export default function Footer({ dict, locale, isRTL }: FooterProps) {
     contact: isRTL ? "اتصل بنا" : "Contact",
     careers: isRTL ? "الوظائف" : "Careers",
     blog: isRTL ? "المدونة" : "Blog",
+    auction: isRTL ? "المزاد" : "Auction",
     copyright: isRTL
       ? `© ${currentYear} فايندورا. جميع الحقوق محفوظة.`
       : `© ${currentYear} Findora. All rights reserved.`,
@@ -70,7 +71,7 @@ export default function Footer({ dict, locale, isRTL }: FooterProps) {
               <Link href={`/${locale}#how`}>{labels.howItWorks}</Link>
             </li>
             <li className={styles.linkItem}>
-              <Link href={`/${locale}/pricing`}>{labels.pricing}</Link>
+              <Link href={`/${locale}#pricing`}>{labels.pricing}</Link>
             </li>
             <li className={styles.linkItem}>
               <Link href={`/${locale}/blog`}>{labels.blog}</Link>
@@ -83,13 +84,16 @@ export default function Footer({ dict, locale, isRTL }: FooterProps) {
           <h4 className={styles.colTitle}>{labels.services}</h4>
           <ul className={styles.linksList}>
             <li className={styles.linkItem}>
-              <Link href={`/${locale}/vendor/register`}>{labels.vendorPortal}</Link>
+              <Link href={`/${locale}/services/coming-soon`}>{labels.vendorPortal}</Link>
             </li>
             <li className={styles.linkItem}>
-              <Link href={`/${locale}/contributors/apply`}>{labels.scoutNetwork}</Link>
+              <Link href={`/${locale}/services/coming-soon`}>{labels.scoutNetwork}</Link>
             </li>
             <li className={styles.linkItem}>
-              <Link href={`/${locale}/careers`}>{labels.careers}</Link>
+              <Link href={`/${locale}/services/coming-soon`}>{labels.careers}</Link>
+            </li>
+            <li className={styles.linkItem}>
+              <Link href={`/${locale}/services/coming-soon`}>{labels.auction}</Link>
             </li>
           </ul>
         </div>
@@ -99,13 +103,13 @@ export default function Footer({ dict, locale, isRTL }: FooterProps) {
           <h4 className={styles.colTitle}>{labels.legal}</h4>
           <ul className={styles.linksList}>
             <li className={styles.linkItem}>
-              <Link href={`/${locale}/privacy`}>{labels.privacy}</Link>
+              <Link href={`/${locale}/legal#privacy`}>{labels.privacy}</Link>
             </li>
             <li className={styles.linkItem}>
-              <Link href={`/${locale}/terms`}>{labels.terms}</Link>
+              <Link href={`/${locale}/legal#terms`}>{labels.terms}</Link>
             </li>
             <li className={styles.linkItem}>
-              <Link href={`/${locale}/refund`}>{labels.refund}</Link>
+              <Link href={`/${locale}/legal#refund`}>{labels.refund}</Link>
             </li>
             <li className={styles.linkItem} style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "var(--space-8)" }}>
               <span>✉ info@findora.app</span>

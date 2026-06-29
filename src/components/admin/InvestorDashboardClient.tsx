@@ -24,7 +24,7 @@ export default function InvestorDashboardClient({ locale, initialMetrics }: { lo
       {/* 1. Unit Economics Row */}
       <div>
         <h2 className="text-xl font-bold text-white mb-4 border-b border-white/10 pb-2">Unit Economics</h2>
-        <div className="grid gap-6 md:grid-cols-4">
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
             <div className="text-sm text-[hsl(220,10%,60%)] mb-1">Customer Acquisition Cost (CAC)</div>
             <div className="text-3xl font-bold text-[hsl(0,84%,60%)]">{cacEgp.toFixed(2)} EGP</div>

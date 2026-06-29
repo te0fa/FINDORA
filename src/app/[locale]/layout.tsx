@@ -1,6 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Cairo } from "next/font/google";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
+
 import { locales, type Locale } from "@/lib/i18n/config";
 import CMSLayoutWrapper from "@/components/cms/CMSLayoutWrapper";
 import { createClient } from "@/lib/supabase/server";
