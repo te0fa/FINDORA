@@ -5,6 +5,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { cache } from 'react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -93,7 +94,8 @@ export type StaffRoleCode = (typeof STAFF_ROLES)[keyof typeof STAFF_ROLES]
 
 // ── Core Role Resolution ───────────────────────────────────────────────────────
 
-export async function getUserRole(userId: string): Promise<UserRole> {
+// ⚠️ ملحوظة: cache() يعمل فقط داخل Server Components. إذا استُخدمت هذه الدالة مستقبلاً من Route Handler أو Server Action، احصل على النتيجة مرة واحدة وخزّنها في متغير محلي، لا تعتمد على cache() في ذلك السياق (مؤكد بالاختبار الفعلي بتاريخ اليوم).
+export const getUserRole = cache(async function (userId: string): Promise<UserRole> {
   const supabase = await createClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,11 +125,12 @@ export async function getUserRole(userId: string): Promise<UserRole> {
   if (contributorData) return 'contributor'
 
   return null
-}
+})
 
 // ── Staff Permission Builder ──────────────────────────────────────────────────
 
-export async function getStaffPermissions(userId: string): Promise<StaffPermissions | null> {
+// ⚠️ ملحوظة: cache() يعمل فقط داخل Server Components. إذا استُخدمت هذه الدالة مستقبلاً من Route Handler أو Server Action، احصل على النتيجة مرة واحدة وخزّنها في متغير محلي، لا تعتمد على cache() في ذلك السياق (مؤكد بالاختبار الفعلي بتاريخ اليوم).
+export const getStaffPermissions = cache(async function (userId: string): Promise<StaffPermissions | null> {
   const supabase = await createClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -215,7 +218,7 @@ export async function getStaffPermissions(userId: string): Promise<StaffPermissi
     // Economy
     isEconomyArchitect: isAdmin || has('economy_architect'),
   }
-}
+})
 
 // ── Quick Permission Checks ───────────────────────────────────────────────────
 

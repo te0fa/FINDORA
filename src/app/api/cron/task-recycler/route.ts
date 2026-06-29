@@ -18,6 +18,14 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient() as any
 
+  // 🧹 Clean up expired AI response cache entries
+  try {
+    const nowStr = new Date().toISOString()
+    await supabase.from('ai_response_cache').delete().lt('expires_at', nowStr)
+  } catch (purgeErr: any) {
+    console.error('[CRON_TASK_RECYCLER] Failed to purge expired AI cache:', purgeErr.message)
+  }
+
   // Find tasks older than 24 hours that are still 'open'
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   

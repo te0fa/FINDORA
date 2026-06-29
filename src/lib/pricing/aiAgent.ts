@@ -4,6 +4,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { ResolvedPricing } from './resolver'
 import { createLogger } from '@/lib/utils/logger'
 import { getAIFeatureStatus, logAIFeatureUsage } from '@/lib/dal/ai-control'
+import crypto from 'crypto'
+import { createAdminClient } from '@/lib/dal/customers'
 
 const log = createLogger('pricing/aiAgent')
 
@@ -55,6 +57,7 @@ export async function generatePricingSuggestion(
   adjustedPrice = Math.round(adjustedPrice)
 
   // 1.5 Check Feature Flag and Rate Caps BEFORE calling AI
+  // TODO: upgrade to Redis/Upstash when user base grows beyond ~5K active sessions
   const status = await getAIFeatureStatus('flag_ai_pricing_suggestions')
   if (!status.enabled) {
     log.info(`[AI_PRICING] AI suggestions are disabled: ${status.reason || 'Flag off'}. Using fallback.`)
@@ -69,6 +72,45 @@ export async function generatePricingSuggestion(
       reasoning: `[تنبيه: محرك الذكاء الاصطناعي غير نشط] تم تطبيق التسعير الحسابي التلقائي. السعر الأساسي: ${basePricing.price} EGP، السعر المعدل بعد دراسة مستوى الاستعجال والتعقيد هو ${adjustedPrice} EGP.`,
       suggested_model: 'FIXED_FEE'
     }
+  }
+
+  // Calculate hash of all inputs affecting the prompt to prevent false cache hits
+  const cacheInput = {
+    urgency,
+    complexity,
+    exact_match,
+    budget: budget ?? null,
+    service_type: basePricing.service_type,
+    category: context.category ?? 'general',
+    base_price: basePricing.price,
+    base_currency: basePricing.currency,
+    base_original_price: basePricing.original_price,
+    base_is_promo: basePricing.is_promo
+  }
+
+  const cacheKey = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(cacheInput))
+    .digest('hex')
+
+  const db = (await createAdminClient()) as any
+  const nowStr = new Date().toISOString()
+
+  // TODO: upgrade to Redis/Upstash when user base grows beyond ~5K active sessions
+  try {
+    const { data: cacheData, error: cacheError } = await db
+      .from('ai_response_cache')
+      .select('response_value')
+      .eq('cache_key', cacheKey)
+      .gt('expires_at', nowStr)
+      .maybeSingle()
+
+    if (!cacheError && cacheData) {
+      log.info(`[AI_PRICING] Cache hit for key: ${cacheKey}`)
+      return cacheData.response_value as any as PricingSuggestion
+    }
+  } catch (cacheErr: any) {
+    log.warn('[AI_PRICING] Failed to read AI cache:', cacheErr.message)
   }
 
   // 2. Invoke Gemini for rich reasoning and model recommendation (Decision Support Only)
@@ -132,12 +174,30 @@ Output strict JSON only, conforming to this schema:
       estimatedCost: 0.01
     })
 
-    return {
+    const suggestionResult: PricingSuggestion = {
       recommended_price: Number(parsed.recommended_price || adjustedPrice),
       confidence: Number(parsed.confidence || 0.85),
       reasoning: parsed.reasoning || `تم تعديل السعر بناءً على معايير البحث العاجل ومستوى التعقيد. السعر المقترح هو ${adjustedPrice} EGP.`,
       suggested_model: parsed.suggested_model || 'FIXED_FEE'
     }
+
+    // Save cache entry (expires in 24 hours)
+    try {
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      await db.from('ai_response_cache').insert({
+        cache_key: cacheKey,
+        feature_key: 'flag_ai_pricing_suggestions',
+        response_value: suggestionResult as any,
+        expires_at: expiresAt
+      })
+
+      // Clean up expired cache items concurrently to keep the table size small
+      await db.from('ai_response_cache').delete().lt('expires_at', nowStr)
+    } catch (saveCacheErr: any) {
+      log.warn('[AI_PRICING] Failed to save AI response to cache:', saveCacheErr.message)
+    }
+
+    return suggestionResult
   } catch (err: any) {
     log.error('[AIPricingAgent Error] Failed to generate AI suggestion:', err.message)
     await logAIFeatureUsage({

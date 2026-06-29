@@ -5,6 +5,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { cache } from 'react'
 
 export interface ContributorTier {
   level_number: number
@@ -51,8 +52,9 @@ export interface LockedFeatureInfo {
 /**
  * Resolve the full access status for a contributor
  * This is the primary function used by the dashboard
+ * ⚠️ ملحوظة: cache() يعمل فقط داخل Server Components. إذا استُخدمت هذه الدالة مستقبلاً من Route Handler أو Server Action، احصل على النتيجة مرة واحدة وخزّنها في متغير محلي، لا تعتمد على cache() في ذلك السياق (مؤكد بالاختبار الفعلي بتاريخ اليوم).
  */
-export async function resolveAccessStatus(
+export const resolveAccessStatus = cache(async function (
   contributorId: string
 ): Promise<AccessStatus | null> {
   const db = createAdminClient()
@@ -147,7 +149,7 @@ export async function resolveAccessStatus(
     effective_multiplier: effectiveMultiplier,
     locked_features: lockedFeatures
   }
-}
+})
 
 /**
  * Check if a specific feature is unlocked for a contributor

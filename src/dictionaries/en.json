@@ -771,5 +771,204 @@
       "flag_ai_copilot_agents": "Specialized Workspace AI Copilots",
       "flag_ai_intake_review": "AI Auto-Review Intake Requests"
     }
+  },
+  "landing_v3": {
+    "hero": {
+      "title_ar": "ابعت المنتج أو الخدمة اللي محتاجها... واحنا نبحث لك في السوق كله. أونلاين وأوفلاين. نوفر عليك وقت البحث. ونساعدك تختار الصفقة الأنسب.",
+      "title_en": "Tell us what you need. We search the market. Online and offline. Compare every option. Deliver one professional recommendation.",
+      "subtitle": "Your Smart Buying Assistant. We scan online catalogs, reach offline suppliers, verify specifications, and negotiate terms to deliver an objective sourcing recommendation.",
+      "cta_primary": "Start First Free Request",
+      "cta_secondary": "Learn How It Works",
+      "trust_human": "Human Verified",
+      "trust_privacy": "Privacy Protected",
+      "trust_comparison": "Transparent Comparison",
+      "trust_score": "Smart Deal Score™",
+      "trust_recommendation": "Objective Recommendation",
+      "trust_confidence": "Buy With Confidence",
+      "launch_badge": "Free Sourcing During Launch",
+      "supported_categories": "Sourcing Categories"
+    },
+    "counters": {
+      "title": "Live Sourcing Activity",
+      "last_updated": "Last updated: Just now",
+      "customers": {
+        "label": "Customers Served",
+        "tooltip": "Total unique individuals and businesses who submitted sourcing requests."
+      },
+      "requests": {
+        "label": "Requests Completed",
+        "tooltip": "Number of sourcing requests successfully researched, verified, and delivered."
+      },
+      "suppliers": {
+        "label": "Verified Suppliers",
+        "tooltip": "Active offline merchants and distributors verified in our database."
+      },
+      "savings": {
+        "label": "Average Savings",
+        "tooltip": "Average percentage saved compared to initial market prices through comparison and negotiation."
+      },
+      "response": {
+        "label": "Avg. Response Time",
+        "tooltip": "Average time to deliver a verified sourcing report."
+      },
+      "satisfaction": {
+        "label": "Satisfaction Rate",
+        "tooltip": "Percentage of customers who rated their recommendation high value."
+      },
+      "reports": {
+        "label": "Reports Delivered",
+        "tooltip": "Sourcing reports generated and finalized by our human experts."
+      }
+    },
+    "why": {
+      "title": "Why Findora?",
+      "subtitle": "We focus on outcomes that help you buy smarter, not flashy features.",
+      "save_time_t": "Save Time",
+      "save_time_d": "Avoid hours of searching across dozens of tabs. We do the scanning and offline phone checks for you.",
+      "save_money_t": "Save Money",
+      "save_money_d": "Uncover wholesale rates and hidden discounts. We search offline distributors to find better overall value.",
+      "buy_smarter_t": "Buy Smarter",
+      "buy_smarter_d": "Compare warranty, seller trust, and shipping speeds side-by-side, not just the raw sticker price.",
+      "human_verified_t": "Human Verification",
+      "human_verified_d": "Every deal is verified by sourcing experts who contact sellers directly before presenting choices.",
+      "omnichannel_t": "Online + Offline Sourcing",
+      "omnichannel_d": "We don't limit searches to web listings. We call local physical stores and industrial areas directly.",
+      "reports_t": "Professional Reports",
+      "reports_d": "Get a structured dashboard breaking down prices, availability, and specific warranty conditions.",
+      "privacy_t": "Privacy Protected",
+      "privacy_d": "Your contact info remains private. Sellers only see request specs—never your identity—until you decide.",
+      "transparency_t": "Transparent Recommendations",
+      "transparency_d": "We explain exactly how each offer was graded, listing advantages, trade-offs, and alternative matches."
+    },
+    "comparison": {
+      "title": "Why Not Search Yourself?",
+      "subtitle": "A transparent look at how Findora compares to traditional sourcing alternatives.",
+      "vector_online_search": "Online search",
+      "vector_offline_sourcing": "Offline sourcing",
+      "vector_negotiation": "Negotiation",
+      "vector_warranty_verification": "Warranty verification",
+      "vector_supplier_trust": "Supplier trust check",
+      "vector_spec_matching": "Specification matching",
+      "vector_professional_report": "Professional report",
+      "vector_human_verification": "Human review",
+      "vector_privacy_protection": "Privacy protection",
+      "vector_decision_explanation": "Decision explanation",
+      "label_searching_alone": "Searching Alone",
+      "label_marketplaces": "Marketplaces",
+      "label_comparison_sites": "Comparison Sites",
+      "label_procurement": "Traditional Procurement",
+      "label_findora": "Findora Sourcing"
+    },
+    "timeline": {
+      "title": "How Findora Works",
+      "subtitle": "A transparent, structured process designed to build confidence at every step.",
+      "step1_t": "Submit Sourcing Request",
+      "step1_d": "Describe what you need, your target budget, and specific guidelines in under two minutes.",
+      "step2_t": "AI Market Scan",
+      "step2_d": "Our AI scanning engine instantly searches online databases and local catalog directories.",
+      "step3_t": "Human Verification",
+      "step3_d": "Sourcing agents call local physical stores and industrial merchants to verify stock and price stability.",
+      "step4_t": "Comparison Engine",
+      "step4_d": "We compile offers, calculate the Smart Deal Score™, and document advantages and trade-offs.",
+      "step5_t": "Receive Sourcing Report",
+      "step5_d": "Access your structured dashboard showing top recommendations and alternatives. Zero hidden fees.",
+      "step6_t": "Choose With Confidence",
+      "step6_d": "Decide on your terms. Review options with zero pressure, and proceed only if you see clear value."
+    },
+    "report": {
+      "title": "Smart Deal Report™ Preview",
+      "subtitle": "Interact with a real sourcing report to see how we evaluate recommendations transparently.",
+      "score_label": "Smart Deal Score™",
+      "confidence_label": "Confidence Level",
+      "why_this": "Why This Option?",
+      "why_not_cheapest": "Why Not The Cheapest?",
+      "advantages": "Advantages",
+      "disadvantages": "Trade-offs / Weaknesses",
+      "alternatives": "Alternative Options",
+      "best_value": "Best Value",
+      "budget_choice": "Budget Choice",
+      "trusted_seller": "Most Trusted Seller",
+      "sim_explain": "This interactive preview simulates a real Findora sourcing recommendation report. Adjust sliders or switch options to see dynamic score recalculations.",
+      "confidence_high": "High confidence because specifications, stock, and local official warranty are verified.",
+      "spec_match": "Specification Match",
+      "seller_trust": "Seller Trust Score",
+      "warranty_check": "Official Warranty",
+      "availability": "Immediate Availability",
+      "delivery_speed": "Delivery Speed"
+    },
+    "explain": {
+      "title": "Decision Explainability",
+      "subtitle": "Findora doesn't ask you to trust recommendations blindly. We break down the exact parameters of our evaluation.",
+      "weight_title": "Evaluation Weights",
+      "weight_price": "Price & Cost",
+      "weight_trust": "Merchant Reliability",
+      "weight_warranty": "Warranty Validity",
+      "weight_avail": "Immediate Stock",
+      "weight_delivery": "Delivery speed",
+      "why_transparency_title": "Why Transparency Matters",
+      "why_transparency_desc": "Unlike sites that use sponsored advertising algorithms to push specific products, Findora scores offers based on objective parameters. We disclose trade-offs so you are fully informed before spending."
+    },
+    "trust_cards": {
+      "title": "Customer Trust Framework",
+      "subtitle": "Eight core principles designed to protect your interests and reverse purchase risks.",
+      "card1_t": "You Stay in Control",
+      "card1_d": "Findora never makes purchases automatically. We present researched options, but you make the final decision.",
+      "card2_t": "Review Before Committing",
+      "card2_d": "See your full sourcing report first. There are no upfront purchase commitments or hidden strings.",
+      "card3_t": "No Hidden Commissions",
+      "card3_d": "We do not take biased kickbacks from merchants. We represent the buyer's interests objectively.",
+      "card4_t": "Human + AI Verification",
+      "card4_d": "AI scans directories at scale, but local sourcing agents verify stock and pricing details directly.",
+      "card5_t": "Transparent Analysis",
+      "card5_d": "We break down scores, advantages, and trade-offs so you understand the logic behind recommendations.",
+      "card6_t": "Privacy First",
+      "card6_d": "Your contact details are kept private. Merchants only see technical specifications—never your name.",
+      "card7_t": "Factual Disclosures",
+      "card7_d": "We disclose warranty duration, return policies, and seller ratings objectively without editing risks.",
+      "card8_t": "No Artificial Urgency",
+      "card8_d": "We do not use countdown timers, fake stock counters, or high-pressure sales strategies."
+    },
+    "faq": {
+      "title": "Frequently Asked Objections",
+      "subtitle": "Answering your questions transparently and objectively.",
+      "q1": "Why isn't the cheapest option always recommended?",
+      "a1": "The cheapest market option often hides high risks: zero local warranty, poor merchant ratings, or hidden shipping fees. We recommend the option with the highest Smart Deal Score™ (best overall value).",
+      "q2": "How do you verify suppliers?",
+      "a2": "Our sourcing specialists contact merchants directly by phone or pay field visits to verify physical stock availability, business licenses, and official warranty terms.",
+      "q3": "Do you search offline store catalogs?",
+      "a3": "Yes. We search beyond online directories. We contact physical stores, wholesale distributors, and local industrial areas directly to find offline deals.",
+      "q4": "Do you negotiate prices with sellers?",
+      "a4": "Yes. We leverage volume queries and direct merchant contact to negotiate pricing, bulk discounts, and better delivery conditions whenever possible.",
+      "q5": "Is my personal information shared with sellers?",
+      "a5": "No. Your contact information remains completely hidden. Sellers only receive technical specifications. Your details are shared only after you accept an offer.",
+      "q6": "How long does the sourcing research take?",
+      "a6": "Common consumer items (laptops, phones) are usually researched within a few hours. Complex B2B supplies or rare parts may take 24–48 hours for direct distributor verification.",
+      "q7": "Can I reject the delivered recommendation report?",
+      "a7": "Yes, absolutely. Sourcing reports are provided with no purchase obligation. If none of the options fit your requirements, you can reject the report with zero penalty.",
+      "q8": "Is Artificial Intelligence making the final decision?",
+      "a8": "No. AI is used strictly to accelerate directory scans and draft data. Sourcing specialists manually verify all details, and you make the final purchase decision."
+    },
+    "pricing": {
+      "title": "Pricing & Sourcing Plans",
+      "badge": "Launch Phase Promotion",
+      "desc": "All sourcing requests are 100% free during our launch phase. Submit your specifications, review your report, and pay nothing."
+    },
+    "reversal": {
+      "title": "Sourcing Risk Reversal",
+      "desc": "Findora removes buying risk through complete transparency and absolute control.",
+      "point1": "Review options before committing a single penny.",
+      "point2": "Absolute control: No automated card charges or purchases.",
+      "point3": "Merchants are pre-screened for local warranty validity.",
+      "point4": "100% private: Zero spam calls from pushy sellers.",
+      "point5": "Objective comparisons: We do not accept sponsored placements."
+    },
+    "cta": {
+      "title": "Ready to stop searching blindly?",
+      "desc": "Tell us what you need. We will scan the market, call physical suppliers, and deliver a clean comparison report.",
+      "start": "Submit First Free Request",
+      "track": "Track Request",
+      "partner": "Join Supplier Network",
+      "estimator": "Estimate Sourcing Time"
+    }
   }
 }

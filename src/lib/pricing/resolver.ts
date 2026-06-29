@@ -1,4 +1,4 @@
-﻿// src/lib/pricing/resolver.ts
+// src/lib/pricing/resolver.ts
 
 import { createAdminClient } from '@/lib/dal/customers'
 import { createLogger } from '@/lib/utils/logger'
@@ -16,15 +16,19 @@ export interface ResolvedPricing {
   discount_percentage: number
   promo_label_en?: string | null
   promo_label_ar?: string | null
+  /** Pricing model: 'flat' = fixed price, 'percentage' = % of deal, 'hybrid' = base fee + % */
+  pricing_model?: 'flat' | 'percentage' | 'hybrid'
 }
 
 // Temporary/Baseline hardcoded fallbacks to guarantee 100% pricing presence
+// These values are used ONLY when the database has no pricing records.
+// The actual pricing is always resolved from the `service_pricing_versions` table.
 export const BASELINE_PRICING: Record<string, { price: number; original_price: number | null }> = {
-  everyday_purchase: { price: 299, original_price: 299 },
+  everyday_purchase: { price: 0, original_price: 299 },
   high_value_asset: { price: 1500, original_price: 1500 },
   high_value_deals: { price: 1500, original_price: 1500 },
-  project_supply: { price: 699, original_price: 699 },
-  projects_supplies: { price: 699, original_price: 699 }
+  project_supply: { price: 2500, original_price: 2500 },
+  projects_supplies: { price: 2500, original_price: 2500 }
 };
 
 /**

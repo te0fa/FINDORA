@@ -1,0 +1,143 @@
+.footer {
+  background: #01040f;
+  border-top: 1px solid var(--border);
+  padding: var(--space-80) var(--space-24) var(--space-48);
+  color: var(--text-secondary);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.5fr repeat(3, 1fr);
+  gap: var(--space-48);
+  margin-bottom: var(--space-64);
+}
+
+@media (max-width: 1024px) {
+  .container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    grid-template-columns: 1fr;
+    gap: var(--space-32);
+  }
+}
+
+/* brand column */
+.brandCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+:global([dir="rtl"]) .brandCol {
+  align-items: flex-start;
+}
+
+.logo {
+  opacity: 0.85;
+  margin-bottom: var(--space-16);
+  width: auto;
+  height: auto;
+  max-width: 160px;
+}
+
+.brandDesc {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin-bottom: var(--space-24);
+  text-align: start;
+}
+
+:global([dir="rtl"]) .brandDesc {
+  text-align: start;
+}
+
+/* links columns */
+.linksCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.colTitle {
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+  text-align: start;
+}
+
+:global([dir="rtl"]) .colTitle {
+  text-align: start;
+}
+
+.linksList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  text-align: start;
+}
+
+:global([dir="rtl"]) .linksList {
+  text-align: start;
+}
+
+.linkItem a {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.linkItem a:hover {
+  color: var(--accent);
+}
+
+/* bottom section bar */
+.bottomBar {
+  border-top: 1px solid var(--divider);
+  padding-top: var(--space-32);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-20);
+}
+
+@media (max-width: 640px) {
+  .bottomBar {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+.copyright {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.socialLinks {
+  display: flex;
+  gap: var(--space-16);
+}
+
+.socialIcon {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.socialIcon:hover {
+  color: var(--accent);
+}

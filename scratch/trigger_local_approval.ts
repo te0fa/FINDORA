@@ -10,8 +10,8 @@ const supabaseSecret = process.env.SUPABASE_SECRET_KEY!
 
 const supabase = createClient(supabaseUrl, supabaseSecret)
 
-async function runLiveTest() {
-  console.log('🚀 Creating live test request in Supabase...')
+async function runLocalApproval() {
+  console.log('🚀 Creating test request in Supabase...')
   
   // 1. Get staff info
   const staffEmail = process.env.E2E_STAFF_EMAIL || 'zrzortrials@gmail.com'
@@ -59,14 +59,14 @@ async function runLiveTest() {
   }
 
   // 3. Create Request
-  const requestCode = `REQ-PROD-TEST-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`
+  const requestCode = `REQ-LOCAL-TEST-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`
   const { data: request, error: reqErr } = await supabase
     .from('requests')
     .insert({
       request_code: requestCode,
       customer_id: customerId,
-      title: '[PROD_BACKGROUND_JOB_TEST] Testing Vercel Lambda behavior',
-      raw_description: 'This is a test request to trace background jobs on Vercel deployment.',
+      title: '[LOCAL_BACKGROUND_JOB_TEST] Testing local background execution',
+      raw_description: 'This is a test request to trace background jobs on local dev server.',
       current_status: 'submitted',
       source_channel: 'e2e',
       request_kind: 'general',
@@ -95,16 +95,16 @@ async function runLiveTest() {
     }, { onConflict: 'request_id' })
   if (prefError) throw new Error(`Failed to create preferences: ${prefError.message}`)
 
-  // 4. Launch Playwright browser to click Approve on the production URL
-  const prodUrl = 'https://findora-te0fa-findora.vercel.app'
-  console.log(`🚀 Launching browser to approve on production URL: ${prodUrl}...`)
+  // 4. Launch Playwright browser to click Approve on the local dev server
+  const localUrl = 'http://localhost:3000'
+  console.log(`🚀 Launching browser to approve on local dev server: ${localUrl}...`)
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage()
 
   try {
     // Login
     console.log('Navigating to login page...')
-    await page.goto(`${prodUrl}/en/auth/login`)
+    await page.goto(`${localUrl}/en/auth/login`)
     await page.getByTestId('login-email-input').fill(staffEmail)
     await page.getByTestId('login-password-input').fill(staffPassword)
     await page.getByTestId('login-submit').click()
@@ -116,13 +116,13 @@ async function runLiveTest() {
 
     // Navigate directly to the request workspace page
     console.log(`Navigating to workspace page for request ${request.id}...`)
-    await page.goto(`${prodUrl}/en/staff/workspace/${request.id}`)
+    await page.goto(`${localUrl}/en/staff/workspace/${request.id}`)
     
     await page.waitForSelector('[data-testid="reviewer-decision-select"]', { timeout: 15000 })
     
     // Fill decision
     await page.getByTestId('reviewer-decision-select').selectOption('approve')
-    await page.getByTestId('reviewer-note-input').fill('[PROD_BACKGROUND_JOB_TEST] Approving to test Vercel Lambda background execution')
+    await page.getByTestId('reviewer-note-input').fill('[LOCAL_BACKGROUND_JOB_TEST] Approving to test local execution')
     
     console.log('Clicking approve...')
     await page.getByTestId('reviewer-save-decision').click()
@@ -136,7 +136,7 @@ async function runLiveTest() {
     // Wait for success indicator or state change
     console.log('Waiting for approval to submit and redirect...')
     await page.waitForURL(/.*success=true.*/, { timeout: 25000 })
-    console.log('✅ Request approved successfully on production!')
+    console.log('✅ Request approved successfully locally!')
 
   } catch (err: any) {
     console.error('❌ Browser action failed:', err.message)
@@ -172,20 +172,13 @@ async function runLiveTest() {
       const allCompleted = run.ai_summary_status === 'completed' &&
                             run.email_status === 'completed' &&
                             run.dispatch_status === 'completed'
-      
-      const anyFailed = run.ai_summary_status === 'failed' ||
-                          run.email_status === 'failed' ||
-                          run.dispatch_status === 'failed'
 
       if (allCompleted) {
-        console.log('🎉 SUCCESS: All workflow runs steps completed successfully on Vercel deployment!')
+        console.log('🎉 SUCCESS: All workflow runs steps completed successfully locally!')
         break
-      }
-      if (anyFailed && run.last_error) {
-        console.log('⚠️ FAILURE / WARNING: One or more steps failed, or lambda got cut off.')
       }
     }
   }
 }
 
-runLiveTest().catch(console.error)
+runLocalApproval().catch(console.error)

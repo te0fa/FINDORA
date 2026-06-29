@@ -54,6 +54,7 @@
   --disabled: rgba(255, 255, 255, 0.12);
   --disabled-text: rgba(255, 255, 255, 0.35);
   --overlay: rgba(2, 6, 23, 0.8);
+  --header-height: 96px;
 
   /* ==========================================================================
      SPACING SYSTEM (Based on 4px base grid)
