@@ -21,7 +21,7 @@ export async function resolveServicePrice(serviceType: string): Promise<PricingR
   const db = createAdminClient()
 
   // 1. Fetch Pricing Rule
-  const { data: rule, error } = await (db.from('pricing_rules') as any)
+  const { data: rule, error } = await (db as any).from('pricing_rules')
     .select('*')
     .eq('service_type', serviceType)
     .single()

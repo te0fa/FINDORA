@@ -61,11 +61,11 @@ export const resolveAccessStatus = cache(async function (
 
   // Fetch contributor and levels in parallel
   const [contributorRes, levelsRes, stabilizerRes] = await Promise.all([
-    (db.from('contributors') as any)
+    (db as any).from('contributors')
       .select('active_referral_count, earning_multiplier, monthly_cap_egp')
       .eq('id', contributorId)
       .single(),
-    (db.from('contributor_levels') as any)
+    (db as any).from('contributor_levels')
       .select('*')
       .eq('is_active', true)
       .order('level_number', { ascending: true }),
@@ -160,7 +160,7 @@ export async function canAccessFeature(
 ): Promise<boolean> {
   const db = createAdminClient()
 
-  const { data } = await (db.from('contributors') as any)
+  const { data } = await (db as any).from('contributors')
     .select('active_referral_count')
     .eq('id', contributorId)
     .single()
@@ -182,7 +182,7 @@ export async function canAccessFeature(
  */
 export async function getAllTiers(): Promise<ContributorTier[]> {
   const db = createAdminClient()
-  const { data } = await (db.from('contributor_levels') as any)
+  const { data } = await (db as any).from('contributor_levels')
     .select('*')
     .eq('is_active', true)
     .order('level_number', { ascending: true })

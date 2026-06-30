@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FINDORA Economy OS — Review Engine
  * Handles customer feedback routing to contributor trust scores.
  */
@@ -27,8 +27,7 @@ export async function submitContributorReview(params: ContributorReviewParams): 
   const db = createAdminClient()
 
   // 1. Insert review record
-  const { data: rev, error: revError } = await (db
-    .from('contributor_reviews') as any)
+  const { data: rev, error: revError } = await (db as any).from('contributor_reviews')
     .insert({
       contributor_id: params.contributorId,
       customer_id: params.customerId || null,
@@ -44,8 +43,7 @@ export async function submitContributorReview(params: ContributorReviewParams): 
   }
 
   // 2. Fetch fresh trust score to return to client
-  const { data: contributor } = await (db
-    .from('contributors') as any)
+  const { data: contributor } = await (db as any).from('contributors')
     .select('trust_score')
     .eq('id', params.contributorId)
     .single()

@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: NextRequest) {
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const db = createAdminClient();
 
     // Verify contributor exists
-    const { data: contributor } = await (db.from('contributors') as any)
+    const { data: contributor } = await (db as any).from('contributors')
       .select('id')
       .eq('id', contributorId)
       .maybeSingle();

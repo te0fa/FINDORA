@@ -11,8 +11,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function updateDailyStreak(contributorId: string): Promise<void> {
   const db = createAdminClient()
 
-  const { data: streak } = await (db
-    .from('contributor_streaks') as any)
+  const { data: streak } = await (db as any).from('contributor_streaks')
     .select('*')
     .eq('contributor_id', contributorId)
     .maybeSingle()
@@ -34,7 +33,7 @@ export async function updateDailyStreak(contributorId: string): Promise<void> {
   if (newDailyCount >= 30) streakMultiplier = 1.2
   else if (newDailyCount >= 7) streakMultiplier = 1.1
 
-  await (db.from('contributor_streaks') as any).update({
+  await (db as any).from('contributor_streaks').update({
     daily_streak_count: newDailyCount,
     best_daily_streak: Math.max(newDailyCount, (streak as any).best_daily_streak),
     last_active_date: today,
@@ -45,7 +44,7 @@ export async function updateDailyStreak(contributorId: string): Promise<void> {
 
   // Award streak badge if reached 7 days
   if (newDailyCount === 7) {
-    await (db.from('contributor_badges') as any).insert({
+    await (db as any).from('contributor_badges').insert({
       contributor_id: contributorId,
       badge_type: 'streak_7',
       badge_label_en: '🔥 7-Day Streak',
@@ -55,7 +54,7 @@ export async function updateDailyStreak(contributorId: string): Promise<void> {
   }
 
   if (newDailyCount === 30) {
-    await (db.from('contributor_badges') as any).insert({
+    await (db as any).from('contributor_badges').insert({
       contributor_id: contributorId,
       badge_type: 'streak_30',
       badge_label_en: '⚡ 30-Day Power Streak',
@@ -72,7 +71,7 @@ import { processReward } from './wallet'
  */
 export async function handleFirstTaskWin(contributorId: string): Promise<void> {
   const db = createAdminClient()
-  const { data, error } = await (db.from('contributor_badges') as any).insert({
+  const { data, error } = await (db as any).from('contributor_badges').insert({
     contributor_id: contributorId,
     badge_type: 'first_task',
     badge_label_en: '✅ First Task Complete',
@@ -104,8 +103,7 @@ export async function syncChallengeProgress(
 ): Promise<void> {
   const db = createAdminClient()
 
-  const { data: challenge } = await (db
-    .from('referral_challenges') as any)
+  const { data: challenge } = await (db as any).from('referral_challenges')
     .select('*')
     .eq('contributor_id', contributorId)
     .eq('is_active', true)
@@ -116,14 +114,14 @@ export async function syncChallengeProgress(
   const wasCompleted = !!(challenge as any).completed_at
   const isNowComplete = activeReferrals >= (challenge as any).target_count
 
-  await (db.from('referral_challenges') as any).update({
+  await (db as any).from('referral_challenges').update({
     current_active_count: activeReferrals,
     completed_at: isNowComplete && !wasCompleted ? new Date().toISOString() : (challenge as any).completed_at
   }).eq('id', (challenge as any).id)
 
   // Create unlock available alert if newly completed
   if (isNowComplete && !wasCompleted) {
-    await (db.from('contributor_alerts') as any).insert({
+    await (db as any).from('contributor_alerts').insert({
       contributor_id: contributorId,
       alert_type: 'tier_upgrade',
       title_en: '🏆 Challenge Complete!',
@@ -147,7 +145,7 @@ export async function createDecayAlert(
 
   if (dropped <= 0) return
 
-  await (db.from('contributor_alerts') as any).insert({
+  await (db as any).from('contributor_alerts').insert({
     contributor_id: contributorId,
     alert_type: 'network_decay',
     title_en: `⚠️ ${dropped} referral(s) became inactive`,

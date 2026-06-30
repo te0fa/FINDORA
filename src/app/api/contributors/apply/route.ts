@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createContributorApplication } from '@/lib/dal/contributors'
 import { reserveRegistrationSlot, getRegistrationAvailability } from '@/lib/contributors/scarcity'
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Insert welcome Verification request automatically for HR review queue
-    await (supabase.from('contributor_verification_requests') as any).insert({
+    await supabase.from('contributor_verification_requests' as any).insert({
       contributor_id: result.id,
       phone_number: phone_number,
       otp_verified: true,

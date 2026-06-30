@@ -176,7 +176,7 @@ export async function expandDemandAndCreateTasks(requestId: string, productName:
     created_by_staff_id: createdByStaffId // System/Admin user attributing it
   }))
 
-  const { error } = await (supabase.from('platform_tasks') as any).insert(tasksToInsert)
+  const { error } = await (supabase as any).from('platform_tasks').insert(tasksToInsert)
   
   if (error) {
     log.error('Failed to insert AI expanded tasks:', error)
@@ -184,7 +184,7 @@ export async function expandDemandAndCreateTasks(requestId: string, productName:
   }
 
   // Mark request as expanded
-  await (supabase.from('customer_requests') as any).update({ is_expanded_by_ai: true }).eq('id', requestId)
+  await (supabase as any).from('customer_requests').update({ is_expanded_by_ai: true }).eq('id', requestId)
 
   return true
 }

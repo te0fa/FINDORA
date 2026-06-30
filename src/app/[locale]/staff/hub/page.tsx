@@ -6,6 +6,7 @@ import { getAdminGlobalStats } from '@/lib/dal/staff'
 import { getFinancialSummary } from '@/lib/dal/finance'
 import { getAIAgentConfigsAdmin } from '@/lib/dal/ai-control'
 import { getAllEconomyConfigs } from '@/lib/contributors/config'
+import { getHotDomains } from '@/lib/dal/link-attempts'
 import HubInteractiveClient from './HubInteractiveClient'
 
 export const metadata = {
@@ -235,16 +236,22 @@ export default async function StaffHubPage({
   let finance: any = null
   let agentConfigs: any[] = []
   let initialFlags: Record<string, boolean> = {}
+  // HOT_DOMAIN_THRESHOLD: domains rejected >= 10 times in 24h trigger a banner.
+  // Hardcoded constant — can be made configurable if this proves valuable.
+  const HOT_DOMAIN_THRESHOLD = 10
+  let hotDomains: { domain: string; count: number }[] = []
   try {
-    const [statsData, financeData, agentsData, economyConfigs] = await Promise.all([
+    const [statsData, financeData, agentsData, economyConfigs, hotDomainsData] = await Promise.all([
       getAdminGlobalStats(),
       getFinancialSummary(),
       getAIAgentConfigsAdmin(),
       getAllEconomyConfigs(),
+      getHotDomains(HOT_DOMAIN_THRESHOLD, 24).catch(() => []),
     ])
     stats = statsData
     finance = financeData
     agentConfigs = agentsData
+    hotDomains = hotDomainsData
     // Extract feature flags (keys starting with flag_)
     for (const cfg of economyConfigs) {
       if (cfg.config_key.startsWith('flag_')) {
@@ -698,6 +705,28 @@ export default async function StaffHubPage({
           <span>⚙️ {SYSTEM_ENGINES.length} {isRTL ? 'محرك نشط' : 'Engines Running'}</span>
         </div>
       </header>
+
+      {/* ── HOT DOMAIN BANNER (threshold: 10 rejections in 24h) ── */}
+      {hotDomains.length > 0 && (
+        <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.35)', borderRadius: 12, padding: '0.875rem 1.25rem', marginBottom: '1.5rem' }}>
+          {hotDomains.map(({ domain, count }) => (
+            <div key={domain} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+              <span style={{ fontSize: '1rem' }}>⚠️</span>
+              <span style={{ color: '#fbbf24', fontSize: '0.875rem', flex: 1 }}>
+                {isRTL ? 'عملاء كتير بيحاولوا يستخدموا ' : 'Many customers tried using '}
+                <strong style={{ fontFamily: 'monospace', color: '#fde68a' }}>{domain}</strong>
+                {isRTL ? ` (${count} محاولة خلال 24 ساعة) — فكر تضيفه` : ` (${count} attempts in 24h) — consider adding it`}
+              </span>
+              <Link href={`/${locale}/admin/link-analytics`} style={{ fontSize: '0.75rem', color: '#fbbf24', textDecoration: 'underline', whiteSpace: 'nowrap' }}>
+                {isRTL ? 'عرض التحليلات' : 'View Analytics'}
+              </Link>
+              <Link href={`/${locale}/admin/link-domains?prefill=${encodeURIComponent(domain)}`} style={{ fontSize: '0.75rem', background: 'rgba(234,179,8,0.15)', color: '#fde68a', padding: '0.2rem 0.6rem', borderRadius: 6, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                {isRTL ? '+ أضف' : '+ Add'}
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── QUICK ACTIONS ── */}
       <div className="section-heading">{isRTL ? '🔥 إجراءات سريعة' : '🔥 Quick Actions'}</div>

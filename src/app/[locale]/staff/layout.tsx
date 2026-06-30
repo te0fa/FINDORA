@@ -104,6 +104,8 @@ export default async function StaffLayout({
         { href: `/${locale}/staff/intelligence/fraud`, label: locale === "ar" ? "التحقيق بالاحتيال" : "Fraud Investigation", visible: true },
         { href: `/${locale}/staff/intelligence/ai`, label: locale === "ar" ? "إعدادات AI" : "AI Settings", visible: true },
         { href: `/${locale}/staff/ai-control`, label: locale === "ar" ? "إدارة ميزات AI" : "AI Feature Control", visible: permissions?.canManageAI ?? true },
+        { href: `/${locale}/admin/link-domains`, label: locale === "ar" ? "🔗 دومينات الروابط" : "🔗 Link Domains", visible: permissions?.canManageAI ?? false },
+        { href: `/${locale}/admin/link-analytics`, label: locale === "ar" ? "📊 تحليل الروابط" : "📊 Link Analytics", visible: permissions?.canManageAI ?? false },
         { href: `/${locale}/staff/intelligence/agent-control`, label: locale === "ar" ? "التحكم بالوكلاء" : "Agent Control", visible: true },
         { href: `/${locale}/staff/intelligence/tasks`, label: locale === "ar" ? "ذكاء المهام" : "Tasks Intel", visible: true },
         { href: `/${locale}/staff/intelligence/communications`, label: locale === "ar" ? "سجل الاتصالات" : "Comms Log", visible: true },

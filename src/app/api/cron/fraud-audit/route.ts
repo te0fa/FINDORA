@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   // 1. IP Clustering Detection
   try {
-    const { data: contributors } = await (db.from('contributors') as any).select('id, last_ip_address').not('last_ip_address', 'is', null)
+    const { data: contributors } = await (db as any).from('contributors').select('id, last_ip_address').not('last_ip_address', 'is', null)
     const ipMap: Record<string, string[]> = {}
     if (contributors) {
       contributors.forEach((c: any) => {
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     for (const [ip, userIds] of Object.entries(ipMap)) {
       if (userIds.length >= 3) {
         for (const uid of userIds) {
-          const { data: existingAlert } = await (db.from('fraud_alerts') as any)
+          const { data: existingAlert } = await (db as any).from('fraud_alerts')
             .select('id')
             .eq('contributor_id', uid)
             .eq('alert_type', 'ip_cluster')
@@ -39,14 +39,14 @@ export async function GET(request: Request) {
             .limit(1)
 
           if (!existingAlert || existingAlert.length === 0) {
-            await (db.from('fraud_alerts') as any).insert({
+            await (db as any).from('fraud_alerts').insert({
               contributor_id: uid,
               alert_level: 'critical',
               alert_type: 'ip_cluster',
               description: `AI Audit: User shares IP address (${ip}) with ${userIds.length - 1} other accounts. Potential referral farming.`
             })
             alertsGenerated++
-            await (db.from('contributor_risk_scores') as any).upsert({ contributor_id: uid, risk_score: 80, updated_at: new Date().toISOString() })
+            await (db as any).from('contributor_risk_scores').upsert({ contributor_id: uid, risk_score: 80, updated_at: new Date().toISOString() })
           }
         }
       }
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 
   // 2. Device Fingerprint Correlation
   try {
-    const { data: fingerprints } = await (db.from('contributor_device_fingerprints') as any)
+    const { data: fingerprints } = await (db as any).from('contributor_device_fingerprints')
       .select('contributor_id, screen_fingerprint, ip_address')
       .not('screen_fingerprint', 'is', null)
 
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
       if (userIds.length >= 2) {
         // Device sharing detected
         for (const uid of userIds) {
-          const { data: existingAlert } = await (db.from('fraud_alerts') as any)
+          const { data: existingAlert } = await (db as any).from('fraud_alerts')
             .select('id')
             .eq('contributor_id', uid)
             .eq('alert_type', 'device_sharing')
@@ -83,14 +83,14 @@ export async function GET(request: Request) {
             .limit(1)
 
           if (!existingAlert || existingAlert.length === 0) {
-            await (db.from('fraud_alerts') as any).insert({
+            await (db as any).from('fraud_alerts').insert({
               contributor_id: uid,
               alert_level: 'critical',
               alert_type: 'device_sharing',
               description: `AI Audit: Screen fingerprint (${fp.slice(0, 12)}...) matches multiple contributor accounts. Device sharing detected.`
             })
             alertsGenerated++
-            await (db.from('contributor_risk_scores') as any).upsert({ contributor_id: uid, risk_score: 95, updated_at: new Date().toISOString() })
+            await (db as any).from('contributor_risk_scores').upsert({ contributor_id: uid, risk_score: 95, updated_at: new Date().toISOString() })
           }
         }
       }
@@ -101,7 +101,7 @@ export async function GET(request: Request) {
 
   // 3. Geo-Mismatch Detection
   try {
-    const { data: tasks } = await (db.from('offline_sourcing_tasks') as any)
+    const { data: tasks } = await (db as any).from('offline_sourcing_tasks')
       .select('assigned_to_user_id, target_governorate')
       .eq('task_status', 'completed')
       .limit(50)
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
       for (const t of tasks) {
         if (!t.assigned_to_user_id) continue
         // Fetch contributor's device IP and simulate a check if IP matches the governorate region
-        const { data: fp } = await (db.from('contributor_device_fingerprints') as any)
+        const { data: fp } = await (db as any).from('contributor_device_fingerprints')
           .select('ip_address')
           .eq('contributor_id', t.assigned_to_user_id)
           .limit(1)
@@ -121,7 +121,7 @@ export async function GET(request: Request) {
           const ipStr = String(fp.ip_address)
           const isMismatched = t.target_governorate === 'Alexandria' && ipStr.startsWith('192.168.1.') // Cairo range mock
           if (isMismatched) {
-            const { data: existingAlert } = await (db.from('fraud_alerts') as any)
+            const { data: existingAlert } = await (db as any).from('fraud_alerts')
               .select('id')
               .eq('contributor_id', t.assigned_to_user_id)
               .eq('alert_type', 'geo_mismatch')
@@ -129,14 +129,14 @@ export async function GET(request: Request) {
               .limit(1)
 
             if (!existingAlert || existingAlert.length === 0) {
-              await (db.from('fraud_alerts') as any).insert({
+              await (db as any).from('fraud_alerts').insert({
                 contributor_id: t.assigned_to_user_id,
                 alert_level: 'warning',
                 alert_type: 'geo_mismatch',
                 description: `AI Audit: Geolocation mismatch. Task submitted in ${t.target_governorate} but device IP is routed from Cairo.`
               })
               alertsGenerated++
-              await (db.from('contributor_risk_scores') as any).upsert({ contributor_id: t.assigned_to_user_id, risk_score: 60, updated_at: new Date().toISOString() })
+              await (db as any).from('contributor_risk_scores').upsert({ contributor_id: t.assigned_to_user_id, risk_score: 60, updated_at: new Date().toISOString() })
             }
           }
         }
@@ -149,7 +149,7 @@ export async function GET(request: Request) {
   // 4. Velocity Detection (Earnings Spikes)
   try {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    const { data: velocitySpikes } = await (db.from('wallet_transactions') as any)
+    const { data: velocitySpikes } = await (db as any).from('wallet_transactions')
       .select('contributor_id, amount_egp')
       .eq('tx_type', 'task_reward')
       .gte('created_at', yesterday)
@@ -163,7 +163,7 @@ export async function GET(request: Request) {
 
     for (const [uid, totalEarned] of Object.entries(earningsMap)) {
       if (totalEarned > 500) {
-        const { data: existingAlert } = await (db.from('fraud_alerts') as any)
+        const { data: existingAlert } = await (db as any).from('fraud_alerts')
           .select('id')
           .eq('contributor_id', uid)
           .eq('alert_type', 'velocity_spike')
@@ -171,14 +171,14 @@ export async function GET(request: Request) {
           .limit(1)
 
         if (!existingAlert || existingAlert.length === 0) {
-          await (db.from('fraud_alerts') as any).insert({
+          await (db as any).from('fraud_alerts').insert({
             contributor_id: uid,
             alert_level: 'warning',
             alert_type: 'velocity_spike',
             description: `AI Audit: Abnormal velocity. User earned ${totalEarned.toFixed(2)} EGP in under 24 hours.`
           })
           alertsGenerated++
-          await (db.from('contributor_risk_scores') as any).upsert({ contributor_id: uid, risk_score: 50, updated_at: new Date().toISOString() })
+          await (db as any).from('contributor_risk_scores').upsert({ contributor_id: uid, risk_score: 50, updated_at: new Date().toISOString() })
         }
       }
     }

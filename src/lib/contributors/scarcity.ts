@@ -19,8 +19,7 @@ export interface ScarcityStatus {
 export async function getRegistrationAvailability(): Promise<ScarcityStatus> {
   const db = createAdminClient()
   
-  const { data: limit, error } = await (db
-    .from('contributor_scarcity_limits') as any)
+  const { data: limit, error } = await (db as any).from('contributor_scarcity_limits')
     .select('max_slots, taken_slots, closes_at, is_active')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
@@ -57,8 +56,7 @@ export async function reserveRegistrationSlot(): Promise<void> {
   const db = createAdminClient()
 
   // Find the active limit
-  const { data: limit, error } = await (db
-    .from('contributor_scarcity_limits') as any)
+  const { data: limit, error } = await (db as any).from('contributor_scarcity_limits')
     .select('id, max_slots, taken_slots, closes_at, is_active')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
@@ -83,8 +81,7 @@ export async function reserveRegistrationSlot(): Promise<void> {
   }
 
   // Update slots
-  const { error: updateError } = await (db
-    .from('contributor_scarcity_limits') as any)
+  const { error: updateError } = await (db as any).from('contributor_scarcity_limits')
     .update({ taken_slots: limit.taken_slots + 1 })
     .eq('id', limit.id)
     .lt('taken_slots', limit.max_slots) // DB concurrency safety guard

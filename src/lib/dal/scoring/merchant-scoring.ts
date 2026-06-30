@@ -33,7 +33,7 @@ export async function calculateMerchantScore(merchantId: string): Promise<Mercha
     supabase.from('merchant_performance_events').select('*').eq('merchant_id', merchantId),
     supabase.from('merchant_customer_feedback').select('*').eq('merchant_id', merchantId),
     supabase.from('merchant_quotes').select('*').eq('merchant_id', merchantId),
-    (supabase.from('request_candidate_shortlists') as any).select('*').eq('merchant_id', merchantId),
+    (supabase as any).from('request_candidate_shortlists').select('*').eq('merchant_id', merchantId),
     supabase.from('merchant_discovery_studies').select('accepts_commission, accepts_bidding').eq('merchant_id', merchantId)
   ]);
 

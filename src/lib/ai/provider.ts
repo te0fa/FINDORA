@@ -1,4 +1,4 @@
-﻿// src/lib/ai/provider.ts
+// src/lib/ai/provider.ts
 /**
  * AI Copilot runs on-demand per request only. It must not process all requests automatically.
  */
@@ -93,7 +93,9 @@ export async function callAI<T>(params: {
   userPrompt: string;
   jsonMode?: boolean;
   configOverride?: Partial<AIProviderConfig>;
-  imageParts?: Array<{ mimeType: string; data: string }>; // base64 strings
+  imageParts?: Array<{ mimeType: string; data: string }>; // base64 strings (legacy path)
+  /** URL-based image references — sent as Gemini fileData parts (no base64, no upload) */
+  imageUrls?: Array<{ uri: string; mimeType: string }>;
 }): Promise<{ data: any; raw?: string; error?: string }> {
   const baseConfig = getAIConfig();
   const config = { ...baseConfig, ...params.configOverride };
@@ -134,17 +136,28 @@ export async function callAI<T>(params: {
       
       while (attempt < maxAttempts) {
         try {
-          if (params.imageParts && params.imageParts.length > 0) {
-            const parts = [
-              prompt,
-              ...params.imageParts.map(p => ({
-                inlineData: {
-                  data: p.data,
-                  mimeType: p.mimeType
-                }
-              }))
-            ];
-            aiResult = await model.generateContent(parts);
+          const hasInlineImages = params.imageParts && params.imageParts.length > 0;
+          const hasUrlImages = params.imageUrls && params.imageUrls.length > 0;
+
+          if (hasInlineImages || hasUrlImages) {
+            // Build a multimodal parts array
+            const parts: unknown[] = [{ text: prompt }];
+
+            // Legacy base64 inline data
+            if (hasInlineImages) {
+              for (const p of params.imageParts!) {
+                parts.push({ inlineData: { data: p.data, mimeType: p.mimeType } });
+              }
+            }
+
+            // URL-based file data (no base64 transport)
+            if (hasUrlImages) {
+              for (const u of params.imageUrls!) {
+                parts.push({ fileData: { fileUri: u.uri, mimeType: u.mimeType } });
+              }
+            }
+
+            aiResult = await model.generateContent(parts as never);
           } else {
             aiResult = await model.generateContent(prompt);
           }

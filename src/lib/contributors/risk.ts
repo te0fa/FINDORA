@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FINDORA Economy OS — Risk Engine (TypeScript layer)
  * Wraps fn_gate_action() DB function and provides TypeScript-safe gateAction()
  * All financial actions MUST call gateAction() before proceeding.
@@ -105,8 +105,7 @@ export async function getRiskScore(
   contributorId: string
 ): Promise<{ risk_score: number; account_state: string } | null> {
   const db = createAdminClient()
-  const { data, error } = await (db
-    .from('contributor_risk_scores') as any)
+  const { data, error } = await (db as any).from('contributor_risk_scores')
     .select('risk_score, account_state')
     .eq('contributor_id', contributorId)
     .maybeSingle()
@@ -125,7 +124,7 @@ export async function recordDeviceFingerprint(params: {
   timezone?: string
 }): Promise<void> {
   const db = createAdminClient()
-  await (db.from('contributor_device_fingerprints') as any).insert({
+  await (db as any).from('contributor_device_fingerprints').insert({
     contributor_id: params.contributorId,
     ip_address: params.ipAddress ?? null,
     user_agent: params.userAgent ?? null,

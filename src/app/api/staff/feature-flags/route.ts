@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: Request) {
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     }
 
     const db = createAdminClient()
-    const { error } = await (db.from('economy_config') as any)
+    const { error } = await (db as any).from('economy_config')
       .update({
         value: String(value),
         updated_at: new Date().toISOString(),
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     const db = createAdminClient()
-    const { data, error } = await (db.from('economy_config') as any)
+    const { data, error } = await (db as any).from('economy_config')
       .select('config_key, value, description_en, description_ar')
       .like('config_key', 'flag_%')
       .order('config_key', { ascending: true })

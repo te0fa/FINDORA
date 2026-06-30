@@ -18,7 +18,7 @@ export interface EconomyConfigRecord {
  */
 export async function getEconomyConfig(key: string): Promise<any | null> {
   const db = createAdminClient()
-  const { data, error } = await (db.from('economy_config') as any)
+  const { data, error } = await (db as any).from('economy_config')
     .select('value')
     .eq('config_key', key)
     .single()
@@ -32,7 +32,7 @@ export async function getEconomyConfig(key: string): Promise<any | null> {
  */
 export async function getAllEconomyConfigs(): Promise<EconomyConfigRecord[]> {
   const db = createAdminClient()
-  const { data, error } = await (db.from('economy_config') as any)
+  const { data, error } = await (db as any).from('economy_config')
     .select('*')
     .order('config_key', { ascending: true })
 
@@ -49,7 +49,7 @@ export async function updateEconomyConfig(
   staffId: string
 ): Promise<{ success: boolean; error?: string }> {
   const db = createAdminClient()
-  const { error } = await (db.from('economy_config') as any)
+  const { error } = await (db as any).from('economy_config')
     .update({ value, updated_by_staff_id: staffId, updated_at: new Date().toISOString() })
     .eq('config_key', key)
 
@@ -72,7 +72,7 @@ export async function simulateImpact(
   if (configKey === 'role_multipliers') {
     // Project impact on total payouts
     // Fetch last 7 days of transactions to calculate average distribution
-    const { data: recentTx } = await (db.from('wallet_transactions') as any)
+    const { data: recentTx } = await (db as any).from('wallet_transactions')
       .select('amount_egp, metadata')
       .eq('tx_type', 'task_reward')
       .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())

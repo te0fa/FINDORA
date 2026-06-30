@@ -75,8 +75,7 @@ export async function getStabilizerMultiplier(): Promise<number> {
  */
 export async function getStabilizerHistory(limit = 14): Promise<StabilizerSnapshot[]> {
   const db = createAdminClient()
-  const { data, error } = await (db
-    .from('economy_stabilizer_snapshots') as any)
+  const { data, error } = await (db as any).from('economy_stabilizer_snapshots')
     .select('snapshot_date, stabilizer_status, multiplier_adjustment, payout_growth_pct_wow, auto_action_taken, computed_at')
     .order('snapshot_date', { ascending: false })
     .limit(limit)
@@ -99,7 +98,7 @@ export async function adminOverrideMultiplier(
   // Clamp between 0.5 and 1.5 — safety bounds
   const clamped = Math.min(1.5, Math.max(0.5, newMultiplier))
 
-  await (db.from('economy_stabilizer_events') as any).insert({
+  await (db as any).from('economy_stabilizer_events').insert({
     event_type: 'admin_override',
     trigger_metric: 'manual',
     action_taken: reason,
@@ -109,7 +108,7 @@ export async function adminOverrideMultiplier(
   })
 
   // Insert override snapshot
-  await (db.from('economy_stabilizer_snapshots') as any).insert({
+  await (db as any).from('economy_stabilizer_snapshots').insert({
     snapshot_date: new Date().toISOString().split('T')[0],
     total_payouts_egp: 0,
     active_contributors: 0,

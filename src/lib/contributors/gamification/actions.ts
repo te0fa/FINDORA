@@ -17,7 +17,7 @@ export async function processGamificationEvent(contributorId: string, eventType:
     
     if (!streak) {
       // First time
-      await (supabase.from('contributor_streaks') as any).insert({
+      await (supabase as any).from('contributor_streaks').insert({
         contributor_id: contributorId,
         daily_streak_count: 1,
         best_daily_streak: 1,
@@ -43,7 +43,7 @@ export async function processGamificationEvent(contributorId: string, eventType:
         const newBest = Math.max(streak.best_daily_streak, newStreakCount)
         const bonusActive = newStreakCount >= 7
 
-        await (supabase.from('contributor_streaks') as any).update({
+        await (supabase as any).from('contributor_streaks').update({
           daily_streak_count: newStreakCount,
           best_daily_streak: newBest,
           last_active_date: today,
@@ -57,7 +57,7 @@ export async function processGamificationEvent(contributorId: string, eventType:
   // 2. Evaluate Badges
   // For example: First Submission Badge
   if (eventType === 'submission') {
-    const { count } = await (supabase.from('contributor_submissions') as any)
+    const { count } = await (supabase as any).from('contributor_submissions')
       .select('*', { count: 'exact', head: true })
       .eq('contributor_id', contributorId)
 
@@ -71,7 +71,7 @@ export async function processGamificationEvent(contributorId: string, eventType:
 
 async function awardBadge(contributorId: string, type: string, labelEn: string, labelAr: string) {
   const supabase = await createClient()
-  await (supabase.from('contributor_badges') as any).insert({
+  await (supabase as any).from('contributor_badges').insert({
     contributor_id: contributorId,
     badge_type: type,
     badge_label_en: labelEn,
@@ -84,7 +84,7 @@ async function awardBadge(contributorId: string, type: string, labelEn: string, 
 export async function adminOverrideStreak(contributorId: string, newStreak: number) {
   const supabase = await createClient()
   const bonusActive = newStreak >= 7
-  await (supabase.from('contributor_streaks') as any).update({
+  await (supabase as any).from('contributor_streaks').update({
     daily_streak_count: newStreak,
     streak_bonus_active: bonusActive,
     streak_multiplier: bonusActive ? 1.15 : 1.00

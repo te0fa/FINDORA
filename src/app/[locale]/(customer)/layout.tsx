@@ -24,9 +24,9 @@ export default async function CustomerLayout({
         backdropFilter: 'blur(12px)', 
         borderBottom: '1px solid rgba(255, 255, 255, 0.08)' 
       }}>
-        <div className="container flex justify-between items-center py-4">
+        <div className="container flex justify-between items-center py-4" dir="ltr">
           <HeaderLogo locale={locale} href={`/${locale}/dashboard`} />
-          <nav className="flex gap-4 items-center">
+          <nav className="flex gap-4 items-center" dir="ltr">
             <Link href={`/${locale}/dashboard`} className="link">{dict.navigation.dashboard}</Link>
             <Link href={`/${locale}/savings`} className="link">{isRTL ? 'سجل التوفير & VIP' : 'Savings & VIP'}</Link>
             <Link href={`/${locale}/settings`} className="link">{dict.navigation.settings || 'Settings'}</Link>

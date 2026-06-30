@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const db = createAdminClient();
 
     // Verify request is still open
-    const { data: req } = await (db.from('customer_requests') as any)
+    const { data: req } = await (db as any).from('customer_requests')
       .select('id, current_status')
       .eq('id', requestId)
       .maybeSingle();
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify merchant is active
-    const { data: merchant } = await (db.from('merchant_profiles') as any)
+    const { data: merchant } = await (db as any).from('merchant_profiles')
       .select('id, status')
       .eq('id', merchantId)
       .maybeSingle();
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upsert offer (prevent duplicates)
-    const { data: offer, error } = await (db.from('merchant_offers') as any)
+    const { data: offer, error } = await (db as any).from('merchant_offers')
       .upsert({
         merchant_id: merchantId,
         request_id: requestId,
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
   if (!merchantId) return NextResponse.json({ error: 'merchantId required' }, { status: 400 });
 
   const db = createAdminClient();
-  const { data, error } = await (db.from('merchant_offers') as any)
+  const { data, error } = await (db as any).from('merchant_offers')
     .select('id, request_id, price_offered_egp, status, notes, estimated_days, created_at, accepted_at')
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });

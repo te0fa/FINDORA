@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: NextRequest) {
@@ -20,8 +20,7 @@ export async function POST(request: NextRequest) {
     const db = createAdminClient();
 
     // Check duplicate phone
-    const { data: existing } = await (db
-      .from('merchant_profiles') as any)
+    const { data: existing } = await (db as any).from('merchant_profiles')
       .select('id')
       .eq('phone_number', phone_number)
       .maybeSingle();
@@ -30,8 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'This phone number is already registered as a merchant' }, { status: 409 });
     }
 
-    const { data: merchant, error } = await (db
-      .from('merchant_profiles') as any)
+    const { data: merchant, error } = await (db as any).from('merchant_profiles')
       .insert({
         business_name_ar,
         business_name_en: business_name_en || business_name_ar,

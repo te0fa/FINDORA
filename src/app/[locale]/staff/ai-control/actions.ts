@@ -3,11 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getStaffMemberByAuthUserId, getStaffUiPermissions } from '@/lib/dal/staff'
-import { 
-  updateAIFeatureConfig, 
-  assignAIManagerRole, 
-  revokeAIManagerRole 
-} from '@/lib/dal/ai-control'
+import { updateAIAgentConfigAdmin, updateAIFeatureConfig, assignAIManagerRole, revokeAIManagerRole } from '@/lib/dal/ai-control'
+import { invalidateStageCache } from '@/lib/intelligence/ai-stage-config'
 
 async function checkPermission(requireAdmin = false) {
   const supabase = await createClient()
@@ -34,6 +31,16 @@ export async function toggleAIFeatureAction(featureKey: string, status: 'enabled
   await checkPermission()
   await updateAIFeatureConfig(featureKey, { status, value })
   revalidatePath('/[locale]/staff/ai-control', 'page')
+}
+
+export async function updateAIAgentConfigAction(agentCode: string, updates: Record<string, unknown>) {
+  await checkPermission()
+  await updateAIAgentConfigAdmin({ agent_code: agentCode, ...updates })
+  // Immediately bust the stage config cache so the next AI call uses new settings
+  // (instead of waiting for the 30s TTL to expire)
+  invalidateStageCache()
+  revalidatePath('/[locale]/staff/intelligence/ai', 'page')
+  return { success: true }
 }
 
 export async function updateAILimitsAction(featureKey: string, dailyLimit: number | null, monthlyLimit: number | null) {

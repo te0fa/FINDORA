@@ -28,8 +28,7 @@ export async function POST(request: NextRequest) {
 
     // Rate limit: max 3 OTP sends per phone per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { data: recentOtps } = await (db
-      .from('phone_otp_codes') as any)
+    const { data: recentOtps } = await (db as any).from('phone_otp_codes')
       .select('id')
       .eq('phone_number', normalizedPhone)
       .eq('purpose', purpose)

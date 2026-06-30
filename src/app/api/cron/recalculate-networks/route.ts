@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // 2. Fetch all active contributors
-    const { data: contributors, error } = await (db.from('contributors') as any)
+    const { data: contributors, error } = await (db as any).from('contributors')
       .select('id, referral_count, active_referral_count')
       .in('status', ['active', 'approved'])
       .limit(500) // process in batches
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
         // Update contributor if changed
         if (newActiveCount !== previousActive) {
-          await (db.from('contributors') as any).update({
+          await (db as any).from('contributors').update({
             active_referral_count: newActiveCount
           }).eq('id', contributor.id)
 

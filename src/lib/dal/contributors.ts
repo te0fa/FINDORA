@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FINDORA Economy OS — Contributors DAL
  * Core data access layer for contributor profiles, dashboard data, leaderboard
  */
@@ -76,8 +76,7 @@ export async function getContributorByAuthUserId(
   authUserId: string
 ): Promise<ContributorProfile | null> {
   const db = createAdminClient()
-  const { data, error } = await (db
-    .from('contributors') as any)
+  const { data, error } = await (db as any).from('contributors')
     .select('*')
     .eq('auth_user_id', authUserId)
     .maybeSingle()
@@ -96,8 +95,7 @@ export async function getContributorById(
   contributorId: string
 ): Promise<ContributorProfile | null> {
   const db = createAdminClient()
-  const { data, error } = await (db
-    .from('contributors') as any)
+  const { data, error } = await (db as any).from('contributors')
     .select('*')
     .eq('id', contributorId)
     .maybeSingle()
@@ -112,8 +110,7 @@ export async function getContributorByReferralCode(
   code: string
 ): Promise<{ id: string; full_name: string; status: string } | null> {
   const db = createAdminClient()
-  const { data, error } = await (db
-    .from('contributors') as any)
+  const { data, error } = await (db as any).from('contributors')
     .select('id, full_name, status')
     .eq('referral_code', code.toUpperCase())
     .maybeSingle()
@@ -137,20 +134,20 @@ export async function getContributorDashboard(
     alertsRes,
     riskRes
   ] = await Promise.all([
-    (db.from('contributors') as any).select('*').eq('id', contributorId).single(),
-    (db.from('contributor_streaks') as any).select('*').eq('contributor_id', contributorId).maybeSingle(),
-    (db.from('referral_challenges') as any).select('*').eq('contributor_id', contributorId).maybeSingle(),
-    (db.from('contributor_badges') as any)
+    (db as any).from('contributors').select('*').eq('id', contributorId).single(),
+    (db as any).from('contributor_streaks').select('*').eq('contributor_id', contributorId).maybeSingle(),
+    (db as any).from('referral_challenges').select('*').eq('contributor_id', contributorId).maybeSingle(),
+    (db as any).from('contributor_badges')
       .select('badge_type, badge_label_en, badge_label_ar, earned_at')
       .eq('contributor_id', contributorId)
       .order('earned_at', { ascending: false }),
-    (db.from('contributor_alerts') as any)
+    (db as any).from('contributor_alerts')
       .select('*')
       .eq('contributor_id', contributorId)
       .eq('is_read', false)
       .order('created_at', { ascending: false })
       .limit(5),
-    (db.from('contributor_risk_scores') as any)
+    (db as any).from('contributor_risk_scores')
       .select('risk_score, account_state')
       .eq('contributor_id', contributorId)
       .maybeSingle()
@@ -180,8 +177,7 @@ export async function getLeaderboard(limit = 10): Promise<Array<{
   role: string
 }>> {
   const db = createAdminClient()
-  const { data, error } = await (db
-    .from('contributors') as any)
+  const { data, error } = await (db as any).from('contributors')
     .select('id, full_name, active_referral_count, trust_score, role')
     .in('status', ['active', 'approved'])
     .order('active_referral_count', { ascending: false })
@@ -210,8 +206,7 @@ export async function getNetworkHealth(contributorId: string): Promise<{
   decay_multiplier: number
 } | null> {
   const db = createAdminClient()
-  const { data, error } = await (db
-    .from('contributors') as any)
+  const { data, error } = await (db as any).from('contributors')
     .select('referral_count, active_referral_count, earning_multiplier')
     .eq('id', contributorId)
     .single()
@@ -246,8 +241,7 @@ export async function createContributorApplication(params: {
   // Resolve referrer if code provided
   let referredById: string | null = null
   if (params.referralCode) {
-    const { data: referrer } = await (db
-      .from('contributors') as any)
+    const { data: referrer } = await (db as any).from('contributors')
       .select('id, status')
       .eq('referral_code', params.referralCode.toUpperCase())
       .maybeSingle()
@@ -257,8 +251,7 @@ export async function createContributorApplication(params: {
     }
   }
 
-  const { data, error } = await (db
-    .from('contributors') as any)
+  const { data, error } = await (db as any).from('contributors')
     .insert({
       auth_user_id: params.authUserId,
       full_name: params.fullName,
@@ -281,8 +274,7 @@ export async function createContributorApplication(params: {
  */
 export async function markAlertRead(alertId: string): Promise<void> {
   const db = createAdminClient()
-  await (db
-    .from('contributor_alerts') as any)
+  await (db as any).from('contributor_alerts')
     .update({ is_read: true })
     .eq('id', alertId)
 }
@@ -295,8 +287,7 @@ export async function listPendingVerifications(filters: {
   offset?: number
 }): Promise<{ items: any[]; total: number }> {
   const db = createAdminClient()
-  const { data, count, error } = await (db
-    .from('contributor_verification_requests') as any)
+  const { data, count, error } = await (db as any).from('contributor_verification_requests')
     .select('*, contributor:contributors(full_name, phone_number, role, status)', { count: 'exact' })
     .eq('hr_decision', 'pending')
     .order('created_at', { ascending: true })
@@ -318,10 +309,10 @@ export async function hrApproveContributor(
   const db = createAdminClient()
 
   await Promise.all([
-    (db.from('contributors') as any)
+    (db as any).from('contributors')
       .update({ status: 'active', approved_at: new Date().toISOString() })
       .eq('id', contributorId),
-    (db.from('contributor_verification_requests') as any)
+    (db as any).from('contributor_verification_requests')
       .update({
         hr_decision: 'approved',
         hr_reviewer_staff_id: staffId,
@@ -330,7 +321,7 @@ export async function hrApproveContributor(
       })
       .eq('id', reviewRequestId),
     // Create welcome alert
-    (db.from('contributor_alerts') as any).insert({
+    (db as any).from('contributor_alerts').insert({
       contributor_id: contributorId,
       alert_type: 'hr_decision',
       title_en: '🎉 Application Approved!',

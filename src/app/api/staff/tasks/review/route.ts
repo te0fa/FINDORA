@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { processReward } from '@/lib/contributors/wallet'
 import { handleFirstTaskWin, updateDailyStreak } from '@/lib/contributors/gamification'
@@ -78,10 +78,10 @@ export async function POST(request: Request) {
 
   // Also update the underlying platform_task
   if (action === 'approve') {
-    await (supabase.from('platform_tasks') as any).update({ status: 'completed' }).eq('id', claim.task_id)
+    await supabase.from('platform_tasks' as any).update({ status: 'completed' }).eq('id', claim.task_id)
   } else {
     // If rejected, the task becomes open again for someone else
-    await (supabase.from('platform_tasks') as any).update({ status: 'open' }).eq('id', claim.task_id)
+    await supabase.from('platform_tasks' as any).update({ status: 'open' }).eq('id', claim.task_id)
   }
 
   // 5. Close the GAME LOOP if approved

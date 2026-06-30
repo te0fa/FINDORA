@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const db = createAdminClient();
 
     // Upsert verification request
-    const { data, error } = await (db.from('contributor_verification_requests') as any)
+    const { data, error } = await (db as any).from('contributor_verification_requests')
       .upsert({
         contributor_id: contributorId,
         id_front_url: frontPath,
@@ -32,13 +32,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to submit KYC request' }, { status: 500 });
     }
 
-    // Update contributor status to 'kyc_pending'
-    await (db.from('contributors') as any)
-      .update({ kyc_status: 'pending' })
-      .eq('id', contributorId)
-      .catch(() => {}); // Non-fatal if column doesn't exist yet
+    // Update contributor status to 'kyc_pending' — non-fatal if column doesn't exist yet
+    try {
+      await (db as any).from('contributors')
+        .update({ kyc_status: 'pending' })
+        .eq('id', contributorId)
+    } catch { /* non-fatal */ }
 
-    return NextResponse.json({ success: true, verificationId: data.id });
+    return NextResponse.json({ success: true, verificationId: (data as any)?.id });
   } catch (err: any) {
     // log.error('[KYC SUBMIT]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

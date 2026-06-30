@@ -171,7 +171,7 @@ export async function createDeal(dealData: Partial<MarketplaceDeal>) {
   const basePrice = Number(product.base_price_egp)
   const finalPrice = basePrice + (basePrice * (Number(markup) / 100))
 
-  const { data, error } = await (db.from('marketplace_deals') as any).insert({
+  const { data, error } = await (db as any).from('marketplace_deals').insert({
     ...dealData,
     platform_markup_pct: markup,
     final_customer_price_egp: finalPrice

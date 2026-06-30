@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FINDORA Economy OS — Supply Engine & Contribution System
  * Handles price mapping, product listing, and rewards distribution.
  */
@@ -30,8 +30,7 @@ export async function submitPriceReport(params: PriceReportParams): Promise<{
   const db = createAdminClient()
 
   // 1. Insert contribution submission record
-  const { data: sub, error: subError } = await (db
-    .from('contributor_submissions') as any)
+  const { data: sub, error: subError } = await (db as any).from('contributor_submissions')
     .insert({
       contributor_id: params.contributorId,
       submission_type: 'price_report',
@@ -84,8 +83,7 @@ export async function submitPriceReport(params: PriceReportParams): Promise<{
  */
 export async function getContributorSubmissions(contributorId: string, limit = 10) {
   const db = createAdminClient()
-  const { data, error } = await (db
-    .from('contributor_submissions') as any)
+  const { data, error } = await (db as any).from('contributor_submissions')
     .select('*')
     .eq('contributor_id', contributorId)
     .order('created_at', { ascending: false })

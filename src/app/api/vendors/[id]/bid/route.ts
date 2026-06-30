@@ -32,7 +32,7 @@ export async function POST(
     const db = createAdminClient()
 
     // 2. Fetch snapshot to make sure it exists
-    const { data: snapshot, error: fetchErr } = await (db.from('report_option_snapshots') as any)
+    const { data: snapshot, error: fetchErr } = await (db as any).from('report_option_snapshots')
       .select('id, request_id, hidden_contact_notes')
       .eq('id', snapshotId)
       .single()
@@ -46,7 +46,7 @@ export async function POST(
       ? `${snapshot.hidden_contact_notes || ''}\n[Vendor Update]: ${remarks}`
       : snapshot.hidden_contact_notes
 
-    const { error: updateErr } = await (db.from('report_option_snapshots') as any)
+    const { error: updateErr } = await (db as any).from('report_option_snapshots')
       .update({
         display_price_amount: Number(price),
         hidden_contact_notes: updatedNotes,

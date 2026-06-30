@@ -53,8 +53,7 @@ export async function processReward(params: RewardParams): Promise<{
   const db = createAdminClient()
 
   // 2. Fetch Contributor Role and Trust Score
-  const { data: contributor, error: contribError } = await (db
-    .from('contributors') as any)
+  const { data: contributor, error: contribError } = await (db as any).from('contributors')
     .select('role, trust_score, earning_multiplier, decay_multiplier')
     .eq('id', params.contributorId)
     .single()
@@ -89,7 +88,7 @@ export async function processReward(params: RewardParams): Promise<{
     : 1.0
 
   // 5. Fetch Active Bonus Campaigns
-  const { data: campaigns } = await (db.from('bonus_campaigns') as any)
+  const { data: campaigns } = await (db as any).from('bonus_campaigns')
     .select('multiplier_boost')
     .eq('is_active', true)
     .lte('start_date', new Date().toISOString())
@@ -128,8 +127,7 @@ export async function processReward(params: RewardParams): Promise<{
   }
 
   // 5. Fetch Wallet ID
-  const { data: wallet } = await (db
-    .from('contributor_wallets') as any)
+  const { data: wallet } = await (db as any).from('contributor_wallets')
     .select('id, is_frozen')
     .eq('contributor_id', params.contributorId)
     .single()
@@ -143,7 +141,7 @@ export async function processReward(params: RewardParams): Promise<{
   }
 
   // 6. Execute Transaction
-  const { data: tx, error } = await (db.from('wallet_transactions') as any).insert({
+  const { data: tx, error } = await (db as any).from('wallet_transactions').insert({
     contributor_id: params.contributorId,
     wallet_id: wallet.id,
     tx_type: params.actionType,
@@ -177,7 +175,7 @@ export async function processReward(params: RewardParams): Promise<{
 
   // 7. If pending review, create a Fraud Alert
   if (txStatus === 'pending_review') {
-    await (db.from('fraud_alerts') as any).insert({
+    await (db as any).from('fraud_alerts').insert({
       contributor_id: params.contributorId,
       alert_level: 'warning',
       alert_type: 'manual_review_required',
@@ -215,8 +213,7 @@ export async function requestWithdrawal(params: WithdrawalParams): Promise<{
   const db = createAdminClient()
 
   // 2. Fetch Wallet & Verify Balance
-  const { data: wallet } = await (db
-    .from('contributor_wallets') as any)
+  const { data: wallet } = await (db as any).from('contributor_wallets')
     .select('id, balance_egp, is_frozen, pending_withdrawal_egp')
     .eq('contributor_id', params.contributorId)
     .single()
@@ -252,7 +249,7 @@ export async function requestWithdrawal(params: WithdrawalParams): Promise<{
   const withdrawalStatus = gateResult.decision === 'REQUIRE_REVIEW' ? 'held_for_review' : 'pending'
 
   // 5. Create Withdrawal Request Record
-  const { data: request, error: reqError } = await (db.from('contributor_withdrawals') as any).insert({
+  const { data: request, error: reqError } = await (db as any).from('contributor_withdrawals').insert({
     contributor_id: params.contributorId,
     wallet_id: wallet.id,
     amount_egp: params.amountEgp,
@@ -270,7 +267,7 @@ export async function requestWithdrawal(params: WithdrawalParams): Promise<{
 
   // 6. If held for review, create a Fraud Alert
   if (withdrawalStatus === 'held_for_review') {
-    await (db.from('fraud_alerts') as any).insert({
+    await (db as any).from('fraud_alerts').insert({
       contributor_id: params.contributorId,
       alert_level: 'warning',
       alert_type: 'manual_review_required',
@@ -294,8 +291,7 @@ export interface WalletBalances {
  */
 export async function getWalletBalances(contributorId: string): Promise<WalletBalances | null> {
   const db = createAdminClient()
-  const { data } = await (db
-    .from('contributor_wallets') as any)
+  const { data } = await (db as any).from('contributor_wallets')
     .select('balance_egp, points_balance, pending_withdrawal_egp, lifetime_earned_egp')
     .eq('contributor_id', contributorId)
     .single()
@@ -307,8 +303,7 @@ export async function getWalletBalances(contributorId: string): Promise<WalletBa
  */
 export async function getTransactionHistory(contributorId: string, limit = 20) {
   const db = createAdminClient()
-  const { data } = await (db
-    .from('wallet_transactions') as any)
+  const { data } = await (db as any).from('wallet_transactions')
     .select('id, tx_type, amount_egp, amount_points, description_en, description_ar, created_at')
     .eq('contributor_id', contributorId)
     .order('created_at', { ascending: false })
