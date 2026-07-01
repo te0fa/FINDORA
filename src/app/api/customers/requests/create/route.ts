@@ -22,8 +22,12 @@ export async function POST(request: Request) {
     quantity
   } = body
 
-  if (!customerName || !productName || !category || !targetLocation) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  // Graceful fallbacks for guest/AI-derived optional paths
+  const finalCategory = category && String(category).trim() ? category : 'general'
+  const finalTargetLocation = targetLocation && String(targetLocation).trim() ? targetLocation : 'القاهرة'
+
+  if (!customerName || !productName) {
+    return NextResponse.json({ error: 'Missing required fields (Name or Product Name)' }, { status: 400 })
   }
 
   // Find a system/admin user ID to attribute the auto-generated tasks to
@@ -31,11 +35,7 @@ export async function POST(request: Request) {
     .from('staff_members')
     .select('id')
     .limit(1)
-    .single()
-
-  if (!admin) {
-    return NextResponse.json({ error: 'System not ready (No admin configured)' }, { status: 500 })
-  }
+    .maybeSingle()
 
   // Look up or create a customer profile
   const { data: { user } } = await supabase.auth.getUser()
@@ -68,8 +68,8 @@ export async function POST(request: Request) {
       customer_name: customerName,
       customer_phone: customerPhone,
       product_name: productName,
-      category: category,
-      target_location: targetLocation,
+      category: finalCategory,
+      target_location: finalTargetLocation,
       max_price: maxPrice ? Number(maxPrice) : null,
       additional_notes: notes || ''
     })
@@ -180,13 +180,15 @@ export async function POST(request: Request) {
   }
 
   // 4. Trigger the Growth Engine: Demand Expansion (Fire and forget, so we don't block the UI)
-  await expandDemandAndCreateTasks(
-    newRequest.id,
-    productName,
-    category,
-    targetLocation,
-    admin.id
-  )
+  if (admin?.id) {
+    await expandDemandAndCreateTasks(
+      newRequest.id,
+      productName,
+      finalCategory,
+      finalTargetLocation,
+      admin.id
+    )
+  }
 
   return NextResponse.json({ success: true, requestId: newRequest.id })
 }

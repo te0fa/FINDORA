@@ -47,28 +47,19 @@ export async function login(formData: FormData) {
     redirect(`/${locale}/auth/login?error=invalid_login${nextSuffix}`)
   }
 
-  console.log('--- LOGIN TRACE START ---')
-  console.log('USER:', { id: user.id, email: user.email })
-
   // 3. Check Staff First (Priority)
   const staffMember = await getStaffMemberByAuthUserId(user.id)
-  console.log('STAFF_MEMBER:', staffMember)
 
   if (staffMember && staffMember.is_active) {
     const targetPath = getRedirectPath(resolveStaffHomePath(locale, staffMember))
-    console.log('REDIRECT TARGET (STAFF):', targetPath)
-    console.log('--- LOGIN TRACE END ---')
     redirect(targetPath)
   }
 
   // 4. Check Customer Only if Not Staff
   const customer = await getCustomerByAuthId(user.id)
-  console.log('CUSTOMER:', customer)
 
   if (customer) {
     const targetPath = getRedirectPath(`/${locale}/dashboard`)
-    console.log('REDIRECT TARGET (CUSTOMER):', targetPath)
-    console.log('--- LOGIN TRACE END ---')
     redirect(targetPath)
   }
 
@@ -87,8 +78,6 @@ export async function login(formData: FormData) {
       redirect(`/${locale}/auth/login?error=account_suspended${nextSuffix}`)
     }
     const targetPath = getRedirectPath(`/${locale}/vendor/auctions`)
-    console.log('REDIRECT TARGET (VENDOR):', targetPath)
-    console.log('--- LOGIN TRACE END ---')
     redirect(targetPath)
   }
 

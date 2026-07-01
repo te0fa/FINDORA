@@ -348,22 +348,26 @@ export default function ReturningCustomerStep({
         /* Input row — phone input + search + skip all equally accessible */
         .rc-input-row {
           display: flex;
-          gap: 8px;
-          align-items: stretch;
+          gap: 12px;
+          align-items: center;
+          margin-top: 8px;
+          width: 100%;
+          box-sizing: border-box;
         }
         .rc-phone-input {
           flex: 1;
+          min-width: 200px;
+          height: 48px;
           border-radius: 10px;
           background: rgba(0,0,0,0.4);
-          padding: 12px 14px;
+          padding: 0 16px;
           color: white;
-          font-size: 15px;
+          font-size: 16px;
           letter-spacing: 0.05em;
           border: 1px solid rgba(99,102,241,0.3);
           outline: none;
           transition: border-color 0.2s ease;
           box-sizing: border-box;
-          min-width: 0;
         }
         .rc-phone-input:focus {
           border-color: rgba(99,102,241,0.65);
@@ -371,12 +375,14 @@ export default function ReturningCustomerStep({
         .rc-phone-input::placeholder { color: #475569; }
         .rc-phone-input:disabled { opacity: 0.6; }
 
-        /* Search button — primary but NOT dominant over skip */
+        /* Search button */
         button.rc-search-btn {
           display: flex !important;
           align-items: center !important;
+          justify-content: center !important;
           gap: 6px !important;
-          padding: 12px 16px !important;
+          height: 48px !important;
+          width: 140px !important;
           border-radius: 10px !important;
           background: rgba(99,102,241,0.18) !important;
           border: 1px solid rgba(99,102,241,0.4) !important;
@@ -386,6 +392,7 @@ export default function ReturningCustomerStep({
           cursor: pointer !important;
           transition: all 0.2s ease !important;
           white-space: nowrap !important;
+          box-sizing: border-box !important;
           flex-shrink: 0 !important;
         }
         button.rc-search-btn:hover:not(:disabled) {
@@ -397,11 +404,13 @@ export default function ReturningCustomerStep({
           cursor: not-allowed !important;
         }
 
-        /* Skip button — equally prominent, NOT buried or de-emphasized */
+        /* Skip button */
         button.rc-skip-btn {
           display: flex !important;
           align-items: center !important;
-          padding: 12px 16px !important;
+          justify-content: center !important;
+          height: 48px !important;
+          width: 140px !important;
           border-radius: 10px !important;
           background: rgba(255,255,255,0.07) !important;
           border: 1px solid rgba(255,255,255,0.15) !important;
@@ -411,6 +420,7 @@ export default function ReturningCustomerStep({
           cursor: pointer !important;
           transition: all 0.2s ease !important;
           white-space: nowrap !important;
+          box-sizing: border-box !important;
           flex-shrink: 0 !important;
         }
         button.rc-skip-btn:hover {

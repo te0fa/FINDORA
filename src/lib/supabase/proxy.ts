@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { i18nConfig } from '@/lib/i18n/config'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 function getLocale(request: NextRequest): string {
   const referer = request.headers.get('referer')
@@ -146,7 +147,8 @@ export async function updateSession(request: NextRequest, existingUser?: any) {
     if (!user) return null
     if (cachedStaffMember !== undefined) return cachedStaffMember
 
-    const { data: staff, error: staffError } = await supabase
+    const adminClient = createAdminClient()
+    const { data: staff, error: staffError } = await adminClient
       .from('staff_members')
       .select('id, staff_role, is_active')
       .eq('auth_user_id', user.id)
@@ -158,7 +160,7 @@ export async function updateSession(request: NextRequest, existingUser?: any) {
       return null
     }
 
-    const { data: roles } = await supabase
+    const { data: roles } = await adminClient
       .from('staff_member_roles')
       .select('role_code')
       .eq('staff_member_id', staff.id)

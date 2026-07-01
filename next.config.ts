@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 interface CustomRedirect {
   source: string;
@@ -35,7 +36,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://accept.paymob.com",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://accept.paymob.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://accept.paymob.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.de.sentry.io",
       "frame-src 'self' https://accept.paymob.com",
       "object-src 'none'",
       "base-uri 'self'",
@@ -125,4 +126,12 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // For all available options, see:
+  // https://github.com/getsentry/sentry-javascript/blob/master/packages/nextjs/src/config/types.ts
+
+  // Suppresses source map uploading logs during bundling
+  silent: true,
+  org: "findora-bu",
+  project: "javascript-nextjs",
+});

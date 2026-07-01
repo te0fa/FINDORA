@@ -68,6 +68,9 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   const historyFlag     = useFeature('request_history_lookup')  // Phase 3
 
   // ── Wizard State ─────────────────────────────────────────────────────────────
+  const [mounted, setMounted] = useState(false)
+  const [speechSupported, setSpeechSupported] = useState(false)
+
   // Step starts at STEP_CATEGORY (safe default). Once the history flag finishes
   // loading, if it is enabled we rewind to STEP_RETURNING (the optional lookup
   // step). This avoids a flash of the lookup UI for customers on a page where
@@ -77,20 +80,6 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   // Pre-fill phone from the returning-customer lookup (convenience only —
   // the customer can still edit it freely in the Intake step).
   const [lookupPhone, setLookupPhone] = useState('')
-
-  useEffect(() => {
-    // Only set the returning step once the flag resolves from loading.
-    // If the flag is disabled or errors, stay on STEP_CATEGORY (no regression).
-    if (!historyFlag.loading && historyFlag.enabled) {
-      setStep((current) => {
-        // Only move to STEP_RETURNING if we're still on the default start step.
-        // Prevents overriding a step the user has already advanced to.
-        if (current === STEP_CATEGORY) return STEP_RETURNING
-        return current
-      })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historyFlag.loading, historyFlag.enabled])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [aiData, setAiData] = useState<AIExtractedData | null>(null)
 
@@ -126,6 +115,56 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   const [isParsing, setIsParsing]         = useState(false)
   const [aiError, setAiError]             = useState('')
 
+  // ── Load state from sessionStorage on mount ──────────────────────────────────
+  useEffect(() => {
+    setMounted(true)
+    const supported =
+      typeof window !== 'undefined' &&
+      (typeof window.SpeechRecognition !== 'undefined' ||
+        typeof window.webkitSpeechRecognition !== 'undefined')
+    setSpeechSupported(supported)
+
+    let restoredStep: number | null = null
+    try {
+      const savedStep = sessionStorage.getItem('wizard_step')
+      const savedFormData = sessionStorage.getItem('wizard_form_data')
+      const savedAiData = sessionStorage.getItem('wizard_ai_data')
+      const savedLookupPhone = sessionStorage.getItem('wizard_lookup_phone')
+      const savedConciergeText = sessionStorage.getItem('wizard_concierge_text')
+
+      if (savedStep !== null) {
+        restoredStep = Number(savedStep)
+        setStep(restoredStep)
+      }
+      if (savedFormData !== null) setFormData(JSON.parse(savedFormData))
+      if (savedAiData !== null) setAiData(JSON.parse(savedAiData))
+      if (savedLookupPhone !== null) setLookupPhone(savedLookupPhone)
+      if (savedConciergeText !== null) setConciergeText(savedConciergeText)
+    } catch (e) {
+      console.warn('Failed to load wizard state from sessionStorage:', e)
+    }
+
+    // Only set STEP_RETURNING if we are on the initial default category step and no previous progress was restored
+    if (restoredStep === null && !historyFlag.loading && historyFlag.enabled) {
+      setStep(STEP_RETURNING)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyFlag.loading, historyFlag.enabled])
+
+  // ── Save state to sessionStorage on change ───────────────────────────────────
+  useEffect(() => {
+    if (!mounted) return
+    try {
+      sessionStorage.setItem('wizard_step', String(step))
+      sessionStorage.setItem('wizard_form_data', JSON.stringify(formData))
+      sessionStorage.setItem('wizard_ai_data', aiData ? JSON.stringify(aiData) : '')
+      sessionStorage.setItem('wizard_lookup_phone', lookupPhone)
+      sessionStorage.setItem('wizard_concierge_text', conciergeText)
+    } catch (e) {
+      console.warn('Failed to save wizard state to sessionStorage:', e)
+    }
+  }, [step, formData, aiData, lookupPhone, conciergeText, mounted])
+
   // ── Product Link input ──────────────────────────────────────────────
   const [productLinkUrl, setProductLinkUrl]     = useState('')
   const [isParsingLink, setIsParsingLink]       = useState(false)
@@ -138,12 +177,6 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   // ── Voice input ──────────────────────────────────────────────────────────────
   const [isListening, setIsListening]     = useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
-
-  // ─── Derived: is Web Speech API available? ───────────────────────────────────
-  const speechSupported =
-    typeof window !== 'undefined' &&
-    (typeof window.SpeechRecognition !== 'undefined' ||
-      typeof window.webkitSpeechRecognition !== 'undefined')
 
   // ─── Categories ──────────────────────────────────────────────────────────────
   const categories = [
@@ -189,17 +222,32 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
       setConciergeText(prev => prev ? `${prev} ${transcript}` : transcript)
     }
 
-    recognition.onerror = () => {
+    recognition.onerror = (event: any) => {
       setIsListening(false)
+      console.warn('[SpeechRecognition] error:', event.error)
+      if (event.error === 'not-allowed') {
+        alert(isAr 
+          ? 'تعذر الوصول للمايكروفون. يرجى تفعيل صلاحية استخدام المايكروفون من إعدادات المتصفح.' 
+          : 'Microphone access denied. Please enable microphone permissions in your browser settings.')
+      } else {
+        alert(isAr 
+          ? 'حدث خطأ في التسجيل الصوتي. حاول مرة أخرى.' 
+          : 'Voice recognition failed. Please try again.')
+      }
     }
 
     recognition.onend = () => {
       setIsListening(false)
     }
 
-    recognitionRef.current = recognition
-    recognition.start()
-    setIsListening(true)
+    try {
+      recognitionRef.current = recognition
+      recognition.start()
+      setIsListening(true)
+    } catch (err) {
+      console.warn('[SpeechRecognition] failed to start:', err)
+      setIsListening(false)
+    }
   }
 
   // ── Image: client-side pre-validation ────────────────────────────────────────
@@ -338,6 +386,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
     setFormData(prev => ({
       ...prev,
+      targetLocation: prev.targetLocation || 'القاهرة',
       productName:  edited.productName || prev.productName,
       category:     edited.category    || prev.category,
       quantity:     edited.quantity != null ? String(edited.quantity) : prev.quantity,
@@ -392,6 +441,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          customerPhone:  formData.customerPhone || lookupPhone,
           metadata,
           source_type:    formData.sourceType,
           ai_confidence:  formData.aiConfidence,
@@ -400,6 +450,9 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
       const data = await res.json()
       if (res.ok) {
+        try {
+          sessionStorage.clear()
+        } catch {}
         router.push(`/${locale}/customer/dashboard?requestId=${data.requestId}`)
       } else {
         alert(data.error || 'Failed to submit request')
@@ -421,6 +474,18 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────────
+  if (!mounted) {
+    return (
+      <div className="wizard-container" dir={isAr ? 'rtl' : 'ltr'}>
+        <div className="wizard-header relative z-10" style={{ opacity: 0.5 }}>
+          <h1 className="wizard-title">
+            {isAr ? 'جاري التحميل...' : 'Loading...'}
+          </h1>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="wizard-container" dir={isAr ? 'rtl' : 'ltr'}>
       {/* Decorative Glow */}
@@ -667,8 +732,17 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
               }
               setAiData(mapped)
               setLookupPhone(data.lookupPhone)
-              // Also pre-fill formData sourceType so it carries through to submission
-              setFormData(prev => ({ ...prev, sourceType: data.sourceType }))
+              // Populate the formData state fully to ensure no missing required fields
+              setFormData(prev => ({
+                ...prev,
+                productName:    data.productName,
+                category:       data.category,
+                targetLocation: data.targetLocation || 'القاهرة',
+                maxPrice:       data.maxPrice != null ? String(data.maxPrice) : '',
+                notes:          data.notes || '',
+                customerPhone:  data.lookupPhone,
+                sourceType:     data.sourceType,
+              }))
               setStep(STEP_REVIEW)
             }}
           />
@@ -898,11 +972,11 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
             <div className="wizard-grid-2">
               <div className="wizard-form-group">
-                <label className="wizard-label">{isAr ? 'الاسم' : 'Your Name'}</label>
+                <label className="wizard-label">{isAr ? 'الاسم *' : 'Your Name *'}</label>
                 <input required autoFocus value={formData.customerName} onChange={e => setFormData({ ...formData, customerName: e.target.value })} className="wizard-input" />
               </div>
               <div className="wizard-form-group">
-                <label className="wizard-label">{isAr ? 'رقم الهاتف (لإرسال العروض)' : 'Phone Number (to send offers)'}</label>
+                <label className="wizard-label">{isAr ? 'رقم الهاتف (لإرسال العروض) *' : 'Phone Number (to send offers) *'}</label>
                 {/* Phase 3: pre-filled from returning-customer lookup if customer used that step.
                     Customer can still edit freely — this is convenience only, not locked. */}
                 <input required type="tel"
@@ -912,9 +986,19 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
               </div>
             </div>
 
+            {/* Target Location input — required for database request creation */}
+            <div className="wizard-form-group" style={{ marginTop: '16px' }}>
+              <label className="wizard-label">{isAr ? 'المدينة / المنطقة (لتوصيل العروض) *' : 'City / Region (for delivering offers) *'}</label>
+              <input required
+                value={formData.targetLocation}
+                onChange={e => setFormData({ ...formData, targetLocation: e.target.value })}
+                className="wizard-input"
+                placeholder={isAr ? 'مثال: القاهرة، المعادي' : 'e.g. Cairo, Maadi'} />
+            </div>
+
             <div className="wizard-actions wizard-footer-actions">
               <button type="button" onClick={prevStep} disabled={isSubmitting} className="wizard-btn-secondary">{isAr ? 'رجوع' : 'Back'}</button>
-              <button type="submit" disabled={isSubmitting || !formData.customerName || !formData.customerPhone} className="wizard-btn-submit">
+              <button type="submit" disabled={isSubmitting || !formData.customerName || !formData.customerPhone || !formData.targetLocation} className="wizard-btn-submit">
                 {isSubmitting ? (isAr ? 'جاري الإرسال...' : 'Sending...') : (isAr ? 'أرسل الطلب الآن' : 'Submit Request')}
               </button>
             </div>
@@ -1049,26 +1133,29 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
           text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
         }
         .wizard-product-link-row {
-          display: flex; gap: 8px; align-items: stretch;
+          display: flex; gap: 8px; align-items: center;
         }
         .wizard-product-link-input {
           flex: 1; border-radius: 10px; background: rgba(0,0,0,0.4);
-          padding: 10px 14px; color: white; font-size: 13px;
+          padding: 12px 14px; color: white; font-size: 13px;
           border: 1px solid rgba(59,130,246,0.25); outline: none;
           transition: border-color 0.2s ease; box-sizing: border-box;
+          min-width: 200px;
         }
         .wizard-product-link-input:focus {
           border-color: rgba(59,130,246,0.6);
         }
         .wizard-product-link-input::placeholder { color: #475569; }
         button.wizard-product-link-btn {
-          padding: 10px 16px !important; border-radius: 10px !important;
+          padding: 0 16px !important; border-radius: 10px !important;
           background: rgba(59,130,246,0.15) !important;
           border: 1px solid rgba(59,130,246,0.3) !important;
           color: #60a5fa !important; font-weight: 700 !important;
           font-size: 13px !important; cursor: pointer !important;
           transition: all 0.2s ease !important; white-space: nowrap !important;
-          display: flex !important; align-items: center !important; gap: 6px !important;
+          display: flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important;
+          width: 140px !important; height: 43px !important; box-sizing: border-box !important;
+          flex-shrink: 0 !important;
         }
         button.wizard-product-link-btn:hover:not(:disabled) {
           background: rgba(59,130,246,0.25) !important;

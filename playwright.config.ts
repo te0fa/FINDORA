@@ -44,6 +44,9 @@ export default defineConfig({
     {
       name: 'staff-setup',
       testMatch: /staff\.auth\.setup\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
     },
     {
       name: 'staff-authenticated',

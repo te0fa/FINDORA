@@ -81,7 +81,11 @@ function requiresAuth(pathname: string, method: string): boolean {
     cleanPath.startsWith('/api/internal/jobs/research/run') ||
     cleanPath.startsWith('/api/webhooks/') ||
     cleanPath.startsWith('/api/vendors/check-duplicate') ||
-    cleanPath.startsWith('/api/trends')
+    cleanPath.startsWith('/api/trends') ||
+    cleanPath.startsWith('/api/customers/requests/create') ||
+    cleanPath.startsWith('/api/ai/concierge') ||
+    cleanPath.startsWith('/api/requests/history-lookup') ||
+    (cleanPath.startsWith('/api/requests/') && cleanPath.endsWith('/reuse'))
   ) {
     return false
   }
