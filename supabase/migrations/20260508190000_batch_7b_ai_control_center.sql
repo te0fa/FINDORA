@@ -39,6 +39,26 @@ CREATE TABLE IF NOT EXISTS public.ai_copilot_runs (
     created_at timestamptz DEFAULT now()
 );
 
+-- Ensure columns exist if the table was created by a previous migration
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='ai_copilot_runs' AND column_name='agent_code') THEN
+        ALTER TABLE public.ai_copilot_runs 
+            ADD COLUMN agent_code text,
+            ADD COLUMN provider text,
+            ADD COLUMN model text,
+            ADD COLUMN token_estimate integer DEFAULT 0,
+            ADD COLUMN cost_estimate numeric DEFAULT 0;
+            
+        UPDATE public.ai_copilot_runs SET agent_code = COALESCE(copilot_type, 'unknown') WHERE agent_code IS NULL;
+        UPDATE public.ai_copilot_runs SET provider = 'unknown' WHERE provider IS NULL;
+        
+        ALTER TABLE public.ai_copilot_runs 
+            ALTER COLUMN agent_code SET NOT NULL,
+            ALTER COLUMN provider SET NOT NULL;
+    END IF;
+END $$;
+
 -- 3. RLS POLICIES
 ALTER TABLE public.ai_agent_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_copilot_runs ENABLE ROW LEVEL SECURITY;

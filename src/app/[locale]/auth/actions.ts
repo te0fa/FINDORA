@@ -164,7 +164,7 @@ export async function signup(formData: FormData) {
       if (!linked) {
         // Create new customer profile with verified phone
         const customerCode = `CUST-${Math.floor(1000 + Math.random() * 9000)}`
-        await adminClient.from('customers').insert({
+        const { error: insertError } = await adminClient.from('customers').insert({
           auth_user_id: data.user.id,
           full_name: fullName,
           customer_code: customerCode,
@@ -175,19 +175,31 @@ export async function signup(formData: FormData) {
           email: email,
           status: 'active'
         })
+        if (insertError) {
+          console.error('Error inserting customer:', insertError)
+          redirect(`/${locale}/auth/signup?error=${encodeURIComponent(insertError.message)}`)
+        }
       } else {
         // Profile was linked, now mark phone as verified and update missing info
-        await adminClient.from('customers').update({
+        const { error: updateError } = await adminClient.from('customers').update({
           phone_verified_at: new Date().toISOString(),
           full_name: fullName,
           email: email
         }).eq('id', linked.id)
+        if (updateError) {
+          console.error('Error updating customer:', updateError)
+          redirect(`/${locale}/auth/signup?error=${encodeURIComponent(updateError.message)}`)
+        }
       }
       
       // Auto-confirm email to allow immediate login since phone is verified
-      await adminClient.auth.admin.updateUserById(data.user.id, {
+      const { error: confirmError } = await adminClient.auth.admin.updateUserById(data.user.id, {
         email_confirm: true
       })
+      if (confirmError) {
+        console.error('Error auto-confirming email:', confirmError)
+        redirect(`/${locale}/auth/signup?error=${encodeURIComponent(confirmError.message)}`)
+      }
       
     } else {
       await ensureCustomerProfile(data.user.id, fullName, locale)

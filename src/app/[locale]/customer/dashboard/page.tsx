@@ -12,7 +12,7 @@ export default async function CustomerDashboardPage({
   searchParams
 }: {
   params: { locale: string }
-  searchParams: { requestId?: string }
+  searchParams: { requestId?: string; code?: string }
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -63,6 +63,31 @@ export default async function CustomerDashboardPage({
             {isAr ? '+ طلب جديد' : '+ New Request'}
           </Link>
         </div>
+
+        {/* Success / Request Created Banner */}
+        {searchParams.code && (
+          <div className="p-6 rounded-2xl border border-[hsl(152,69%,51%,0.4)] bg-[hsl(152,69%,51%,0.1)] flex gap-4 items-start animate-fade-in" data-testid="dashboard-success-banner">
+            <div className="text-3xl text-[hsl(152,69%,51%)]">🎉</div>
+            <div className="space-y-1">
+              <h4 className="font-bold text-[hsl(152,69%,51%)] text-lg">
+                {isAr ? 'تم تقديم طلبك بنجاح!' : 'Request Submitted Successfully!'}
+              </h4>
+              <p className="text-sm text-white/90">
+                {isAr
+                  ? 'تم إنشاء طلبك بنجاح. يمكنك الآن متابعته أو تعديله من لوحة التحكم هذه.'
+                  : 'Your request was created successfully. You can track or manage it from this dashboard.'}
+              </p>
+              <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-[hsl(152,69%,51%,0.2)]">
+                <span className="text-xs text-[hsl(220,10%,60%)]">
+                  {isAr ? 'كود التتبع لتتبع الطلب لاحقاً:' : 'Tracking code to track request later:'}
+                </span>
+                <span className="px-3 py-1 font-mono text-sm font-bold bg-black/40 text-[hsl(152,69%,51%)] border border-[hsl(152,69%,51%,0.3)] rounded-lg">
+                  {searchParams.code}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Guest Warning */}
         {!user && customerRequests.length > 0 && (

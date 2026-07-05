@@ -81,9 +81,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Database error' }, { status: 500 })
   }
 
-  // 3. If B2B is enabled, generate RFQ and populate requests table
+  // 3. Populate requests table (Dual-Write for tracking and operations)
+  const requestCode = `REQ-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+  let rfqDocument = ''
+
   if (isBusiness) {
-    let rfqDocument = ''
     try {
       const { getAIFeatureStatus, logAIFeatureUsage } = await import('@/lib/dal/ai-control')
       const status = await getAIFeatureStatus('flag_ai_rfq_generation')
@@ -136,47 +138,52 @@ export async function POST(request: Request) {
         })
       } catch {}
     }
+  }
 
-    try {
-      const { createAdminClient } = await import('@/lib/dal/customers')
-      const adminClient = await createAdminClient()
-      const requestCode = `REQ-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-      
-      const { error: reqError } = await adminClient
-        .from('requests')
-        .insert({
-          id: newRequest.id as string, // Keep the same UUID!
-          request_code: requestCode,
-          customer_id: customerId,
-          title: productName,
-          raw_description: notes || '',
-          current_status: 'open',
-          source_channel: 'landing_page',
-          request_kind: 'projects_supplies',
-          is_business: true,
-          business_metadata: {
-            company_name: companyName,
-            cr_number: crNumber,
-            tax_number: taxNumber,
-            quantity: quantity
-          },
-          rfq_document: rfqDocument
-        } as any)
-        
-      if (reqError) {
-        console.error('Failed to create row in requests table for B2B:', reqError)
-      } else {
-        // Auto assign reviewer to request
-        try {
-          const { autoAssignReviewerToRequest } = await import('@/lib/dal/staff')
-          await autoAssignReviewerToRequest(newRequest.id, null)
-        } catch (assignErr: any) {
-          console.warn('Auto-assignment failed for requests:', assignErr.message)
-        }
-      }
-    } catch (err: any) {
-      console.error('Error inserting B2B request:', err.message)
+  try {
+    const { createAdminClient } = await import('@/lib/dal/customers')
+    const adminClient = await createAdminClient()
+    
+    const requestPayload: any = {
+      id: newRequest.id as string, // Keep the same UUID!
+      request_code: requestCode,
+      customer_id: customerId,
+      title: productName,
+      raw_description: notes || '',
+      current_status: 'open',
+      source_channel: 'landing_page',
+      request_kind: category || 'everyday_purchase',
+      is_business: !!isBusiness,
     }
+
+    if (isBusiness) {
+      requestPayload.request_kind = 'projects_supplies'
+      requestPayload.business_metadata = {
+        company_name: companyName,
+        cr_number: crNumber,
+        tax_number: taxNumber,
+        quantity: quantity
+      }
+      requestPayload.rfq_document = rfqDocument
+    }
+
+    const { error: reqError } = await adminClient
+      .from('requests')
+      .insert(requestPayload)
+      
+    if (reqError) {
+      console.error('Failed to create row in requests table:', reqError)
+    } else {
+      // Auto assign reviewer to request
+      try {
+        const { autoAssignReviewerToRequest } = await import('@/lib/dal/staff')
+        await autoAssignReviewerToRequest(newRequest.id, null)
+      } catch (assignErr: any) {
+        console.warn('Auto-assignment failed for requests:', assignErr.message)
+      }
+    }
+  } catch (err: any) {
+    console.error('Error inserting request into requests table:', err.message)
   }
 
   // 4. Trigger the Growth Engine: Demand Expansion (Fire and forget, so we don't block the UI)
@@ -190,6 +197,6 @@ export async function POST(request: Request) {
     )
   }
 
-  return NextResponse.json({ success: true, requestId: newRequest.id })
+  return NextResponse.json({ success: true, requestId: newRequest.id, requestCode })
 }
 

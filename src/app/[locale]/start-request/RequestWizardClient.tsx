@@ -69,6 +69,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
   // ── Wizard State ─────────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false)
+  const [isRestored, setIsRestored] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
 
   // Step starts at STEP_CATEGORY (safe default). Once the history flag finishes
@@ -117,6 +118,8 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
   // ── Load state from sessionStorage on mount ──────────────────────────────────
   useEffect(() => {
+    if (isRestored) return
+
     setMounted(true)
     const supported =
       typeof window !== 'undefined' &&
@@ -125,6 +128,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
     setSpeechSupported(supported)
 
     let restoredStep: number | null = null
+    let savedStepExists = false
     try {
       const savedStep = sessionStorage.getItem('wizard_step')
       const savedFormData = sessionStorage.getItem('wizard_form_data')
@@ -133,6 +137,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
       const savedConciergeText = sessionStorage.getItem('wizard_concierge_text')
 
       if (savedStep !== null) {
+        savedStepExists = true
         restoredStep = Number(savedStep)
         setStep(restoredStep)
       }
@@ -144,16 +149,17 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
       console.warn('Failed to load wizard state from sessionStorage:', e)
     }
 
-    // Only set STEP_RETURNING if we are on the initial default category step and no previous progress was restored
-    if (restoredStep === null && !historyFlag.loading && historyFlag.enabled) {
-      setStep(STEP_RETURNING)
+    if (!historyFlag.loading) {
+      if (!savedStepExists && historyFlag.enabled) {
+        setStep(STEP_RETURNING)
+      }
+      setIsRestored(true)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historyFlag.loading, historyFlag.enabled])
+  }, [historyFlag.loading, historyFlag.enabled, isRestored])
 
   // ── Save state to sessionStorage on change ───────────────────────────────────
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || !isRestored) return
     try {
       sessionStorage.setItem('wizard_step', String(step))
       sessionStorage.setItem('wizard_form_data', JSON.stringify(formData))
@@ -163,7 +169,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
     } catch (e) {
       console.warn('Failed to save wizard state to sessionStorage:', e)
     }
-  }, [step, formData, aiData, lookupPhone, conciergeText, mounted])
+  }, [step, formData, aiData, lookupPhone, conciergeText, mounted, isRestored])
 
   // ── Product Link input ──────────────────────────────────────────────
   const [productLinkUrl, setProductLinkUrl]     = useState('')
@@ -453,7 +459,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
         try {
           sessionStorage.clear()
         } catch {}
-        router.push(`/${locale}/customer/dashboard?requestId=${data.requestId}`)
+        router.push(`/${locale}/customer/dashboard?requestId=${data.requestId}&code=${data.requestCode}`)
       } else {
         alert(data.error || 'Failed to submit request')
         setIsSubmitting(false)
