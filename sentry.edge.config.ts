@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { sanitizeEvent } from "./src/lib/utils/sentry-sanitize";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -8,4 +9,8 @@ Sentry.init({
 
   // Setting this option to true will print useful information to the console when Sentry is initialized.
   debug: false,
+
+  beforeSend(event) {
+    return sanitizeEvent(event);
+  },
 });

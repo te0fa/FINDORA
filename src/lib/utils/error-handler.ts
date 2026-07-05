@@ -161,19 +161,27 @@ export interface ActionResult<T = void> {
 export async function safeAction<T>(
   fn: () => Promise<T>,
   context?: string
-): Promise<ActionResult<T>> {
-  try {
-    const data = await fn()
-    return { success: true, data }
-  } catch (error) {
-    const classified = classifyError(error)
-    errorLogger.error(`Action failed${context ? ` [${context}]` : ''}`, {
-      code: classified.code,
-      message: classified.message,
-    })
-    return { success: false, error: classified.userMessage, code: classified.code }
-  }
-}
+ ): Promise<ActionResult<T>> {
+   try {
+     const data = await fn()
+     return { success: true, data }
+   } catch (error) {
+     const classified = classifyError(error)
+     const logMsg = `Action failed${context ? ` [${context}]` : ''}`
+     const logCtx = {
+       code: classified.code,
+       message: classified.message,
+     }
+
+     if (classified.statusCode >= 500) {
+       errorLogger.error(logMsg, logCtx)
+     } else {
+       errorLogger.warn(logMsg, logCtx)
+     }
+
+     return { success: false, error: classified.userMessage, code: classified.code }
+   }
+ }
 
 // ── Supabase Error Helper ─────────────────────────────────────────────────────
 

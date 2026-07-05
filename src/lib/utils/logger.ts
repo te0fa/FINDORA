@@ -5,6 +5,8 @@
  * In development: full verbose output with color and context.
  */
 
+import * as Sentry from '@sentry/nextjs'
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 type LogContext = Record<string, unknown> | unknown
 
@@ -38,9 +40,36 @@ function formatEntry(entry: LogEntry): string {
 }
 
 function sendToMonitoring(entry: LogEntry): void {
-  // Future: integrate with Sentry or Datadog here
-  // Example: Sentry.captureException(new Error(entry.message), { extra: entry.context })
-  // For now: noop — ready for integration
+  if (entry.level === 'error') {
+    // Determine the error object to capture: if context is an instance of Error, use it,
+    // otherwise wrap message in an Error.
+    const errorObj = entry.context instanceof Error 
+      ? entry.context 
+      : new Error(entry.message);
+
+    // Prepare extra details
+    let extra: Record<string, unknown> = {};
+    if (entry.context && typeof entry.context === 'object') {
+      if (entry.context instanceof Error) {
+        extra = { 
+          errorMessage: entry.context.message,
+          errorStack: entry.context.stack
+        };
+      } else {
+        extra = entry.context as Record<string, unknown>;
+      }
+    } else if (entry.context !== undefined) {
+      extra = { contextDetails: entry.context };
+    }
+
+    Sentry.captureException(errorObj, {
+      extra,
+      tags: {
+        source: entry.source || 'default',
+        logger_name: 'production_logger'
+      }
+    });
+  }
 }
 
 class Logger {
