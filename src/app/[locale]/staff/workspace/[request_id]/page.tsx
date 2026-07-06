@@ -217,6 +217,10 @@ export default async function RequestWorkspacePage({
         }
         .page-sub { color: rgba(255,255,255,0.4); font-size: 1rem; max-width: 800px; line-height: 1.6; font-weight: 500; }
 
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
         .main-grid { display: grid; grid-template-columns: 1fr 400px; gap: 2rem; align-items: start; }
         
         @media (max-width: 1150px) { 
@@ -476,6 +480,104 @@ export default async function RequestWorkspacePage({
         />
 
 
+
+        {/* Interactive Progress Checklist */}
+        <section className="section-card glass-card" style={{ marginBottom: '1.5rem', padding: '1.5rem', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <h2 className="card-title-text" style={{ fontSize: '0.9rem', marginBottom: '1.25rem', color: '#f7d46b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>📋</span>
+            {isRTL ? 'خطوات معالجة هذا الطلب خطوة بخطوة' : 'Step-by-Step Request Sourcing Actions'}
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', position: 'relative' }}>
+            {[
+              {
+                step: 1,
+                title: isRTL ? '1. مراجعة الطلب' : '1. Intake Review',
+                desc: isRTL ? 'اعتماد الطلب وفحص تفاصيل العميل وتصنيفها.' : 'Approve request details, classification, and budget.',
+                active: ['submitted', 'open'].includes(request.current_status),
+                done: !['submitted', 'open'].includes(request.current_status),
+              },
+              {
+                step: 2,
+                title: isRTL ? '2. البحث والتوريد' : '2. Sourcing Research',
+                desc: isRTL ? 'تجميع عروض الأسعار والبدائل المناسبة وإضافتها للمسودة.' : 'Find alternative quotes and add them to shortlist.',
+                active: request.current_status === 'in_progress',
+                done: ['ready_to_release', 'released'].includes(request.current_status),
+              },
+              {
+                step: 3,
+                title: isRTL ? '3. إعداد التقرير' : '3. Report Compilation',
+                desc: isRTL ? 'مراجعة خيارات البدائل المجمعة وصياغة التقرير والتوصية.' : 'Structure candidates and write agent recommendation.',
+                active: request.current_status === 'ready_to_release',
+                done: request.current_status === 'released',
+              },
+              {
+                step: 4,
+                title: isRTL ? '4. التسليم للعميل' : '4. Dispatch Release',
+                desc: isRTL ? 'إرسال رابط التقرير النهائي للعميل لبدء الدفع والاستلام.' : 'Release proposal and notify customer to pay.',
+                active: request.current_status === 'released',
+                done: request.current_status === 'released',
+              }
+            ].map((s) => {
+              const isLocked = !s.done && !s.active
+              return (
+                <div 
+                  key={s.step} 
+                  style={{
+                    background: s.active ? 'rgba(247, 212, 107, 0.05)' : 'rgba(255, 255, 255, 0.01)',
+                    border: `1px solid ${s.active ? 'rgba(247, 212, 107, 0.3)' : s.done ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.04)'}`,
+                    borderRadius: '16px',
+                    padding: '1.25rem',
+                    transition: 'all 0.3s ease',
+                    position: 'relative',
+                    opacity: isLocked ? 0.45 : 1
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    <div style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      background: s.done ? 'rgba(34, 197, 94, 0.15)' : s.active ? '#f7d46b' : 'rgba(255, 255, 255, 0.08)',
+                      color: s.done ? '#4ade80' : s.active ? '#020617' : 'rgba(255, 255, 255, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold',
+                      border: s.done ? '1px solid rgba(34, 197, 94, 0.3)' : 'none',
+                    }}>
+                      {s.done ? '✓' : s.step}
+                    </div>
+                    <strong style={{ fontSize: '0.85rem', color: s.active ? '#f7d46b' : s.done ? '#fff' : 'rgba(255, 255, 255, 0.4)' }}>
+                      {s.title}
+                    </strong>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.72rem', lineHeight: 1.4, color: s.active ? 'rgba(255, 255, 255, 0.85)' : s.done ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.25)' }}>
+                    {s.desc}
+                  </p>
+                  {s.active && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '12px',
+                      insetInlineEnd: '12px',
+                      fontSize: '0.6rem',
+                      fontWeight: 'bold',
+                      background: 'rgba(247, 212, 107, 0.15)',
+                      color: '#f7d46b',
+                      padding: '2px 6px',
+                      borderRadius: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      animation: 'pulse 2s infinite'
+                    }}>
+                      {isRTL ? 'جاري الآن' : 'Active'}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
 
         <div className="main-grid">
           <div className="stack" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>

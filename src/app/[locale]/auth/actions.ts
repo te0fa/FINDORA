@@ -17,7 +17,7 @@ export async function login(formData: FormData) {
   const referer = (await headers()).get('referer') || ''
   const locale = getLocaleFromReferer(referer)
 
-  const email = formData.get('email') as string
+  const identifier = formData.get('email') as string
   const password = formData.get('password') as string
   const nextPath = formData.get('next') as string
 
@@ -26,6 +26,20 @@ export async function login(formData: FormData) {
       return nextPath
     }
     return defaultPath
+  }
+
+  let email = identifier
+  const phoneObj = normalizePhone(identifier)
+  if (phoneObj) {
+    const adminClient = await createAdminClient()
+    const { data: customer } = await adminClient
+      .from('customers')
+      .select('email')
+      .eq('phone_number_normalized', phoneObj.normalized)
+      .maybeSingle()
+    if (customer?.email) {
+      email = customer.email
+    }
   }
 
   // 1. Sign In
@@ -224,4 +238,69 @@ export async function signOut() {
 
   await supabase.auth.signOut()
   redirect(`/${locale}/auth/login`)
+}
+
+export async function requestPasswordReset(formData: FormData) {
+  const supabase = await createClient()
+  const referer = (await headers()).get('referer') || ''
+  const locale = getLocaleFromReferer(referer)
+  const origin = (await headers()).get('origin') || 'http://localhost:3000'
+
+  const identifier = formData.get('identifier') as string
+  if (!identifier) {
+    redirect(`/${locale}/auth/forgot-password?error=${encodeURIComponent(locale === 'ar' ? 'الرجاء إدخال البريد أو الهاتف' : 'Please enter your email or phone')}`)
+  }
+
+  let email = identifier
+  const phoneObj = normalizePhone(identifier)
+  if (phoneObj) {
+    const adminClient = await createAdminClient()
+    const { data: customer } = await adminClient
+      .from('customers')
+      .select('email')
+      .eq('phone_number_normalized', phoneObj.normalized)
+      .maybeSingle()
+    
+    if (customer?.email) {
+      email = customer.email
+    } else {
+      // Prevent user enumeration: redirect with success message anyway
+      redirect(`/${locale}/auth/forgot-password?message=reset_sent`)
+    }
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/${locale}/auth/update-password`,
+  })
+
+  if (error) {
+    redirect(`/${locale}/auth/forgot-password?error=${encodeURIComponent(error.message)}`)
+  }
+
+  redirect(`/${locale}/auth/forgot-password?message=reset_sent`)
+}
+
+export async function updatePassword(formData: FormData) {
+  const supabase = await createClient()
+  const referer = (await headers()).get('referer') || ''
+  const locale = getLocaleFromReferer(referer)
+
+  const password = formData.get('password') as string
+  const confirmPassword = formData.get('confirmPassword') as string
+
+  if (!password || password.length < 6) {
+    redirect(`/${locale}/auth/update-password?error=${encodeURIComponent(locale === 'ar' ? 'يجب أن تكون كلمة المرور 6 أحرف على الأقل' : 'Password must be at least 6 characters')}`)
+  }
+
+  if (password !== confirmPassword) {
+    redirect(`/${locale}/auth/update-password?error=${encodeURIComponent(locale === 'ar' ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match')}`)
+  }
+
+  const { error } = await supabase.auth.updateUser({ password })
+
+  if (error) {
+    redirect(`/${locale}/auth/update-password?error=${encodeURIComponent(error.message)}`)
+  }
+
+  redirect(`/${locale}/auth/login?message=${encodeURIComponent(locale === 'ar' ? 'تم تحديث كلمة المرور بنجاح، يمكنك تسجيل الدخول الآن' : 'Password updated successfully. You can login now')}`)
 }

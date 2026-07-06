@@ -51,13 +51,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 })
   }
 
-  const normalizedPhone = normalizePhoneForLookup(body.phone ?? '')
+  const rawInputPhone = (body.phone ?? '').trim()
+  const normalizedPhone = normalizePhoneForLookup(rawInputPhone)
   if (!normalizedPhone) {
     return NextResponse.json(
       { error: 'INVALID_PHONE', messageAr: 'رقم الهاتف غير صحيح' },
       { status: 400 }
     )
   }
+
+  // Generate format-agnostic phone variations to query database (raw, local, normalized)
+  let localDigits = rawInputPhone
+  if (localDigits.startsWith('+20')) localDigits = localDigits.substring(3)
+  else if (localDigits.startsWith('+2')) localDigits = localDigits.substring(2)
+  if (localDigits.startsWith('0')) localDigits = localDigits.substring(1)
+
+  const phoneFormats = Array.from(new Set([
+    rawInputPhone,
+    normalizedPhone,
+    `0${localDigits}`,
+    `+20${localDigits}`,
+    localDigits
+  ])).filter(Boolean)
 
   // ── 5. Read config from DB (set in migration, adjustable from dashboard) ─
   const config = await getFeatureConfig('request_history_lookup')
@@ -72,7 +87,7 @@ export async function POST(request: Request) {
   const { data, error } = await (admin as any)
     .from('customer_requests')
     .select('id, product_name, category, status, created_at')
-    .eq('customer_phone', normalizedPhone)
+    .in('customer_phone', phoneFormats)
     .gte('created_at', new Date(Date.now() - lookbackDays * 86_400_000).toISOString())
     .order('created_at', { ascending: false })
     .limit(maxResults)

@@ -1256,11 +1256,11 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
               </div>
 
               {formData.subcategory && (
-                <div className="flex justify-center mt-6">
+                <div style={{ display: 'block', width: '100%', marginTop: '32px', textAlign: 'center' }}>
                   <button
                     type="button"
                     onClick={() => setStep(STEP_DETAILS)}
-                    className="wizard-btn-primary px-8 py-3"
+                    className="wizard-btn-primary"
                     data-testid="wizard-continue-details"
                   >
                     {isAr ? 'متابعة تفاصيل المنتج ←' : 'Continue to Product Details ←'}
@@ -1704,6 +1704,13 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
           overflow: hidden;
           font-family: inherit;
         }
+        button.wizard-btn-primary,
+        button.wizard-btn-secondary,
+        button.wizard-btn-submit,
+        button.wizard-category-btn,
+        button.wizard-subcategory-btn {
+          transition: background-color 0.1s ease, border-color 0.1s ease, opacity 0.1s ease !important;
+        }
         .wizard-glow-top {
           position: absolute; top: 0; right: 0; width: 256px; height: 256px;
           background: hsl(258, 89%, 66%); opacity: 0.2; filter: blur(100px);
@@ -1933,8 +1940,8 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
           background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%) !important; 
           border-color: rgba(255,255,255,0.15) !important;
           color: white !important;
-          transform: translateY(-4px) !important;
-          box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(139, 92, 246, 0.05) !important;
+          transform: none !important;
+          box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(139, 92, 246, 0.1) !important;
         }
         button.wizard-category-btn.is-selected {
           background: linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(99,102,241,0.05) 100%) !important; 
@@ -1994,7 +2001,8 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
           background: rgba(255,255,255,0.06) !important; 
           border-color: rgba(255,255,255,0.1) !important;
           color: white !important;
-          transform: scale(1.02);
+          transform: none !important;
+          box-shadow: 0 4px 12px rgba(255,255,255,0.02) !important;
         }
         button.wizard-subcategory-btn.is-selected {
           background: linear-gradient(135deg, rgba(139,92,246,0.2) 0%, rgba(99,102,241,0.1) 100%) !important; 
@@ -2125,11 +2133,11 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
         }
         button.wizard-btn-primary:hover:not(:disabled) {
           background: linear-gradient(135deg, hsl(258, 89%, 71%) 0%, hsl(243, 75%, 64%) 100%) !important; 
-          transform: translateY(-2px) !important;
+          transform: none !important;
           box-shadow: 0 8px 25px rgba(139,92,246,0.5) !important;
         }
         button.wizard-btn-primary:active:not(:disabled) {
-          transform: translateY(0) !important;
+          transform: none !important;
         }
         button.wizard-btn-primary:disabled { opacity: 0.4 !important; cursor: not-allowed !important; box-shadow: none !important; transform: none !important; }
         
@@ -2150,7 +2158,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
         button.wizard-btn-secondary:hover:not(:disabled) {
           background: rgba(255,255,255,0.08) !important; 
           border-color: rgba(255,255,255,0.15) !important;
-          transform: translateY(-2px) !important;
+          transform: none !important;
         }
         button.wizard-btn-secondary:disabled { opacity: 0.4 !important; cursor: not-allowed !important; transform: none !important; }
         
@@ -2172,11 +2180,11 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
         }
         button.wizard-btn-submit:hover:not(:disabled) {
           background: linear-gradient(135deg, hsl(152, 69%, 51%) 0%, hsl(162, 79%, 45%) 100%) !important; 
-          transform: translateY(-2px) !important;
+          transform: none !important;
           box-shadow: 0 8px 25px rgba(16,185,129,0.5) !important;
         }
         button.wizard-btn-submit:active:not(:disabled) {
-          transform: translateY(0) !important;
+          transform: none !important;
         }
         button.wizard-btn-submit:disabled { opacity: 0.4 !important; cursor: not-allowed !important; box-shadow: none !important; transform: none !important; }
 

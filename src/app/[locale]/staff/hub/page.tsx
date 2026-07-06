@@ -2,7 +2,7 @@ import React from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { getAdminGlobalStats } from '@/lib/dal/staff'
+import { getAdminGlobalStats, getStaffMemberByAuthUserId, getStaffUiPermissions } from '@/lib/dal/staff'
 import { getFinancialSummary } from '@/lib/dal/finance'
 import { getAIAgentConfigsAdmin } from '@/lib/dal/ai-control'
 import { getAllEconomyConfigs } from '@/lib/contributors/config'
@@ -37,6 +37,9 @@ interface HubSection {
   gradient: string
   borderColor: string
   links: HubLink[]
+  mainHref: string
+  tooltipEn: string
+  tooltipAr: string
 }
 
 // ─────────────────────────────────────────────────────────
@@ -53,6 +56,9 @@ const PLATFORM_SECTIONS: HubSection[] = [
     icon: '⚡',
     gradient: 'linear-gradient(135deg, hsl(220,89%,66%), hsl(258,89%,66%))',
     borderColor: 'rgba(99,102,241,0.4)',
+    mainHref: '/staff/dashboard',
+    tooltipEn: 'Core operations pipeline. Manage incoming customer requests, assign staff, review search plan progress, and release completed results.',
+    tooltipAr: 'لوحة معالجة الطلبات الأساسية. متابعة الطلبات الواردة، تعيين الموظفين، مراجعة خطط البحث، وتسليم النتائج النهائية.',
     links: [
       { labelEn: 'Executive Dashboard', labelAr: 'لوحة القياس التنفيذية', href: '/staff/dashboard' },
       { labelEn: 'Intake Queue (New Requests)', labelAr: 'طابور الطلبات الجديدة', href: '/staff/queue', badge: 'LIVE', badgeColor: '#22c55e' },
@@ -69,6 +75,9 @@ const PLATFORM_SECTIONS: HubSection[] = [
     icon: '💰',
     gradient: 'linear-gradient(135deg, hsl(43,96%,56%), hsl(25,95%,55%))',
     borderColor: 'rgba(234,179,8,0.4)',
+    mainHref: '/staff/finance/transactions',
+    tooltipEn: 'Financial ledger and gateways. Access ERP transactions, verify online payments, inspect gateway logs, and audit revenue splits.',
+    tooltipAr: 'الخزانة المالية والمدفوعات. استعراض حركات الخزينة وسجل المعاملات اليومية، سجلات بوابة الدفع، والتسعير الذكي.',
     links: [
       { labelEn: 'Transactions ERP Ledger', labelAr: 'دفتر الأستاذ - حركات الخزينة', href: '/staff/finance/transactions' },
       { labelEn: 'Payment Gateway Logs', labelAr: 'سجلات بوابات الدفع', href: '/staff/payments' },
@@ -85,6 +94,9 @@ const PLATFORM_SECTIONS: HubSection[] = [
     icon: '🌍',
     gradient: 'linear-gradient(135deg, hsl(152,69%,51%), hsl(175,69%,45%))',
     borderColor: 'rgba(34,197,94,0.4)',
+    mainHref: '/staff/contributors',
+    tooltipEn: 'Scout and contributor network. View scouts profiles, check rewards wallets, audit data submissions, and adjust gamification config.',
+    tooltipAr: 'إدارة شبكة المناديب والمساهمين. تتبع ملفات مسؤولي الميدان، إدارة المحافظ والأرباح، مراجعة جودة البيانات، وإعدادات الجيميفيكيشن.',
     links: [
       { labelEn: 'Scouts Database', labelAr: 'قاعدة بيانات المناديب', href: '/staff/contributors' },
       { labelEn: 'Wallets & Rewards Management', labelAr: 'إدارة المحافظ والأرباح', href: '/staff/contributors/wallets' },
@@ -104,6 +116,9 @@ const PLATFORM_SECTIONS: HubSection[] = [
     icon: '🏪',
     gradient: 'linear-gradient(135deg, hsl(280,89%,66%), hsl(320,89%,60%))',
     borderColor: 'rgba(168,85,247,0.4)',
+    mainHref: '/staff/marketplace',
+    tooltipEn: 'Merchant listings and offers hub. Manage product listings catalog, register new business vendors, and configure active promotional deals.',
+    tooltipAr: 'إدارة السوق وعروض التجار. تصفح وتعديل العروض المنشورة، تسجيل الموردين الجدد، وإدارة كتالوج السلع والخدمات.',
     links: [
       { labelEn: 'Marketplace Dashboard', labelAr: 'لوحة تحكم السوق الجديدة', href: '/staff/marketplace', badge: 'NEW', badgeColor: '#ec4899' },
       { labelEn: 'Vendors Hub (Legacy)', labelAr: 'مركز الموردين', href: '/staff/vendors' },
@@ -120,6 +135,9 @@ const PLATFORM_SECTIONS: HubSection[] = [
     icon: '🧠',
     gradient: 'linear-gradient(135deg, hsl(258,89%,66%), hsl(290,89%,60%))',
     borderColor: 'rgba(139,92,246,0.4)',
+    mainHref: '/staff/intelligence',
+    tooltipEn: 'AI engine settings. Edit global prompts, control automated agents, monitor CRM indicators, and investigate system risks.',
+    tooltipAr: 'مركز التحكم بالذكاء الاصطناعي. تعديل موجهات النظام، تشغيل وإطفاء الوكلاء الآليين، ومراقبة مؤشرات الأداء والنمو.',
     links: [
       { labelEn: 'Intelligence Overview', labelAr: 'نظرة عامة على الذكاء', href: '/staff/intelligence' },
       { labelEn: 'AI Settings & Prompts', labelAr: 'إعدادات الذكاء الاصطناعي', href: '/staff/intelligence/ai' },
@@ -140,6 +158,9 @@ const PLATFORM_SECTIONS: HubSection[] = [
     icon: '📢',
     gradient: 'linear-gradient(135deg, hsl(0,84%,60%), hsl(30,84%,55%))',
     borderColor: 'rgba(239,68,68,0.4)',
+    mainHref: '/staff/marketing/pricing',
+    tooltipEn: 'Marketing configuration. Customize subscription pricing plans, edit news blog announcements, and manage landing page text updates.',
+    tooltipAr: 'التسويق والمبيعات. إعداد باقات الاشتراك، نشر الأخبار والإعلانات العامة، وتعديل إعدادات التحقق وقنوات الإعلانات.',
     links: [
       { labelEn: 'Pricing Plans (Dynamic)', labelAr: 'خطط الأسعار الذكية', href: '/staff/marketing/pricing' },
       { labelEn: 'News & Announcements', labelAr: 'الأخبار والإعلانات', href: '/staff/marketing/news' },
@@ -156,6 +177,9 @@ const PLATFORM_SECTIONS: HubSection[] = [
     icon: '👥',
     gradient: 'linear-gradient(135deg, hsl(200,80%,55%), hsl(220,89%,60%))',
     borderColor: 'rgba(14,165,233,0.4)',
+    mainHref: '/staff/users',
+    tooltipEn: 'Access control settings. Manage staff user profiles, allocate roles, and audit system operations permissions.',
+    tooltipAr: 'إدارة الهويات والصلاحيات. إضافة وتعديل حسابات الموظفين والمديرين، وتوزيع الأدوار والصلاحيات على المنصة.',
     links: [
       { labelEn: 'Staff Members', labelAr: 'إدارة الموظفين', href: '/staff/users' },
     ]
@@ -169,6 +193,9 @@ const PLATFORM_SECTIONS: HubSection[] = [
     icon: '⚙️',
     gradient: 'linear-gradient(135deg, hsl(220,15%,40%), hsl(220,15%,55%))',
     borderColor: 'rgba(100,116,139,0.4)',
+    mainHref: '/staff/settings/specializations',
+    tooltipEn: 'System configuration settings. Edit core category specializations database, configure online payment gateways credentials.',
+    tooltipAr: 'الإعدادات العامة للنظام. إدارة تخصصات البحث النشطة بالمنصة، وإدخال مفاتيح الربط لبوابات الدفع الإلكتروني.',
     links: [
       { labelEn: 'Payment Gateway Config', labelAr: 'إعدادات بوابات الدفع', href: '/staff/settings/payments' },
       { labelEn: 'Specializations & Skills', labelAr: 'التخصصات والمهن', href: '/staff/settings/specializations' },
@@ -183,6 +210,9 @@ const PLATFORM_SECTIONS: HubSection[] = [
     icon: '🌐',
     gradient: 'linear-gradient(135deg, hsl(170,70%,45%), hsl(195,70%,45%))',
     borderColor: 'rgba(20,184,166,0.4)',
+    mainHref: '/',
+    tooltipEn: 'Sitemap for public customer pages. View landing request wizard, public deals listings, tracking widget, and checkout simulator.',
+    tooltipAr: 'روابط واجهات العملاء العامة. للوصول المباشر لصفحات العملاء العامة، معالج بدء الطلبات، ومحاكاة عمليات الدفع.',
     links: [
       { labelEn: 'Homepage (Landing)', labelAr: 'الصفحة الرئيسية', href: '/' },
       { labelEn: 'Deals Hub (Public)', labelAr: 'سوق العروض (للعملاء)', href: '/deals' },
@@ -231,6 +261,12 @@ export default async function StaffHubPage({
     redirect(`/${locale}/auth/login`)
   }
 
+  const staffMember = await getStaffMemberByAuthUserId(user.id)
+  if (!staffMember || !staffMember.is_active) {
+    redirect(`/${locale}/auth/login`)
+  }
+  const permissions = getStaffUiPermissions(staffMember)
+
   // Live stats
   let stats: any = null
   let finance: any = null
@@ -268,50 +304,160 @@ export default async function StaffHubPage({
       value: stats?.totalRequests ?? '—',
       icon: '📋',
       color: '#6366f1',
+      href: `/${locale}/staff/dashboard`,
+      desc: isRTL 
+        ? 'إجمالي الطلبات المسجلة بالنظام من البداية شاملة جميع الحالات والأنواع.' 
+        : 'Total requests registered in the system from the beginning, including all statuses and types.',
     },
     {
       label: isRTL ? 'قيد التشغيل' : 'In Operations',
       value: stats?.inOperations ?? '—',
       icon: '⚡',
       color: '#22c55e',
+      href: `/${locale}/staff/dashboard`,
+      desc: isRTL 
+        ? 'الطلبات النشطة التي يتم معالجتها حالياً من قبل الموظفين أو الذكاء الاصطناعي.' 
+        : 'Active requests currently being processed by staff or AI.',
     },
     {
       label: isRTL ? 'إجمالي الدخل' : 'Total Income',
       value: finance?.income ? `${Number(finance.income).toLocaleString()} EGP` : '—',
       icon: '💰',
       color: '#eab308',
+      href: `/${locale}/staff/finance/transactions`,
+      desc: isRTL 
+        ? 'إجمالي المبالغ والمدفوعات التي تم تحصيلها عبر البوابات المختلفة.' 
+        : 'Total payments and revenue collected across different gateways.',
     },
     {
       label: isRTL ? 'صافي الربح' : 'Net Profit',
       value: finance?.profit ? `${Number(finance.profit).toLocaleString()} EGP` : '—',
       icon: '📈',
       color: '#14b8a6',
+      href: `/${locale}/staff/finance/transactions`,
+      desc: isRTL 
+        ? 'صافي أرباح المنصة بعد خصم مستحقات الشركاء والمصاريف التشغيلية.' 
+        : 'Net platform profits after deducting partner shares and operating expenses.',
     },
     {
       label: isRTL ? 'في انتظار المراجعة' : 'Pending Intake',
       value: stats?.pendingIntake ?? '—',
       icon: '⏳',
       color: '#f59e0b',
+      href: `/${locale}/staff/queue`,
+      desc: isRTL 
+        ? 'الطلبات الجديدة المرفوعة من العملاء والتي تنتظر الفحص الأولي والتوزيع.' 
+        : 'New requests submitted by customers awaiting initial screening and assignment.',
     },
     {
       label: isRTL ? 'اختراق SLA' : 'SLA Breached',
       value: stats?.slaBreached ?? '—',
       icon: '🚨',
       color: '#ef4444',
+      href: `/${locale}/staff/dashboard`,
+      desc: isRTL 
+        ? 'الطلبات التي تجاوزت الحد الزمني المسموح لمعالجتها وتتطلب تدخل فوري.' 
+        : 'Requests that exceeded the allowed processing time limit and require immediate action.',
     },
     {
       label: isRTL ? 'مكتملة' : 'Completed',
       value: stats?.completedCount ?? '—',
       icon: '✅',
       color: '#a855f7',
+      href: `/${locale}/staff/archive`,
+      desc: isRTL 
+        ? 'الطلبات التي تم توريدها أو توفير البدائل المناسبة لها بنجاح للعميل.' 
+        : 'Requests that have been successfully fulfilled or resolved for the customer.',
     },
     {
       label: isRTL ? 'مؤرشفة' : 'Archived',
       value: stats?.archivedCount ?? '—',
       icon: '📦',
       color: '#64748b',
+      href: `/${locale}/staff/archive`,
+      desc: isRTL 
+        ? 'الطلبات الملغاة أو التي تم أرشفتها لأسباب إدارية أو عدم جدية العميل.' 
+        : 'Cancelled or archived requests due to administrative reasons or customer inactivity.',
     },
   ]
+
+  const allowedKpis = kpis.filter(k => {
+    if (k.label === 'إجمالي الدخل' || k.label === 'صافي الربح' || k.label === 'Total Income' || k.label === 'Net Profit') {
+      return permissions?.isAdmin || permissions?.canManageFinancials;
+    }
+    return permissions?.isAdmin || permissions?.canReviewIntake || permissions?.canResearch || permissions?.canReport;
+  });
+
+  // ── STAFF WORKFLOW GUIDES ──
+  const guides = []
+  if (permissions?.isAdmin) {
+    guides.push({
+      role: isRTL ? 'مدير المنصة (Administrator)' : 'Platform Administrator',
+      icon: '🛡️',
+      steps: isRTL ? [
+        'راقب أداء المنصة المالي والتشغيلي من مؤشرات الأداء الحية.',
+        'راجع قسم الذكاء الاصطناعي لتعديل الموجهات وضبط معدلات استهلاك الميزات.',
+        'أشرف على حسابات وصلاحيات الموظفين، وقم باعتماد الحسابات الجديدة للتجار.',
+        'افحص المعاملات المالية المكتملة وعمولات السوق للشركاء.'
+      ] : [
+        'Monitor overall financial and operational health via Live KPIs.',
+        'Access AI Control to fine-tune prompts and adjust daily limit configs.',
+        'Supervise staff accounts, roles, and approve new vendor requests.',
+        'Verify transaction ledgers and manage partner commission policies.'
+      ]
+    })
+  }
+  if (permissions?.isIntakeReviewer) {
+    guides.push({
+      role: isRTL ? 'مراجع الطلبات الواردة (Intake Reviewer)' : 'Intake Reviewer',
+      icon: '⏳',
+      steps: isRTL ? [
+        'افتح "طابور الطلبات الجديدة" لمشاهدة الطلبات المرفوعة من العملاء.',
+        'راجع تفاصيل الطلب وتأكد من أن الميزانية والمنطقة المفضلة واضحة ومحددة.',
+        'افحص تصنيف المنتج والفئة والبيانات المقترحة تلقائياً بالذكاء الاصطناعي.',
+        'قم بالموافقة على الطلب ليتم إرساله للبحث، أو اطلب تعديلاً إذا كانت التفاصيل غير كافية.'
+      ] : [
+        'Open the "Intake Queue" to view newly submitted customer requests.',
+        'Review request description and ensure preferred budget and governorate are set.',
+        'Verify AI auto-classifications, product category fields, and custom specs.',
+        'Approve request to launch sourcing research, or request details clarification.'
+      ]
+    })
+  }
+  if (permissions?.isSourcingResearcher) {
+    guides.push({
+      role: isRTL ? 'باحث التوريد (Sourcing Researcher)' : 'Sourcing Researcher',
+      icon: '🔍',
+      steps: isRTL ? [
+        'افتح "مساحات العمل النشطة" وقم باستلام مهمة بحث معلقة.',
+        'ابحث عن البدائل والمنتجات المطلوبة في الأسواق الإلكترونية والموردين المحليين.',
+        'قم بإضافة الخيارات والأسعار الدقيقة وتاريخ التسليم والضمان إلى مسودة العروض في مساحة العمل.',
+        'بمجرد توفير خيارين أو ثلاثة مناسبين، قم بتقديم المسودة ليقوم المراجع بفحصها.'
+      ] : [
+        'Access "Active Workspaces" to claim a pending sourcing request assignment.',
+        'Search online websites or contact local suppliers to find the requested product.',
+        'Enter quotes (price, specs, warranty, delivery time) into the workspace draft list.',
+        'Provide 2-3 suitable alternatives and submit the draft shortlist for final review.'
+      ]
+    })
+  }
+  if (permissions?.isReportBuilder) {
+    guides.push({
+      role: isRTL ? 'منسق العروض والتقارير (Report Builder)' : 'Report Builder',
+      icon: '📄',
+      steps: isRTL ? [
+        'ادخل على مساحات العمل التي انتهى الباحثون من توفير عروضها.',
+        'قارن بين الأسعار والمواصفات المعروضة، واصنع التوليفة والتوصية النهائية للعميل.',
+        'اكتب التقرير النهائي بالذكاء الاصطناعي أو راجع الاقتراحات المكتوبة للتوصية بالبديل الأفضل.',
+        'اضغط على "إرسال التقرير للعميل" لرفع النتائج على هاتف بريد العميل وبدء الدفع.'
+      ] : [
+        'Open workspaces where researchers have submitted shortlisted candidates.',
+        'Compare the options and compile the final recommended proposal structure.',
+        'Generate or review the AI synthesis report, highlighting the best choice details.',
+        'Click "Release to Customer" to dispatch the final proposal link to the customer.'
+      ]
+    })
+  }
 
   return (
     <div className="hub-root" dir={isRTL ? 'rtl' : 'ltr'}>
@@ -424,6 +570,72 @@ export default async function StaffHubPage({
           transform: translateY(-3px);
           border-color: rgba(255,255,255,0.15);
         }
+        .kpi-tile-link {
+          text-decoration: none;
+          color: inherit;
+          display: block;
+        }
+        .kpi-info-container {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          z-index: 10;
+        }
+        [dir="rtl"] .kpi-info-container {
+          left: 10px;
+          right: auto;
+        }
+        .kpi-info-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.08);
+          color: rgba(255, 255, 255, 0.45);
+          font-size: 10px;
+          font-weight: 800;
+          font-family: serif;
+          cursor: help;
+          transition: all 0.2s;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .kpi-info-icon:hover {
+          background: rgba(255, 255, 255, 0.25);
+          color: #fff;
+          border-color: rgba(255, 255, 255, 0.4);
+        }
+        .kpi-tooltip {
+          visibility: hidden;
+          width: 220px;
+          background: #0f172a;
+          color: #fff;
+          text-align: start;
+          border-radius: 12px;
+          padding: 10px 14px;
+          position: absolute;
+          z-index: 100;
+          bottom: 130%;
+          left: 50%;
+          transform: translateX(-50%);
+          opacity: 0;
+          transition: opacity 0.2s, visibility 0.2s;
+          font-size: 0.72rem;
+          line-height: 1.45;
+          font-weight: 500;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+          pointer-events: none;
+          white-space: normal;
+        }
+        [dir="rtl"] .kpi-tooltip {
+          text-align: right;
+        }
+        .kpi-info-icon:hover .kpi-tooltip {
+          visibility: visible;
+          opacity: 1;
+        }
         .kpi-tile::after {
           content: '';
           position: absolute;
@@ -491,6 +703,75 @@ export default async function StaffHubPage({
         .hub-card:hover {
           transform: translateY(-4px);
           box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .hc-top-link {
+          text-decoration: none;
+          color: inherit;
+          display: block;
+        }
+        .hc-top-link:hover .hc-top {
+          background: rgba(255, 255, 255, 0.04) !important;
+        }
+        .card-info-container {
+          position: absolute;
+          top: 14px;
+          right: 14px;
+          z-index: 10;
+        }
+        [dir="rtl"] .card-info-container {
+          left: 14px;
+          right: auto;
+        }
+        .card-info-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.08);
+          color: rgba(255, 255, 255, 0.45);
+          font-size: 11px;
+          font-weight: 800;
+          font-family: serif;
+          cursor: help;
+          transition: all 0.2s;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .card-info-icon:hover {
+          background: rgba(255, 255, 255, 0.25);
+          color: #fff;
+          border-color: rgba(255, 255, 255, 0.4);
+        }
+        .card-tooltip {
+          visibility: hidden;
+          width: 250px;
+          background: #0f172a;
+          color: #fff;
+          text-align: start;
+          border-radius: 12px;
+          padding: 10px 14px;
+          position: absolute;
+          z-index: 100;
+          bottom: 130%;
+          left: 50%;
+          transform: translateX(-50%);
+          opacity: 0;
+          transition: opacity 0.2s, visibility 0.2s;
+          font-size: 0.75rem;
+          line-height: 1.45;
+          font-weight: 500;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+          pointer-events: none;
+          white-space: normal;
+        }
+        [dir="rtl"] .card-tooltip {
+          text-align: right;
+        }
+        .card-info-icon:hover .card-tooltip {
+          visibility: visible;
+          opacity: 1;
         }
         .hc-top {
           padding: 20px 24px 16px;
@@ -728,87 +1009,241 @@ export default async function StaffHubPage({
         </div>
       )}
 
+      {/* ── STAFF WORKFLOW GUIDES ── */}
+      {guides.length > 0 && (
+        <div className="workflow-guides-container" style={{ marginBottom: '2.5rem' }}>
+          <div className="section-heading">{isRTL ? '📋 دليل خطوات العمل اليومية المخصص لك' : '📋 Your Assigned Daily Workflow Guide'}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem', marginTop: '1rem' }}>
+            {guides.map((g, idx) => (
+              <div key={idx} className="guide-card" style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '20px',
+                padding: '1.25rem',
+                position: 'relative'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.875rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>{g.icon}</span>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f7d46b', margin: 0 }}>{g.role}</h3>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {g.steps.map((step, sIdx) => (
+                    <div key={sIdx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '0.78rem', lineHeight: 1.45, color: 'rgba(255,255,255,0.7)' }}>
+                      <span style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '50%',
+                        background: 'rgba(247, 212, 107, 0.1)',
+                        color: '#f7d46b',
+                        fontSize: '9px',
+                        fontWeight: 'bold',
+                        flexShrink: 0,
+                        marginTop: '2px'
+                      }}>
+                        {sIdx + 1}
+                      </span>
+                      <span>{step}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── QUICK ACTIONS ── */}
-      <div className="section-heading">{isRTL ? '🔥 إجراءات سريعة' : '🔥 Quick Actions'}</div>
-      <div className="quick-actions">
-        <Link href={`/${locale}/staff/queue`} className="qa-btn qa-primary">⚡ {isRTL ? 'طابور الطلبات' : 'Intake Queue'}</Link>
-        <Link href={`/${locale}/staff/contributors/submissions`} className="qa-btn qa-green">✅ {isRTL ? 'مراجعة التقديمات' : 'Review Submissions'}</Link>
-        <Link href={`/${locale}/staff/intelligence/risk`} className="qa-btn qa-red">🚨 {isRTL ? 'كشف الاحتيال' : 'Fraud Detection'}</Link>
-        <Link href={`/${locale}/staff/marketplace`} className="qa-btn qa-gold">🏪 {isRTL ? 'إضافة عرض جديد' : 'Publish Deal'}</Link>
-        <Link href={`/${locale}/staff/contributors/wallets`} className="qa-btn qa-blue">💳 {isRTL ? 'إدارة المحافظ' : 'Wallet Management'}</Link>
-        <Link href={`/${locale}/staff/intelligence/economy-config`} className="qa-btn qa-gold">⚙️ {isRTL ? 'إعدادات الاقتصاد' : 'Economy Config'}</Link>
-        <Link href={`/${locale}/staff/vendors/new`} className="qa-btn qa-green">➕ {isRTL ? 'تسجيل مورد' : 'New Vendor'}</Link>
-        <Link href={`/${locale}/staff/finance/transactions`} className="qa-btn qa-blue">📊 {isRTL ? 'سجل المعاملات' : 'Transactions'}</Link>
-      </div>
+      {(() => {
+        const allowedActions = [
+          { href: `/${locale}/staff/queue`, label: isRTL ? 'طابور الطلبات' : 'Intake Queue', cls: 'qa-primary', icon: '⚡', visible: permissions?.isAdmin || permissions?.canReviewIntake },
+          { href: `/${locale}/staff/contributors/submissions`, label: isRTL ? 'مراجعة التقديمات' : 'Review Submissions', cls: 'qa-green', icon: '✅', visible: permissions?.isAdmin || permissions?.isQualityReviewer },
+          { href: `/${locale}/staff/intelligence/risk`, label: isRTL ? 'كشف الاحتيال' : 'Fraud Detection', cls: 'qa-red', icon: '🚨', visible: permissions?.isAdmin || permissions?.canViewIntelligence },
+          { href: `/${locale}/staff/marketplace`, label: isRTL ? 'إضافة عرض جديد' : 'Publish Deal', cls: 'qa-gold', icon: '🏪', visible: permissions?.isAdmin || permissions?.canManageDeals },
+          { href: `/${locale}/staff/contributors/wallets`, label: isRTL ? 'إدارة المحافظ' : 'Wallet Management', cls: 'qa-blue', icon: '💳', visible: permissions?.isAdmin || permissions?.canManageFinancials },
+          { href: `/${locale}/staff/intelligence/economy-config`, label: isRTL ? 'إعدادات الاقتصاد' : 'Economy Config', cls: 'qa-gold', icon: '⚙️', visible: permissions?.isAdmin || permissions?.canManageAI },
+          { href: `/${locale}/staff/vendors/new`, label: isRTL ? 'تسجيل مورد' : 'New Vendor', cls: 'qa-green', icon: '➕', visible: permissions?.isAdmin || permissions?.canManageVendors },
+          { href: `/${locale}/staff/finance/transactions`, label: isRTL ? 'سجل المعاملات' : 'Transactions', cls: 'qa-blue', icon: '📊', visible: permissions?.isAdmin || permissions?.canManageFinancials }
+        ].filter(a => a.visible);
+
+        if (allowedActions.length === 0) return null;
+
+        return (
+          <>
+            <div className="section-heading">{isRTL ? '🔥 إجراءات سريعة' : '🔥 Quick Actions'}</div>
+            <div className="quick-actions">
+              {allowedActions.map((a, i) => (
+                <Link key={i} href={a.href} className={`qa-btn ${a.cls}`}>{a.icon} {a.label}</Link>
+              ))}
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── LIVE KPI STRIP ── */}
-      <div className="section-heading">{isRTL ? '📊 مؤشرات الأداء اللحظية' : '📊 Live KPI Overview'}</div>
-      <div className="kpi-strip">
-        {kpis.map((k, i) => (
-          <div key={i} className="kpi-tile" style={{ '--kpi-color': k.color } as React.CSSProperties}>
-            <div className="kpi-tile-icon">{k.icon}</div>
-            <div>
-              <div className="kpi-tile-label">{k.label}</div>
-              <div className="kpi-tile-value">{k.value}</div>
-            </div>
+      {allowedKpis.length > 0 && (
+        <>
+          <div className="section-heading">{isRTL ? '📊 مؤشرات الأداء اللحظية' : '📊 Live KPI Overview'}</div>
+          <div className="kpi-strip">
+            {allowedKpis.map((k, i) => (
+              <Link key={i} href={k.href} className="kpi-tile-link">
+                <div className="kpi-tile" style={{ '--kpi-color': k.color } as React.CSSProperties}>
+                  <div className="kpi-info-container" onClick={(e) => e.stopPropagation()}>
+                    <div className="kpi-info-icon">
+                      i
+                      <div className="kpi-tooltip">
+                        {k.desc}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="kpi-tile-icon">{k.icon}</div>
+                  <div>
+                    <div className="kpi-tile-label">{k.label}</div>
+                    <div className="kpi-tile-value">{k.value}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
       {/* ── PLATFORM SECTIONS ── */}
       <div className="section-heading">{isRTL ? '🗺️ خريطة المنصة الكاملة' : '🗺️ Full Platform Map'}</div>
       <div className="platform-grid">
-        {PLATFORM_SECTIONS.map((section) => (
-          <div
-            key={section.id}
-            className="hub-card"
-            style={{ '--card-border': section.borderColor, '--card-gradient': section.gradient } as React.CSSProperties}
-          >
-            <div className="hc-top">
-              <div className="hc-top-inner">
-                <div className="hc-icon-wrapper" style={{ background: section.gradient }}>
-                  {section.icon}
-                </div>
-                <div>
-                  <h2 className="hc-title">{isRTL ? section.titleAr : section.titleEn}</h2>
+        {PLATFORM_SECTIONS.filter(section => {
+          if (section.id === 'operations') {
+            return permissions?.isAdmin || permissions?.canReviewIntake || permissions?.canResearch || permissions?.canSourceOffline || permissions?.canReport;
+          }
+          if (section.id === 'finance') {
+            return permissions?.isAdmin || permissions?.canManageFinancials;
+          }
+          if (section.id === 'contributors') {
+            return permissions?.isAdmin || permissions?.isSourcingResearcher || permissions?.isQualityReviewer || permissions?.canAccessQueue;
+          }
+          if (section.id === 'marketplace') {
+            return permissions?.isAdmin || permissions?.canManageDeals || permissions?.canManageVendors;
+          }
+          if (section.id === 'intelligence') {
+            return permissions?.isAdmin || permissions?.canViewIntelligence || permissions?.canManageAI;
+          }
+          if (section.id === 'marketing') {
+            return permissions?.isAdmin || permissions?.canManageMarketing;
+          }
+          if (section.id === 'users') {
+            return permissions?.isAdmin;
+          }
+          if (section.id === 'settings') {
+            return permissions?.isAdmin;
+          }
+          if (section.id === 'public') {
+            return permissions?.isAdmin;
+          }
+          return false;
+        }).map((section) => {
+          const allowedLinks = section.links.filter(link => {
+            if (link.href.includes('/queue')) return permissions?.isAdmin || permissions?.canReviewIntake;
+            if (link.href.includes('/workspace')) return permissions?.isAdmin || permissions?.canResearch || permissions?.canReport;
+            if (link.href.includes('/archive')) return permissions?.isAdmin || permissions?.canReport || permissions?.canManageArchive;
+            if (link.href.includes('/finance/transactions')) return permissions?.isAdmin || permissions?.canManageFinancials;
+            if (link.href.includes('/payments')) return permissions?.isAdmin || permissions?.canManageFinancials;
+            if (link.href.includes('/intelligence/pricing')) return permissions?.isAdmin || permissions?.canManageAI || permissions?.canViewIntelligence;
+            if (link.href.includes('/intelligence/investor')) return permissions?.isAdmin;
+            if (link.href.includes('/contributors/wallets')) return permissions?.isAdmin || permissions?.canManageFinancials;
+            if (link.href.includes('/contributors/submissions')) return permissions?.isAdmin || permissions?.isQualityReviewer;
+            if (link.href.includes('/contributors/economy')) return permissions?.isAdmin || permissions?.canManageAI;
+            if (link.href.includes('/intelligence/gamification')) return permissions?.isAdmin || permissions?.canViewIntelligence;
+            if (link.href.includes('/intelligence/risk')) return permissions?.isAdmin || permissions?.canViewIntelligence;
+            if (link.href.includes('/intelligence/tasks')) return permissions?.isAdmin || permissions?.canViewIntelligence;
+            if (link.href.includes('/marketplace') && !link.href.includes('/auctions') && !link.href.includes('/points')) return permissions?.isAdmin || permissions?.canManageDeals;
+            if (link.href.includes('/vendors')) return permissions?.isAdmin || permissions?.canManageVendors;
+            if (link.href.includes('/vendors/new')) return permissions?.isAdmin || permissions?.canManageVendors;
+            if (link.href.includes('/marketing/deals')) return permissions?.isAdmin || permissions?.canManageDeals;
+            if (link.href.includes('/intelligence/ai')) return permissions?.isAdmin || permissions?.canManageAI;
+            if (link.href.includes('/intelligence/agent-control')) return permissions?.isAdmin || permissions?.canManageAI;
+            if (link.href.includes('/intelligence/economy-config')) return permissions?.isAdmin || permissions?.canManageAI;
+            if (link.href.includes('/intelligence/customers')) return permissions?.isAdmin || permissions?.canViewIntelligence;
+            if (link.href.includes('/intelligence/communications')) return permissions?.isAdmin;
+            if (link.href.includes('/intelligence/fraud')) return permissions?.isAdmin;
+            if (link.href.includes('/marketing/pricing')) return permissions?.isAdmin || permissions?.canManageMarketing;
+            if (link.href.includes('/marketing/news')) return permissions?.isAdmin || permissions?.canManageMarketing;
+            if (link.href.includes('/marketing/content')) return permissions?.isAdmin || permissions?.canManageMarketing;
+            if (link.href.includes('/marketing/verification-settings')) return permissions?.isAdmin || permissions?.canManageMarketing;
+            if (link.href.includes('/users')) return permissions?.isAdmin;
+            if (link.href.includes('/settings/payments')) return permissions?.isAdmin;
+            if (link.href.includes('/settings/specializations')) return permissions?.isAdmin;
+            return true;
+          });
+
+          if (allowedLinks.length === 0) return null;
+
+          return (
+            <div
+              key={section.id}
+              className="hub-card"
+              style={{ '--card-border': section.borderColor, '--card-gradient': section.gradient, position: 'relative' } as React.CSSProperties}
+            >
+              <div className="card-info-container" onClick={(e) => e.stopPropagation()}>
+                <div className="card-info-icon">
+                  i
+                  <div className="card-tooltip">
+                    {isRTL ? section.tooltipAr : section.tooltipEn}
+                  </div>
                 </div>
               </div>
-              <p className="hc-desc">{isRTL ? section.descAr : section.descEn}</p>
-            </div>
 
-            <div className="hc-body">
-              {section.links.map((link, idx) => (
-                <Link
-                  key={idx}
-                  href={`/${locale}${link.href}`}
-                  className="hub-link"
-                >
-                  <div className="hub-link-left">
-                    <span>{isRTL ? link.labelAr : link.labelEn}</span>
-                    {link.badge && (
-                      <span
-                        className="hub-link-badge"
-                        style={{ background: `${link.badgeColor}22`, color: link.badgeColor, border: `1px solid ${link.badgeColor}44` }}
-                      >
-                        {link.badge}
-                      </span>
-                    )}
+              <Link href={`/${locale}${section.mainHref}`} className="hc-top-link">
+                <div className="hc-top">
+                  <div className="hc-top-inner">
+                    <div className="hc-icon-wrapper" style={{ background: section.gradient }}>
+                      {section.icon}
+                    </div>
+                    <div>
+                      <h2 className="hc-title">{isRTL ? section.titleAr : section.titleEn}</h2>
+                    </div>
                   </div>
-                  <span className="hub-link-arrow" style={isRTL ? { transform: 'scaleX(-1)' } : {}}>→</span>
-                </Link>
-              ))}
+                  <p className="hc-desc">{isRTL ? section.descAr : section.descEn}</p>
+                </div>
+              </Link>
+
+              <div className="hc-body">
+                {allowedLinks.map((link, idx) => (
+                  <Link
+                    key={idx}
+                    href={`/${locale}${link.href}`}
+                    className="hub-link"
+                  >
+                    <div className="hub-link-left">
+                      <span>{isRTL ? link.labelAr : link.labelEn}</span>
+                      {link.badge && (
+                        <span
+                          className="hub-link-badge"
+                          style={{ background: `${link.badgeColor}22`, color: link.badgeColor, border: `1px solid ${link.badgeColor}44` }}
+                        >
+                          {link.badge}
+                        </span>
+                      )}
+                    </div>
+                    <span className="hub-link-arrow" style={isRTL ? { transform: 'scaleX(-1)' } : {}}>→</span>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
-      {/* ── INTERACTIVE ENGINES + DAL + AI AGENTS ── */}
-      <HubInteractiveClient
-        isRTL={isRTL}
-        locale={locale}
-        agentConfigs={agentConfigs}
-        initialFlags={initialFlags}
-      />
+      {/* ── INTERACTIVE ENGINES + DAL + AI AGENTS (Admin Only) ── */}
+      {permissions?.isAdmin && (
+        <HubInteractiveClient
+          isRTL={isRTL}
+          locale={locale}
+          agentConfigs={agentConfigs}
+          initialFlags={initialFlags}
+        />
+      )}
 
     </div>
   )

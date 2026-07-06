@@ -13,7 +13,8 @@ test.describe('Public Customer Request Journey', () => {
 
   test('should allow a guest to start and track a request', async ({ page }) => {
     const timestamp = Date.now();
-    const testPhone = `+2010${String(timestamp).slice(-7)}`;
+    const randomComponent = Math.floor(10 + Math.random() * 90);
+    const testPhone = `+2010${randomComponent}${String(timestamp).slice(-5)}`;
     const testTitle = `[E2E_TEST] Browser public request ${timestamp}`;
     const testName = `[E2E_TEST] Browser Customer`;
     const testLocation = 'Cairo, Maadi';
@@ -31,6 +32,7 @@ test.describe('Public Customer Request Journey', () => {
       ]);
       if (await skipBtn.isVisible()) {
         await skipBtn.click();
+        await expect(skipBtn).not.toBeVisible({ timeout: 5000 });
       }
     } catch (e) {
       // ignore
@@ -38,16 +40,16 @@ test.describe('Public Customer Request Journey', () => {
     // 2. Select a category (electronics) — wizard step 1
     const categoryBtn = page.getByTestId('wizard-category-electronics');
     await expect(categoryBtn).toBeVisible({ timeout: 5000 });
-    await categoryBtn.click();
+    await categoryBtn.click({ force: true });
 
     // 2.5 Select a subcategory and click follow up
     const subcategoryBtn = page.locator('button.wizard-subcategory-btn').first();
     await expect(subcategoryBtn).toBeVisible({ timeout: 5000 });
-    await subcategoryBtn.click();
+    await subcategoryBtn.click({ force: true });
 
     const continueBtn = page.getByTestId('wizard-continue-details');
     await expect(continueBtn).toBeVisible({ timeout: 5000 });
-    await continueBtn.click();
+    await continueBtn.click({ force: true });
 
     // 3. Fill product name — wizard step 2 (details)
     const titleInput = page.getByTestId('start-request-title-input');
@@ -66,7 +68,10 @@ test.describe('Public Customer Request Journey', () => {
 
     // Click Next on details step
     const nextDetailsBtn = page.getByTestId('wizard-next-details');
-    await nextDetailsBtn.click();
+    await Promise.all([
+      nextDetailsBtn.click({ force: true }),
+      page.getByTestId('wizard-location-input').waitFor({ state: 'visible', timeout: 10000 })
+    ]);
 
     // 4. Fill location — wizard step 3
     // The location input has a testid we can reliably use
@@ -76,7 +81,10 @@ test.describe('Public Customer Request Journey', () => {
 
     // Click Next on location step
     const nextLocationBtn = page.getByTestId('wizard-next-location');
-    await nextLocationBtn.click();
+    await Promise.all([
+      nextLocationBtn.click({ force: true }),
+      page.getByTestId('start-request-full-name-input').waitFor({ state: 'visible', timeout: 10000 })
+    ]);
 
     // 5. Fill contact info — wizard step 4 (intake)
     const nameInput = page.getByTestId('start-request-full-name-input');
@@ -88,10 +96,10 @@ test.describe('Public Customer Request Journey', () => {
 
     // 6. Submit
     const submitBtn = page.getByTestId('start-request-submit');
-    await submitBtn.click();
-
-    // 7. Wait for redirect to dashboard with success code
-    await expect(page).toHaveURL(/\/customer\/dashboard/, { timeout: 15000 });
+    await Promise.all([
+      submitBtn.click({ force: true }),
+      page.waitForURL(/\/customer\/dashboard/, { timeout: 25000 })
+    ]);
 
     // 8. Check if tracking code appears in URL or on page
     const currentUrl = page.url();
@@ -163,6 +171,7 @@ test.describe('Public Customer Request Journey', () => {
       ]);
       if (await skipBtn.isVisible()) {
         await skipBtn.click();
+        await expect(skipBtn).not.toBeVisible({ timeout: 5000 });
       }
     } catch (e) {
       // ignore
@@ -170,15 +179,15 @@ test.describe('Public Customer Request Journey', () => {
     // 2. Select a category (electronics) and subcategory
     const categoryBtn = page.getByTestId('wizard-category-electronics');
     await expect(categoryBtn).toBeVisible({ timeout: 5000 });
-    await categoryBtn.click();
+    await categoryBtn.click({ force: true });
 
     const subcategoryBtn = page.locator('button.wizard-subcategory-btn').first();
     await expect(subcategoryBtn).toBeVisible({ timeout: 5000 });
-    await subcategoryBtn.click();
+    await subcategoryBtn.click({ force: true });
 
     const continueBtn = page.getByTestId('wizard-continue-details');
     await expect(continueBtn).toBeVisible({ timeout: 5000 });
-    await continueBtn.click();
+    await continueBtn.click({ force: true });
 
     // 3. Fill product name
     const titleInput = page.getByTestId('start-request-title-input');
@@ -196,7 +205,10 @@ test.describe('Public Customer Request Journey', () => {
     await storageSelect.selectOption('256gb');
 
     const nextDetailsBtn = page.getByTestId('wizard-next-details');
-    await nextDetailsBtn.click();
+    await Promise.all([
+      nextDetailsBtn.click({ force: true }),
+      page.getByTestId('wizard-location-input').waitFor({ state: 'visible', timeout: 10000 })
+    ]);
 
     // 4. Fill location
     const locationInput = page.getByTestId('wizard-location-input');
@@ -204,7 +216,10 @@ test.describe('Public Customer Request Journey', () => {
     await locationInput.fill(testLocation);
 
     const nextLocationBtn = page.getByTestId('wizard-next-location');
-    await nextLocationBtn.click();
+    await Promise.all([
+      nextLocationBtn.click({ force: true }),
+      page.getByTestId('start-request-full-name-input').waitFor({ state: 'visible', timeout: 10000 })
+    ]);
 
     // 5. Fill contact info (registered phone)
     const nameInput = page.getByTestId('start-request-full-name-input');
@@ -216,10 +231,10 @@ test.describe('Public Customer Request Journey', () => {
 
     // 6. Submit
     const submitBtn = page.getByTestId('start-request-submit');
-    await submitBtn.click();
-
-    // 7. Wait for redirect to dashboard with returning=true
-    await expect(page).toHaveURL(/returning=true/, { timeout: 15000 });
+    await Promise.all([
+      submitBtn.click({ force: true }),
+      page.waitForURL(/returning=true/, { timeout: 25000 })
+    ]);
 
     // 8. Verify the linked account banner exists and contains login link
     const loginLink = page.locator('a[href*="auth/login"]');

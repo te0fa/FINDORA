@@ -129,6 +129,14 @@ export async function upsertGuestCustomerByPhone(
     .single()
 
   if (error) {
+    if (error.code === '23505') {
+      const { data: retryData } = await adminClient
+        .from('customers')
+        .select('*')
+        .eq('phone_number_normalized', phoneObj.normalized)
+        .single()
+      if (retryData) return retryData
+    }
     throw new Error(error.message)
   }
 

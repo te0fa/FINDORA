@@ -128,10 +128,10 @@ export default function StaffNavClient({ locale, categories }: StaffNavClientPro
         .dropdown-menu::before {
           content: '';
           position: absolute;
-          top: -12px;
-          left: 0;
-          right: 0;
-          height: 12px;
+          top: -30px;
+          left: -20px;
+          right: -20px;
+          height: 30px;
         }
 
         .dropdown-link {

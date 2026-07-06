@@ -1,98 +1,87 @@
-import { login } from "../actions";
-import Image from "next/image";
+import { updatePassword } from "../actions";
 import Link from "next/link";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { Locale } from "@/lib/i18n/config";
 import HeaderLocaleDropdown from "@/components/HeaderLocaleDropdown";
 import HeaderLogo from "@/components/HeaderLogo";
 
-export default async function LoginPage({
+export default async function UpdatePasswordPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ error?: string; message?: string; next?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { locale } = await params;
   const sp = await searchParams;
-  const dict = await getDictionary(locale as Locale);
+  const isAr = locale === 'ar';
 
   return (
     <div className="auth-page premium-gradient">
       <header className="auth-header">
         <div className="auth-header-inner">
           <HeaderLogo locale={locale} />
-
           <HeaderLocaleDropdown currentLocale={locale as Locale} />
         </div>
       </header>
 
-      <main className="auth-main animate-in" data-testid="login-page">
+      <main className="auth-main animate-in">
         <div className="auth-card-container">
           <div className="auth-glow" />
 
           <div className="card glass-card auth-card">
             <div className="auth-form-header">
               <div className="portal-badge">
-                <span className="badge-icon">📲</span>
-                <span className="badge-text">{locale === 'ar' ? "بوابة عملاء فايندورا" : "Findora Customer Portal"}</span>
+                <span className="badge-icon">🔒</span>
+                <span className="badge-text">{isAr ? "تعيين كلمة المرور" : "Set Password"}</span>
               </div>
-              <h1>{dict.auth.welcome_back}</h1>
+              <h1>{isAr ? "تغيير كلمة المرور" : "Change Password"}</h1>
               <p className="muted-foreground">
-                {locale === 'ar' 
-                  ? "سجل دخولك لمتابعة طلباتك الحالية، ورؤية تفاصيل كل طلب خطوة بخطوة." 
-                  : "Log in to track your current requests, and view the details of each step."}
+                {isAr 
+                  ? "أدخل كلمة المرور الجديدة لتحديث حسابك والتمكن من الدخول." 
+                  : "Enter your new password to update your account and login."}
               </p>
             </div>
 
-            {sp.error && <div className="alert alert-error">{sp.error}</div>}
-            {sp.message && (
-              <div className="alert alert-success">{sp.message}</div>
-            )}
+            {sp.error && <div className="alert alert-error">{decodeURIComponent(sp.error)}</div>}
 
-            <form action={login} className="auth-form">
-              <input type="hidden" name="next" value={sp.next || ''} />
+            <form action={updatePassword} className="auth-form">
               <div className="form-group">
-                <label htmlFor="email">{locale === 'ar' ? 'البريد الإلكتروني أو رقم الهاتف' : 'Email Address or Phone Number'}</label>
-                <input
-                  type="text"
-                  id="email"
-                  name="email"
-                  placeholder={locale === 'ar' ? 'البريد الإلكتروني أو رقم الهاتف' : 'name@email.com or phone number'}
-                  required
-                  className="premium-input"
-                  data-testid="login-email-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label htmlFor="password" style={{ marginBottom: 0 }}>{dict.auth.password}</label>
-                  <Link href={`/${locale}/auth/forgot-password`} className="link" style={{ fontSize: '0.8rem' }}>
-                    {locale === 'ar' ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
-                  </Link>
-                </div>
+                <label htmlFor="password">
+                  {isAr ? 'كلمة المرور الجديدة' : 'New Password'}
+                </label>
                 <input
                   type="password"
                   id="password"
                   name="password"
-                  placeholder={dict.auth.password_placeholder}
+                  placeholder={isAr ? '6 أحرف على الأقل' : 'At least 6 characters'}
                   required
                   className="premium-input"
-                  data-testid="login-password-input"
                 />
               </div>
 
-              <button type="submit" className="auth-submit-btn" data-testid="login-submit">
-                {dict.auth.sign_in}
+              <div className="form-group">
+                <label htmlFor="confirmPassword">
+                  {isAr ? 'تأكيد كلمة المرور' : 'Confirm Password'}
+                </label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  placeholder={isAr ? 'أعد إدخال كلمة المرور' : 'Re-enter your password'}
+                  required
+                  className="premium-input"
+                />
+              </div>
+
+              <button type="submit" className="auth-submit-btn">
+                {isAr ? 'تحديث كلمة المرور' : 'Update Password'}
               </button>
             </form>
 
             <div className="auth-footer">
               <p>
-                {dict.auth.no_account}{" "}
-                <Link href={`/${locale}/auth/signup`} className="link">
-                  {dict.auth.create_one}
+                <Link href={`/${locale}/auth/login`} className="link">
+                  {isAr ? "← العودة لتسجيل الدخول" : "← Back to Login"}
                 </Link>
               </p>
             </div>
@@ -129,7 +118,6 @@ export default async function LoginPage({
           gap: 1rem;
           direction: ltr !important;
         }
-
 
         .auth-main {
           flex: 1;
@@ -260,6 +248,8 @@ export default async function LoginPage({
           font-size: 1rem !important;
           box-shadow: 0 10px 28px rgba(212, 166, 60, 0.2);
           transition: all 0.2s ease;
+          border: none;
+          cursor: pointer;
         }
 
         .auth-submit-btn:hover {
@@ -288,6 +278,26 @@ export default async function LoginPage({
 
         .link:hover {
           text-decoration: underline;
+        }
+
+        .alert {
+          padding: 0.75rem 1rem;
+          border-radius: 10px;
+          margin-bottom: 1rem;
+          font-size: 0.9rem;
+          text-align: start;
+        }
+
+        .alert-error {
+          background: rgba(239, 68, 68, 0.15);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          color: #fca5a5;
+        }
+
+        .alert-success {
+          background: rgba(16, 185, 129, 0.15);
+          border: 1px solid rgba(16, 185, 129, 0.3);
+          color: #6ee7b7;
         }
 
         @media (max-width: 768px) {

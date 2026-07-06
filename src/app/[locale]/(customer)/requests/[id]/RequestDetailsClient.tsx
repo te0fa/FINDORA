@@ -270,10 +270,10 @@ export default function RequestDetailsClient({ request, initialMessages, notific
       </div>
 
       {/* ── Main Layout: Sidebar + Content ──────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 items-start">
+      <div className="request-details-grid">
 
         {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-        <div className="flex md:flex-col overflow-x-auto scrollbar-hide whitespace-nowrap gap-2 md:gap-[0.4rem] pb-2 md:pb-0 w-full">
+        <div className="request-details-sidebar scrollbar-hide">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.key
             const isLocked = tab.locked
@@ -335,60 +335,6 @@ export default function RequestDetailsClient({ request, initialMessages, notific
           {activeTab === 'timeline' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-              {/* Milestone Progress */}
-              <div style={card}>
-                <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: '#d4a63c' }}>📈</span>
-                  {ar ? 'مراحل معالجة طلبك' : 'Sourcing Milestones'}
-                </h2>
-
-                <div style={{ position: 'relative', paddingInlineStart: '2rem' }}>
-                  {/* Vertical line */}
-                  <div style={{ position: 'absolute', insetInlineStart: '7px', top: 0, bottom: 0, width: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 4 }} />
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    {STEPS.map((s, idx) => {
-                      const done = pct >= s.pct || isReleased
-                      const current = !isReleased && pct < s.pct && (idx === 0 || pct >= STEPS[idx - 1].pct)
-                      return (
-                        <div key={idx} style={{ position: 'relative' }}>
-                          {/* Dot */}
-                          <div style={{
-                            position: 'absolute',
-                            insetInlineStart: '-2rem',
-                            top: 2,
-                            width: 16,
-                            height: 16,
-                            borderRadius: '50%',
-                            border: `3px solid ${done ? '#d4a63c' : current ? '#fff' : 'rgba(255,255,255,0.15)'}`,
-                            background: done ? '#d4a63c' : current ? 'rgba(255,255,255,0.2)' : 'transparent',
-                            boxShadow: done ? '0 0 10px rgba(212,166,60,0.5)' : 'none',
-                          }} />
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 4, flexWrap: 'wrap' }}>
-                              <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: done || current ? '#fff' : 'rgba(255,255,255,0.3)' }}>
-                                {ar ? s.ar : s.en}
-                              </h3>
-                              {current && (
-                                <span style={{ fontSize: '0.65rem', fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, padding: '2px 8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                  {ar ? 'الحالية' : 'Current'}
-                                </span>
-                              )}
-                              {done && !current && (
-                                <span style={{ fontSize: '0.65rem', color: '#4ade80', fontWeight: 700 }}>✓</span>
-                              )}
-                            </div>
-                            <p style={{ margin: 0, fontSize: '0.8rem', color: done || current ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)', lineHeight: 1.5 }}>
-                              {ar ? s.arDesc : s.enDesc}
-                            </p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-
               {/* Specifications */}
               <div style={card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
@@ -444,6 +390,60 @@ export default function RequestDetailsClient({ request, initialMessages, notific
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Milestone Progress */}
+              <div style={card}>
+                <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: '#d4a63c' }}>📈</span>
+                  {ar ? 'مراحل معالجة طلبك' : 'Sourcing Milestones'}
+                </h2>
+
+                <div style={{ position: 'relative', paddingInlineStart: '2rem' }}>
+                  {/* Vertical line */}
+                  <div style={{ position: 'absolute', insetInlineStart: '7px', top: 0, bottom: 0, width: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 4 }} />
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    {STEPS.map((s, idx) => {
+                      const done = pct >= s.pct || isReleased
+                      const current = !isReleased && pct < s.pct && (idx === 0 || pct >= STEPS[idx - 1].pct)
+                      return (
+                        <div key={idx} style={{ position: 'relative' }}>
+                          {/* Dot */}
+                          <div style={{
+                            position: 'absolute',
+                            insetInlineStart: '-2rem',
+                            top: 2,
+                            width: 16,
+                            height: 16,
+                            borderRadius: '50%',
+                            border: `3px solid ${done ? '#d4a63c' : current ? '#fff' : 'rgba(255,255,255,0.15)'}`,
+                            background: done ? '#d4a63c' : current ? 'rgba(255,255,255,0.2)' : 'transparent',
+                            boxShadow: done ? '0 0 10px rgba(212,166,60,0.5)' : 'none',
+                          }} />
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 4, flexWrap: 'wrap' }}>
+                              <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: done || current ? '#fff' : 'rgba(255,255,255,0.3)' }}>
+                                {ar ? s.ar : s.en}
+                              </h3>
+                              {current && (
+                                <span style={{ fontSize: '0.65rem', fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, padding: '2px 8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                  {ar ? 'الحالية' : 'Current'}
+                                </span>
+                              )}
+                              {done && !current && (
+                                <span style={{ fontSize: '0.65rem', color: '#4ade80', fontWeight: 700 }}>✓</span>
+                              )}
+                            </div>
+                            <p style={{ margin: 0, fontSize: '0.8rem', color: done || current ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)', lineHeight: 1.5 }}>
+                              {ar ? s.arDesc : s.enDesc}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
 
               {/* Findora Trust & Business Center */}
@@ -1136,8 +1136,39 @@ export default function RequestDetailsClient({ request, initialMessages, notific
         </div>
       )}
 
-      {/* Keyframe animations */}
+      {/* Responsive & Keyframe animations */}
       <style>{`
+        .request-details-grid {
+          display: grid !important;
+          grid-template-columns: 220px 1fr !important;
+          gap: 1.5rem !important;
+          align-items: start !important;
+        }
+        .request-details-sidebar {
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 0.4rem !important;
+          width: 100% !important;
+        }
+        @media (max-width: 768px) {
+          .request-details-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .request-details-sidebar {
+            flex-direction: row !important;
+            overflow-x: auto !important;
+            white-space: nowrap !important;
+            padding-bottom: 0.5rem !important;
+            -webkit-overflow-scrolling: touch !important;
+            gap: 0.5rem !important;
+          }
+          .request-details-sidebar button {
+            width: auto !important;
+            flex-shrink: 0 !important;
+            padding: 0.6rem 1rem !important;
+            justify-content: center !important;
+          }
+        }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         @keyframes spin { to{transform:rotate(360deg)} }
       `}</style>
