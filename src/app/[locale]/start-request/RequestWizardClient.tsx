@@ -56,6 +56,272 @@ declare global {
   }
 }
 
+interface FieldDefinition {
+  key: string
+  labelAr: string
+  labelEn: string
+  type: 'text' | 'select' | 'number'
+  options?: { value: string; labelAr: string; labelEn: string }[]
+  required?: boolean
+  placeholderAr?: string
+  placeholderEn?: string
+}
+
+// ─── Categories & Subcategories Constants ─────────────────────────────────────
+const SUBCATEGORIES_MAP: Record<string, { id: string; labelAr: string; labelEn: string; icon?: string }[]> = {
+  electronics: [
+    { id: 'mobiles', labelAr: 'موبايلات وهواتف ذكية', labelEn: 'Mobiles & Smartphones', icon: '📱' },
+    { id: 'laptops', labelAr: 'أجهزة لابتوب وكمبيوتر', labelEn: 'Laptops & Computers', icon: '💻' },
+    { id: 'gaming', labelAr: 'ألعاب فيديو جيم وكونسول', labelEn: 'Video Games & Consoles', icon: '🎮' },
+    { id: 'audio_video', labelAr: 'صوتيات ومرئيات وسماعات', labelEn: 'Audio & Video', icon: '🎧' },
+    { id: 'other_elec', labelAr: 'إلكترونيات أخرى', labelEn: 'Other Electronics', icon: '🔌' },
+  ],
+  appliances: [
+    { id: 'refrigerator', labelAr: 'ثلاجات وديب فريزر', labelEn: 'Refrigerators & Freezers', icon: '❄️' },
+    { id: 'washing_machine', labelAr: 'غسالات ومجففات ملابس', labelEn: 'Washing Machines & Dryers', icon: '🧺' },
+    { id: 'ac', labelAr: 'تكييفات وأجهزة تبريد', labelEn: 'Air Conditioners & Cooling', icon: '💨' },
+    { id: 'stove_oven', labelAr: 'بوتاجازات وأفران', labelEn: 'Stoves & Ovens', icon: '🔥' },
+    { id: 'other_appliances', labelAr: 'أجهزة منزلية أخرى', labelEn: 'Other Home Appliances', icon: '🏠' },
+  ],
+  automotive: [
+    { id: 'cars', labelAr: 'سيارات', labelEn: 'Cars', icon: '🚗' },
+    { id: 'spare_parts', labelAr: 'قطع غيار سيارات', labelEn: 'Spare Parts', icon: '⚙️' },
+    { id: 'accessories', labelAr: 'إكسسوارات كماليات سيارات', labelEn: 'Car Accessories', icon: '🏎️' },
+  ],
+  furniture: [
+    { id: 'living_room', labelAr: 'أثاث غرفة المعيشة وصالونات', labelEn: 'Living Room Furniture', icon: '🛋️' },
+    { id: 'bedroom', labelAr: 'غرف نوم وأسرة', labelEn: 'Bedroom Furniture', icon: '🛏️' },
+    { id: 'kitchen', labelAr: 'مطابخ وخزائن', labelEn: 'Kitchen Cabinets', icon: '🍳' },
+    { id: 'office', labelAr: 'أثاث مكتبي وللعمل', labelEn: 'Office Furniture', icon: '🗄️' },
+    { id: 'other_furniture', labelAr: 'أثاث وديكورات أخرى', labelEn: 'Other Furniture & Decor', icon: '🪑' },
+  ],
+  fashion: [
+    { id: 'clothing', labelAr: 'ملابس وأزياء', labelEn: 'Clothing & Apparel', icon: '👕' },
+    { id: 'shoes', labelAr: 'أحذية', labelEn: 'Shoes & Footwear', icon: '👟' },
+    { id: 'watches_accessories', labelAr: 'ساعات وإكسسوارات', labelEn: 'Watches & Accessories', icon: '⌚' },
+  ],
+  real_estate: [
+    { id: 'apartments', labelAr: 'شقق سكنية', labelEn: 'Apartments', icon: '🏢' },
+    { id: 'villas', labelAr: 'فيلات وتاون هاوس', labelEn: 'Villas & Townhouses', icon: '🏡' },
+    { id: 'commercial', labelAr: 'عقارات ومكاتب تجارية', labelEn: 'Commercial & Offices', icon: '🏬' },
+    { id: 'lands', labelAr: 'أراضي', labelEn: 'Lands', icon: '🪵' },
+  ],
+  services: [
+    { id: 'finishing', labelAr: 'تشطيب وديكور داخلي متكامل', labelEn: 'Interior Finishing & Decor', icon: '🎨' },
+    { id: 'plumbing', labelAr: 'خدمات وأعمال سباكة', labelEn: 'Plumbing Services', icon: '🚰' },
+    { id: 'electrical', labelAr: 'أعمال وتمديدات كهربائية', labelEn: 'Electrical Work', icon: '⚡' },
+    { id: 'carpentry', labelAr: 'أعمال نجارة وتصنيع أثاث', labelEn: 'Carpentry & Woodwork', icon: '🪵' },
+    { id: 'other_services', labelAr: 'خدمات وتشطيبات أخرى', labelEn: 'Other Services', icon: '🔧' },
+  ]
+}
+
+const SUBCATEGORY_FIELDS: Record<string, {
+  labelAr: string
+  labelEn: string
+  fields: FieldDefinition[]
+}> = {
+  mobiles: {
+    labelAr: 'موبايلات',
+    labelEn: 'Mobiles',
+    fields: [
+      { key: 'brand', labelAr: 'الماركة', labelEn: 'Brand', type: 'text', placeholderAr: 'مثال: Apple, Samsung', placeholderEn: 'e.g. Apple, Samsung', required: true },
+      { key: 'model', labelAr: 'الموديل', labelEn: 'Model', type: 'text', placeholderAr: 'مثال: iPhone 15 Pro Max', placeholderEn: 'e.g. iPhone 15 Pro Max', required: true },
+      { key: 'storage', labelAr: 'سعة التخزين', labelEn: 'Storage', type: 'select', options: [
+        { value: '64gb', labelAr: '64 جيجابايت', labelEn: '64 GB' },
+        { value: '128gb', labelAr: '128 جيجابايت', labelEn: '128 GB' },
+        { value: '256gb', labelAr: '256 جيجابايت', labelEn: '256 GB' },
+        { value: '512gb', labelAr: '512 جيجابايت', labelEn: '512 GB' },
+        { value: '1tb', labelAr: '1 تيرابايت', labelEn: '1 TB' }
+      ], required: true },
+      { key: 'ram', labelAr: 'الرامات (الذاكرة العشوائية)', labelEn: 'RAM', type: 'select', options: [
+        { value: '4gb', labelAr: '4 جيجا', labelEn: '4 GB' },
+        { value: '6gb', labelAr: '6 جيجا', labelEn: '6 GB' },
+        { value: '8gb', labelAr: '8 جيجا', labelEn: '8 GB' },
+        { value: '12gb', labelAr: '12 جيجا', labelEn: '12 GB' },
+        { value: '16gb', labelAr: '16 جيجا', labelEn: '16 GB' }
+      ] },
+      { key: 'color', labelAr: 'اللون المفضل', labelEn: 'Preferred Color', type: 'text', placeholderAr: 'مثال: تيتانيوم طبيعي', placeholderEn: 'e.g. Natural Titanium' },
+      { key: 'condition', labelAr: 'حالة الجهاز', labelEn: 'Condition', type: 'select', options: [
+        { value: 'new', labelAr: 'جديد بضمان', labelEn: 'New with Warranty' },
+        { value: 'used', labelAr: 'مستعمل بحالة جيدة', labelEn: 'Used (Good condition)' },
+        { value: 'any', labelAr: 'أي حالة', labelEn: 'Any Condition' }
+      ] }
+    ]
+  },
+  laptops: {
+    labelAr: 'لابتوب وكمبيوتر',
+    labelEn: 'Laptops & Computers',
+    fields: [
+      { key: 'brand', labelAr: 'الماركة', labelEn: 'Brand', type: 'text', placeholderAr: 'مثال: Dell, Lenovo, Apple', placeholderEn: 'e.g. Dell, Lenovo, Apple', required: true },
+      { key: 'processor', labelAr: 'المعالج (CPU)', labelEn: 'Processor (CPU)', type: 'text', placeholderAr: 'مثال: Core i7 13th Gen, Apple M2', placeholderEn: 'e.g. Core i7 13th Gen, Apple M2' },
+      { key: 'ram', labelAr: 'الرامات (RAM)', labelEn: 'RAM', type: 'select', options: [
+        { value: '8gb', labelAr: '8 جيجابايت', labelEn: '8 GB' },
+        { value: '16gb', labelAr: '16 جيجابايت', labelEn: '16 GB' },
+        { value: '32gb', labelAr: '32 جيجابايت', labelEn: '32 GB' },
+        { value: '64gb', labelAr: '64 جيجابايت', labelEn: '64 GB' }
+      ], required: true },
+      { key: 'storage', labelAr: 'سعة القرص الصلب', labelEn: 'Storage (SSD/HDD)', type: 'text', placeholderAr: 'مثال: 512GB SSD', placeholderEn: 'e.g. 512GB SSD' },
+      { key: 'gpu', labelAr: 'كارت الشاشة (GPU)', labelEn: 'Graphics Card (GPU)', type: 'text', placeholderAr: 'مثال: RTX 4060, Integrated', placeholderEn: 'e.g. RTX 4060, Integrated' },
+      { key: 'condition', labelAr: 'الحالة', labelEn: 'Condition', type: 'select', options: [
+        { value: 'new', labelAr: 'جديد', labelEn: 'New' },
+        { value: 'used', labelAr: 'مستعمل', labelEn: 'Used' }
+      ] }
+    ]
+  },
+  refrigerator: {
+    labelAr: 'ثلاجات وديب فريزر',
+    labelEn: 'Refrigerators & Freezers',
+    fields: [
+      { key: 'brand', labelAr: 'الماركة', labelEn: 'Brand', type: 'text', placeholderAr: 'مثال: LG, Sharp, Beko', placeholderEn: 'e.g. LG, Sharp, Beko', required: true },
+      { key: 'capacity', labelAr: 'السعة (بالقدم أو اللتر)', labelEn: 'Capacity (Feet/Liters)', type: 'text', placeholderAr: 'مثال: 18 قدم / 450 لتر', placeholderEn: 'e.g. 18 Feet / 450 Liters' },
+      { key: 'color', labelAr: 'اللون المفضل', labelEn: 'Preferred Color', type: 'text', placeholderAr: 'مثال: سيلفر / أسود ديجيتال', placeholderEn: 'e.g. Silver / Black Digital' }
+    ]
+  },
+  ac: {
+    labelAr: 'تكييفات',
+    labelEn: 'Air Conditioners',
+    fields: [
+      { key: 'brand', labelAr: 'الماركة', labelEn: 'Brand', type: 'text', placeholderAr: 'مثال: Carrier, Sharp, LG', placeholderEn: 'e.g. Carrier, Sharp, LG', required: true },
+      { key: 'power', labelAr: 'قوة التكييف (حصان)', labelEn: 'Power (Horsepower)', type: 'select', options: [
+        { value: '1.5hp', labelAr: '1.5 حصان', labelEn: '1.5 HP' },
+        { value: '2.25hp', labelAr: '2.25 حصان', labelEn: '2.25 HP' },
+        { value: '3hp', labelAr: '3 حصان', labelEn: '3 HP' },
+        { value: 'other', labelAr: 'أكبر من ذلك', labelEn: 'Higher' }
+      ], required: true },
+      { key: 'inverter', labelAr: 'تكنولوجيا الانفرتر الموفرة؟', labelEn: 'Inverter Technology?', type: 'select', options: [
+        { value: 'yes', labelAr: 'نعم (انفرتر)', labelEn: 'Yes (Inverter)' },
+        { value: 'no', labelAr: 'لا (عادي)', labelEn: 'No (Standard)' },
+        { value: 'any', labelAr: 'لا يهم', labelEn: 'Does not matter' }
+      ] }
+    ]
+  },
+  cars: {
+    labelAr: 'سيارات',
+    labelEn: 'Cars',
+    fields: [
+      { key: 'brand', labelAr: 'ماركة السيارة (الصانع)', labelEn: 'Car Brand (Make)', type: 'text', placeholderAr: 'مثال: Toyota, Hyundai', placeholderEn: 'e.g. Toyota, Hyundai', required: true },
+      { key: 'model', labelAr: 'الموديل', labelEn: 'Model', type: 'text', placeholderAr: 'مثال: Corolla, Elantra', placeholderEn: 'e.g. Corolla, Elantra', required: true },
+      { key: 'year', labelAr: 'سنة الصنع (الموديل)', labelEn: 'Year of Manufacture', type: 'number', placeholderAr: 'مثال: 2023', placeholderEn: 'e.g. 2023' },
+      { key: 'transmission', labelAr: 'ناقل الحركة', labelEn: 'Transmission', type: 'select', options: [
+        { value: 'automatic', labelAr: 'أوتوماتيك', labelEn: 'Automatic' },
+        { value: 'manual', labelAr: 'مانيوال / يدوي', labelEn: 'Manual' }
+      ] },
+      { key: 'condition', labelAr: 'الحالة', labelEn: 'Condition', type: 'select', options: [
+        { value: 'new', labelAr: 'جديد زيرو', labelEn: 'New (Zero)' },
+        { value: 'used', labelAr: 'مستعمل', labelEn: 'Used' }
+      ] }
+    ]
+  },
+  apartments: {
+    labelAr: 'شقق',
+    labelEn: 'Apartments',
+    fields: [
+      { key: 'size', labelAr: 'المساحة (بالمتر المربع)', labelEn: 'Size (Sqm)', type: 'number', placeholderAr: 'مثال: 120', placeholderEn: 'e.g. 120', required: true },
+      { key: 'rooms', labelAr: 'عدد الغرف', labelEn: 'Number of Rooms', type: 'number', placeholderAr: 'مثال: 3', placeholderEn: 'e.g. 3' },
+      { key: 'finishing', labelAr: 'نوع التشطيب', labelEn: 'Finishing Type', type: 'select', options: [
+        { value: 'core_shell', labelAr: 'طوب أحمر / بدون تشطيب', labelEn: 'Core & Shell' },
+        { value: 'semi_finished', labelAr: 'نصف تشطيب (محارة وحلوق)', labelEn: 'Semi-finished' },
+        { value: 'finished', labelAr: 'تشطيب كامل / سوبر لوكس', labelEn: 'Fully finished' },
+        { value: 'ultra_lux', labelAr: 'ألترا سوبر لوكس', labelEn: 'Ultra Super Lux' }
+      ] },
+      { key: 'purpose', labelAr: 'الغرض', labelEn: 'Purpose', type: 'select', options: [
+        { value: 'buy', labelAr: 'شراء / تمليك', labelEn: 'Buy' },
+        { value: 'rent', labelAr: 'إيجار', labelEn: 'Rent' }
+      ], required: true }
+    ]
+  },
+  clothing: {
+    labelAr: 'ملابس وأزياء',
+    labelEn: 'Clothing & Apparel',
+    fields: [
+      { key: 'brand', labelAr: 'الماركة (اختياري)', labelEn: 'Brand (Optional)', type: 'text', placeholderAr: 'مثال: Zara, Nike', placeholderEn: 'e.g. Zara, Nike' },
+      { key: 'type', labelAr: 'نوع الملابس', labelEn: 'Type of Clothing', type: 'text', placeholderAr: 'مثال: بدلة رجالي، فستان سهرة، جاكيت', placeholderEn: 'e.g. Men suit, Evening dress, Jacket', required: true },
+      { key: 'size', labelAr: 'المقاس', labelEn: 'Size', type: 'select', options: [
+        { value: 's', labelAr: 'Small (S)', labelEn: 'Small (S)' },
+        { value: 'm', labelAr: 'Medium (M)', labelEn: 'Medium (M)' },
+        { value: 'l', labelAr: 'Large (L)', labelEn: 'Large (L)' },
+        { value: 'xl', labelAr: 'X-Large (XL)', labelEn: 'X-Large (XL)' },
+        { value: 'xxl', labelAr: 'XX-Large (XXL)', labelEn: 'XX-Large (XXL)' }
+      ], required: true },
+      { key: 'color', labelAr: 'اللون', labelEn: 'Color', type: 'text', placeholderAr: 'مثال: كحلي / أسود', placeholderEn: 'e.g. Navy / Black' }
+    ]
+  },
+  finishing: {
+    labelAr: 'تشطيب وديكور داخلي',
+    labelEn: 'Interior Finishing',
+    fields: [
+      { key: 'project_type', labelAr: 'نوع الوحدة', labelEn: 'Unit Type', type: 'select', options: [
+        { value: 'apartment', labelAr: 'شقة سكنية', labelEn: 'Residential Apartment' },
+        { value: 'villa', labelAr: 'فيلا', labelEn: 'Villa' },
+        { value: 'office', labelAr: 'مكتب / مقر إداري', labelEn: 'Office / Corporate' },
+        { value: 'store', labelAr: 'محل تجاري', labelEn: 'Retail Store' }
+      ], required: true },
+      { key: 'area_size', labelAr: 'المساحة المراد تشطيبها (متر مربع)', labelEn: 'Area Size (Sqm)', type: 'number', placeholderAr: 'مثال: 150', placeholderEn: 'e.g. 150', required: true },
+      { key: 'style', labelAr: 'نمط الديكور المفضل', labelEn: 'Preferred Style', type: 'select', options: [
+        { value: 'modern', labelAr: 'مودرن / حديث', labelEn: 'Modern' },
+        { value: 'classic', labelAr: 'كلاسيك / كلاسيكي', labelEn: 'Classic' },
+        { value: 'neo_classic', labelAr: 'نيو كلاسيك', labelEn: 'Neo-classic' },
+        { value: 'industrial', labelAr: 'صناعي / مودرن صناعي', labelEn: 'Industrial' }
+      ] }
+    ]
+  }
+}
+
+const GENERAL_FIELDS: FieldDefinition[] = [
+  { key: 'brand', labelAr: 'الماركة (اختياري)', labelEn: 'Brand (Optional)', type: 'text', placeholderAr: 'مثال: Samsung', placeholderEn: 'e.g. Samsung' },
+  { key: 'condition', labelAr: 'الحالة', labelEn: 'Condition', type: 'select', options: [
+    { value: 'new', labelAr: 'جديد', labelEn: 'New' },
+    { value: 'used', labelAr: 'مستعمل', labelEn: 'Used' },
+    { value: 'any', labelAr: 'أي حالة', labelEn: 'Any' }
+  ] },
+  { key: 'color', labelAr: 'اللون (اختياري)', labelEn: 'Color (Optional)', type: 'text', placeholderAr: 'مثال: أسود', placeholderEn: 'e.g. Black' },
+  { key: 'size', labelAr: 'المقاس / الحجم (اختياري)', labelEn: 'Size / Dimensions (Optional)', type: 'text', placeholderAr: 'مثال: XL أو 65 بوصة', placeholderEn: 'e.g. XL or 65 inch' }
+]
+
+const ADVANCED_QUESTIONS = [
+  {
+    key: 'warranty',
+    labelAr: 'مدة الضمان المفضلة',
+    labelEn: 'Preferred Warranty Duration',
+    type: 'select',
+    options: [
+      { value: 'no_pref', labelAr: 'لا يهم / أي ضمان', labelEn: 'Does not matter / Any warranty' },
+      { value: '1_year', labelAr: 'سنة واحدة على الأقل', labelEn: 'At least 1 year' },
+      { value: '2_years', labelAr: 'سنتين أو أكثر', labelEn: '2 years or more' }
+    ]
+  },
+  {
+    key: 'origin',
+    labelAr: 'بلد المنشأ المفضل',
+    labelEn: 'Preferred Origin/Manufacture Country',
+    type: 'text',
+    placeholderAr: 'مثال: محلي، مستورد، ألمانيا، اليابان',
+    placeholderEn: 'e.g. Local, Imported, Germany, Japan'
+  },
+  {
+    key: 'supplier_tier',
+    labelAr: 'فئة المورد المفضل',
+    labelEn: 'Preferred Supplier Tier',
+    type: 'select',
+    options: [
+      { value: 'any', labelAr: 'أرخص عرض متاح (أي مورد)', labelEn: 'Cheapest available (Any supplier)' },
+      { value: 'verified', labelAr: 'مورد معتمد أو موزع رسمي فقط', labelEn: 'Verified supplier or official distributor only' },
+      { value: 'original_only', labelAr: 'ضمان الوكيل الأصلي فقط', labelEn: 'Original agent warranty only' }
+    ]
+  },
+  {
+    key: 'buying_stage',
+    labelAr: 'مرحلة الشراء الفعلي',
+    labelEn: 'Actual Sourcing Stage',
+    type: 'select',
+    options: [
+      { value: 'immediate', labelAr: 'جاهز للشراء اليوم فور توفر العرض', labelEn: 'Ready to buy today once offer is ready' },
+      { value: 'comparing', labelAr: 'مقارنة أسعار ومواصفات فقط حالياً', labelEn: 'Comparing prices and specs only' },
+      { value: 'future', labelAr: 'تخطيط لشراء مستقبلي (خلال شهر)', labelEn: 'Planning for future purchase (within a month)' }
+    ]
+  }
+]
+
 export default function RequestWizardClient({ locale }: { locale: string }) {
   const isAr = locale === 'ar'
   const router = useRouter()
@@ -84,10 +350,14 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   // the customer can still edit it freely in the Intake step).
   const [lookupPhone, setLookupPhone] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showAdvancedSpecs, setShowAdvancedSpecs] = useState(false)
   const [aiData, setAiData] = useState<AIExtractedData | null>(null)
 
   const [formData, setFormData] = useState({
     category:      '',
+    subcategory:   '',
+    customSpecs:   {} as Record<string, string>,
+    advancedSpecs: {} as Record<string, string>,
     productName:   '',
     targetLocation: '',
     maxPrice:      '',
@@ -112,6 +382,13 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
     aiConfidence:  null as number | null,
     aiMetadata:    {} as Record<string, unknown>,
   })
+
+  function getCurrentSpecsFields() {
+    if (formData.subcategory && SUBCATEGORY_FIELDS[formData.subcategory]) {
+      return SUBCATEGORY_FIELDS[formData.subcategory].fields
+    }
+    return GENERAL_FIELDS
+  }
 
   // ── AI Concierge text area ───────────────────────────────────────────────────
   const [conciergeText, setConciergeText] = useState('')
@@ -192,6 +469,8 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
     { id: 'appliances',  label: isAr ? 'أجهزة منزلية'        : 'Home Appliances',        icon: '🏠' },
     { id: 'automotive',  label: isAr ? 'سيارات وقطع غيار'    : 'Automotive',             icon: '🚗' },
     { id: 'furniture',   label: isAr ? 'أثاث وديكور'         : 'Furniture & Decor',      icon: '🪑' },
+    { id: 'fashion',     label: isAr ? 'ملابس وموضة'         : 'Fashion & Apparel',      icon: '👕' },
+    { id: 'real_estate', label: isAr ? 'عقارات'              : 'Real Estate',            icon: '🏢' },
     { id: 'services',    label: isAr ? 'خدمات وتشطيب'        : 'Services & Finishing',   icon: '🔧' },
   ]
 
@@ -424,21 +703,60 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
     e.preventDefault()
     setIsSubmitting(true)
 
+    const specs = formData.customSpecs || {}
+    const adv = formData.advancedSpecs || {}
+
     // Build metadata for extra fields (manual_builder_v2 + AI)
     const metadata: Record<string, unknown> = {
       ...formData.aiMetadata,
+      subcategory:   formData.subcategory || undefined,
+      customSpecs:   specs,
+      advancedSpecs: adv,
+      brand:         specs.brand         || formData.brand        || undefined,
+      condition:     specs.condition     || formData.condition    || undefined,
+      color:         specs.color         || formData.color        || undefined,
+      size:          specs.size          || formData.size         || undefined,
+      warranty:      adv.warranty        || undefined,
+      origin:        adv.origin          || undefined,
+      supplier_tier: adv.supplier_tier   || undefined,
+      buying_stage:  adv.buying_stage    || undefined,
       ...(manualV2.enabled
         ? {
-            brand:         formData.brand        || undefined,
-            condition:     formData.condition    || undefined,
             budgetMin:     formData.budgetMin    ? Number(formData.budgetMin)  : undefined,
             budgetMax:     formData.budgetMax    ? Number(formData.budgetMax)  : undefined,
             urgency:       formData.urgency      || undefined,
-            color:         formData.color        || undefined,
-            size:          formData.size         || undefined,
             referenceLink: formData.referenceLink || undefined,
           }
         : {}),
+    }
+
+    let finalNotes = formData.notes || ''
+    if (formData.subcategory) {
+      const specsList: string[] = []
+      const subInfo = SUBCATEGORY_FIELDS[formData.subcategory]
+      
+      if (formData.customSpecs) {
+        Object.entries(formData.customSpecs).forEach(([k, v]) => {
+          if (!v) return
+          const fieldDef = subInfo?.fields.find(f => f.key === k) || GENERAL_FIELDS.find(f => f.key === k)
+          const label = isAr ? fieldDef?.labelAr : fieldDef?.labelEn
+          specsList.push(`- **${label}**: ${v}`)
+        })
+      }
+      
+      if (formData.advancedSpecs) {
+        Object.entries(formData.advancedSpecs).forEach(([k, v]) => {
+          if (!v) return
+          const advDef = ADVANCED_QUESTIONS.find(q => q.key === k)
+          const label = isAr ? advDef?.labelAr : advDef?.labelEn
+          specsList.push(`- **${label}**: ${v}`)
+        })
+      }
+
+      if (specsList.length > 0) {
+        const titleText = isAr ? '📋 تفاصيل المواصفات المطلوبة:' : '📋 Requested Specifications:'
+        finalNotes = `${titleText}\n${specsList.join('\n')}\n\n${finalNotes}`
+      }
     }
 
     try {
@@ -447,6 +765,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          notes:          finalNotes,
           customerPhone:  formData.customerPhone || lookupPhone,
           metadata,
           source_type:    formData.sourceType,
@@ -459,7 +778,11 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
         try {
           sessionStorage.clear()
         } catch {}
-        router.push(`/${locale}/customer/dashboard?requestId=${data.requestId}&code=${data.requestCode}`)
+        if (data.isExistingRegisteredAccount) {
+          router.push(`/${locale}/customer/dashboard?requestId=${data.requestId}&code=${data.requestCode}&returning=true`)
+        } else {
+          router.push(`/${locale}/customer/dashboard?requestId=${data.requestId}&code=${data.requestCode}`)
+        }
       } else {
         alert(data.error || 'Failed to submit request')
         setIsSubmitting(false)
@@ -696,10 +1019,15 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
                 key={cat.id}
                 type="button"
                 onClick={() => {
-                  setFormData({ ...formData, category: cat.id })
-                  setStep(STEP_DETAILS)
+                  setFormData({ 
+                    ...formData, 
+                    category: cat.id,
+                    subcategory: '',
+                    customSpecs: {},
+                    advancedSpecs: {}
+                  })
                 }}
-                className="wizard-category-btn"
+                className={`wizard-category-btn ${formData.category === cat.id ? 'is-selected' : ''}`}
                 data-testid={`wizard-category-${cat.id}`}
               >
                 <div className="wizard-category-icon">{cat.icon}</div>
@@ -707,6 +1035,47 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
               </button>
             ))}
           </div>
+
+          {/* Subcategory Selector */}
+          {formData.category && SUBCATEGORIES_MAP[formData.category] && (
+            <div className="wizard-subcategory-section mt-8 animate-fade-in text-start">
+              <h3 className="wizard-step-subtitle text-sm font-bold mb-4 text-center text-[hsl(258,89%,76%)]">
+                {isAr ? 'اختر التصنيف الفرعي الأكثر دقة:' : 'Choose the most accurate subcategory:'}
+              </h3>
+              <div className="wizard-subcategories-grid">
+                {SUBCATEGORIES_MAP[formData.category].map(sub => (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => {
+                      setFormData({ 
+                        ...formData, 
+                        subcategory: sub.id,
+                        customSpecs: {}
+                      })
+                    }}
+                    className={`wizard-subcategory-btn ${formData.subcategory === sub.id ? 'is-selected' : ''}`}
+                  >
+                    <span className="wizard-sub-icon">{sub.icon}</span>
+                    <span>{isAr ? sub.labelAr : sub.labelEn}</span>
+                  </button>
+                ))}
+              </div>
+
+              {formData.subcategory && (
+                <div className="flex justify-center mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setStep(STEP_DETAILS)}
+                    className="wizard-btn-primary px-8 py-3"
+                    data-testid="wizard-continue-details"
+                  >
+                    {isAr ? 'متابعة تفاصيل المنتج ←' : 'Continue to Product Details ←'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -777,7 +1146,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
             <div className="wizard-form-group">
               <label className="wizard-label">
-                {isAr ? 'اسم المنتج أو الخدمة بدقة' : 'Exact Product or Service Name'}
+                {isAr ? 'اسم المنتج أو الخدمة بدقة *' : 'Exact Product or Service Name *'}
               </label>
               <input
                 required
@@ -790,96 +1159,129 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
               />
             </div>
 
-            {/* manual_builder_v2 extended fields */}
-            {!manualV2.loading && manualV2.enabled && (
-              <div className="wizard-v2-fields">
-                <div className="wizard-grid-2">
-                  <div className="wizard-form-group">
-                    <label className="wizard-label-sm">{isAr ? 'الماركة (اختياري)' : 'Brand (Optional)'}</label>
-                    <input
-                      value={formData.brand}
-                      onChange={e => setFormData({ ...formData, brand: e.target.value })}
-                      className="wizard-input-sm"
-                      placeholder={isAr ? 'مثال: Samsung' : 'e.g. Samsung'}
-                    />
+            {/* Dynamic Product Specifications */}
+            <div className="wizard-specs-section text-start">
+              <h3 className="wizard-specs-title text-sm font-bold text-[hsl(258,89%,76%)] mb-4">
+                {isAr ? '📋 مواصفات المنتج المطلوبة:' : '📋 Required Product Specifications:'}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {getCurrentSpecsFields().map(field => (
+                  <div key={field.key} className="wizard-form-group">
+                    <label className="wizard-label-sm">
+                      {isAr ? field.labelAr : field.labelEn}
+                      {field.required && ' *'}
+                    </label>
+                    
+                    {field.type === 'select' ? (
+                      <select
+                        required={field.required}
+                        value={formData.customSpecs?.[field.key] || ''}
+                        onChange={e => setFormData({
+                          ...formData,
+                          customSpecs: {
+                            ...formData.customSpecs,
+                            [field.key]: e.target.value
+                          }
+                        })}
+                        className="wizard-input-sm wizard-select"
+                      >
+                        <option value="">{isAr ? '— اختر —' : '— Select —'}</option>
+                        {field.options?.map(opt => (
+                          <option key={opt.value} value={opt.value}>
+                            {isAr ? opt.labelAr : opt.labelEn}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        required={field.required}
+                        type={field.type}
+                        value={formData.customSpecs?.[field.key] || ''}
+                        onChange={e => setFormData({
+                          ...formData,
+                          customSpecs: {
+                            ...formData.customSpecs,
+                            [field.key]: e.target.value
+                          }
+                        })}
+                        className="wizard-input-sm"
+                        placeholder={isAr ? field.placeholderAr : field.placeholderEn}
+                      />
+                    )}
                   </div>
-                  <div className="wizard-form-group">
-                    <label className="wizard-label-sm">{isAr ? 'الحالة' : 'Condition'}</label>
-                    <select
-                      value={formData.condition}
-                      onChange={e => setFormData({ ...formData, condition: e.target.value })}
-                      className="wizard-input-sm wizard-select"
-                    >
-                      <option value="">{isAr ? '— اختر —' : '— Select —'}</option>
-                      <option value="new">{isAr ? 'جديد' : 'New'}</option>
-                      <option value="used">{isAr ? 'مستعمل' : 'Used'}</option>
-                      <option value="any">{isAr ? 'أي حالة' : 'Any'}</option>
-                    </select>
-                  </div>
-                  <div className="wizard-form-group">
-                    <label className="wizard-label-sm">{isAr ? 'أقل ميزانية (جنيه)' : 'Min Budget (EGP)'}</label>
-                    <input
-                      type="number" min={0}
-                      value={formData.budgetMin}
-                      onChange={e => setFormData({ ...formData, budgetMin: e.target.value })}
-                      className="wizard-input-sm"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="wizard-form-group">
-                    <label className="wizard-label-sm">{isAr ? 'أقصى ميزانية (جنيه)' : 'Max Budget (EGP)'}</label>
-                    <input
-                      type="number" min={0}
-                      value={formData.budgetMax}
-                      onChange={e => setFormData({ ...formData, budgetMax: e.target.value })}
-                      className="wizard-input-sm"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="wizard-form-group">
-                    <label className="wizard-label-sm">{isAr ? 'اللون (اختياري)' : 'Color (Optional)'}</label>
-                    <input
-                      value={formData.color}
-                      onChange={e => setFormData({ ...formData, color: e.target.value })}
-                      className="wizard-input-sm"
-                      placeholder={isAr ? 'مثال: أسود' : 'e.g. Black'}
-                    />
-                  </div>
-                  <div className="wizard-form-group">
-                    <label className="wizard-label-sm">{isAr ? 'المقاس / الحجم (اختياري)' : 'Size (Optional)'}</label>
-                    <input
-                      value={formData.size}
-                      onChange={e => setFormData({ ...formData, size: e.target.value })}
-                      className="wizard-input-sm"
-                      placeholder={isAr ? 'مثال: XL أو 65 بوصة' : 'e.g. XL or 65 inch'}
-                    />
-                  </div>
-                  <div className="wizard-form-group">
-                    <label className="wizard-label-sm">{isAr ? 'مستوى الأولوية' : 'Urgency'}</label>
-                    <select
-                      value={formData.urgency}
-                      onChange={e => setFormData({ ...formData, urgency: e.target.value })}
-                      className="wizard-input-sm wizard-select"
-                    >
-                      <option value="">{isAr ? '— اختر —' : '— Select —'}</option>
-                      <option value="normal">{isAr ? 'عادي' : 'Normal'}</option>
-                      <option value="high">{isAr ? 'عالي' : 'High'}</option>
-                      <option value="urgent">{isAr ? 'عاجل' : 'Urgent'}</option>
-                    </select>
-                  </div>
-                  <div className="wizard-form-group">
-                    <label className="wizard-label-sm">{isAr ? 'رابط مرجعي (اختياري)' : 'Reference Link (Optional)'}</label>
-                    <input
-                      type="url"
-                      value={formData.referenceLink}
-                      onChange={e => setFormData({ ...formData, referenceLink: e.target.value })}
-                      className="wizard-input-sm"
-                      placeholder="https://..."
-                    />
+                ))}
+              </div>
+            </div>
+
+            {/* Expandable Advanced Sourcing Section */}
+            <div className="wizard-advanced-toggle-panel mt-6 text-start">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedSpecs(!showAdvancedSpecs)}
+                className="flex items-center justify-between w-full p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🧠</span>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">
+                      {isAr ? 'أسئلة إضافية متقدمة (لتحسين دقة البحث)' : 'Optional Advanced Questions (Optimize Search)'}
+                    </h4>
+                    <p className="text-xs text-[hsl(220,10%,60%)] mt-0.5">
+                      {isAr ? 'وفر 1-2 دقيقة إضافية للحصول على نتائج مطابقة بنسبة 100%' : 'Spend 1-2 minutes extra to get 100% matched results'}
+                    </p>
                   </div>
                 </div>
-              </div>
-            )}
+                <span className="text-sm text-[hsl(220,10%,60%)] font-bold">
+                  {showAdvancedSpecs ? '▲' : '▼'}
+                </span>
+              </button>
+
+              {showAdvancedSpecs && (
+                <div className="p-4 mt-3 rounded-xl border border-white/10 bg-black/40 space-y-4 animate-slide-down">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {ADVANCED_QUESTIONS.map(q => (
+                      <div key={q.key} className="wizard-form-group">
+                        <label className="wizard-label-sm">{isAr ? q.labelAr : q.labelEn}</label>
+                        {q.type === 'select' ? (
+                          <select
+                            value={formData.advancedSpecs?.[q.key] || ''}
+                            onChange={e => setFormData({
+                              ...formData,
+                              advancedSpecs: {
+                                ...formData.advancedSpecs,
+                                [q.key]: e.target.value
+                              }
+                            })}
+                            className="wizard-input-sm wizard-select"
+                          >
+                            <option value="">{isAr ? '— لا يهم —' : '— Does not matter —'}</option>
+                            {q.options?.map(opt => (
+                              <option key={opt.value} value={opt.value}>
+                                {isAr ? opt.labelAr : opt.labelEn}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={formData.advancedSpecs?.[q.key] || ''}
+                            onChange={e => setFormData({
+                              ...formData,
+                              advancedSpecs: {
+                                ...formData.advancedSpecs,
+                                [q.key]: e.target.value
+                              }
+                            })}
+                            className="wizard-input-sm"
+                            placeholder={isAr ? q.placeholderAr : q.placeholderEn}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* B2B Toggle */}
             <div className="wizard-toggle-container">
@@ -1310,6 +1712,30 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
           text-align: center !important; cursor: pointer !important;
           transition: all 0.2s ease !important; width: 100% !important;
         }
+        button.wizard-category-btn.is-selected {
+          background: rgba(139,92,246,0.25) !important; border-color: rgba(139,92,246,0.7) !important;
+          box-shadow: 0 0 15px rgba(139,92,246,0.25) !important;
+        }
+        .wizard-subcategories-grid {
+          display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 12px;
+        }
+        button.wizard-subcategory-btn {
+          background: rgba(255,255,255,0.03) !important; color: rgba(255,255,255,0.8) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important; padding: 12px 16px !important;
+          border-radius: 10px !important; display: flex !important; align-items: center !important;
+          justify-content: flex-start !important; cursor: pointer !important;
+          transition: all 0.2s ease !important; width: 100% !important; font-size: 13px !important;
+          font-weight: 600 !important;
+        }
+        button.wizard-subcategory-btn:hover {
+          background: rgba(139,92,246,0.15) !important; border-color: rgba(139,92,246,0.4) !important;
+          color: white !important;
+        }
+        button.wizard-subcategory-btn.is-selected {
+          background: rgba(139,92,246,0.25) !important; border-color: rgba(139,92,246,0.7) !important;
+          color: white !important; box-shadow: 0 0 10px rgba(139,92,246,0.2) !important;
+        }
+        .wizard-sub-icon { margin-inline-end: 8px; font-size: 16px; }
         button.wizard-category-btn:hover {
           background: rgba(139,92,246,0.2) !important; border-color: rgba(139,92,246,0.5) !important;
           transform: translateY(-2px) !important;

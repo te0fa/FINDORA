@@ -41,6 +41,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   let customerId: string | null = null
   let authUserId: string | null = null
+  let isExistingRegisteredAccount = false
   if (user) {
     authUserId = user.id
     const { data: cust } = await supabase
@@ -54,7 +55,12 @@ export async function POST(request: Request) {
     try {
       const { upsertGuestCustomerByPhone } = await import('@/lib/dal/customers')
       const guestCust = await upsertGuestCustomerByPhone(customerPhone, customerName, undefined, 'ar')
-      if (guestCust) customerId = guestCust.id
+      if (guestCust) {
+        customerId = guestCust.id
+        if (guestCust.auth_user_id) {
+          isExistingRegisteredAccount = true
+        }
+      }
     } catch (err: any) {
       console.error('upsertGuestCustomerByPhone failed:', err.message)
     }
@@ -209,6 +215,6 @@ export async function POST(request: Request) {
     )
   }
 
-  return NextResponse.json({ success: true, requestId: newRequest.id, requestCode })
+  return NextResponse.json({ success: true, requestId: newRequest.id, requestCode, isExistingRegisteredAccount })
 }
 
