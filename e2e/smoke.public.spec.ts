@@ -8,7 +8,7 @@ test.describe('Public Smoke Tests', () => {
     const pageContainer = page.getByTestId('start-request-page');
     await expect(pageContainer).toBeVisible();
     
-    const title = page.locator('.page-title');
+    const title = page.locator('.wizard-step-title').first();
     await expect(title).toBeVisible();
     
     // Check if the URL is correct
@@ -22,7 +22,7 @@ test.describe('Public Smoke Tests', () => {
     const pageContainer = page.getByTestId('start-request-page');
     await expect(pageContainer).toBeVisible();
     
-    const title = page.locator('.page-title');
+    const title = page.locator('.wizard-step-title').first();
     await expect(title).toBeVisible();
     
     // Check if the URL is correct

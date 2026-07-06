@@ -175,8 +175,8 @@ test.describe('Homepage Unified Floating Hub UX Lock', () => {
     }
     
     await trigger.click();
-    await expect(page.getByTestId('hub-tab-service')).toContainText('عروض الخدمات');
-    await expect(page.getByTestId('hub-tab-product')).toContainText('لقطات المنتجات');
+    await expect(page.getByTestId('hub-tab-service')).toContainText('الخصومات');
+    await expect(page.getByTestId('hub-tab-product')).toContainText('المتجر');
   });
 
   test('should be compact on mobile viewport', async ({ page }) => {

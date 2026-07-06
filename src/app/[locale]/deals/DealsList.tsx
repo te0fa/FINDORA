@@ -445,7 +445,7 @@ export default function DealsList({ deals, locale, isRTL, dict }: DealsListProps
               })}
             </div>
           ) : (
-            <div className="store-empty-state">
+            <div className="store-empty-state" data-testid="public-deal-empty-state">
               <span className="empty-icon">🔍</span>
               <h4>{isRTL ? 'لا توجد نتائج مطابقة' : 'No matching results'}</h4>
               <p>{isRTL ? 'حاول تغيير خيارات البحث أو التصفية للوصول للمنتجات.' : 'Try changing your search keywords or filter settings.'}</p>

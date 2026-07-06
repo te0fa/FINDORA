@@ -202,6 +202,7 @@ export default function FloatingHighlightsHub({
               <button
                 onClick={() => { setActiveTab('service'); setCurrentIndex(0) }}
                 data-testid="hub-tab-service"
+                className={activeTab === 'service' ? 'active' : ''}
                 style={{
                   flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                   padding: '9px 6px', borderRadius: '10px', cursor: 'pointer',
@@ -229,6 +230,7 @@ export default function FloatingHighlightsHub({
               <button
                 onClick={() => { setActiveTab('product'); setCurrentIndex(0) }}
                 data-testid="hub-tab-product"
+                className={activeTab === 'product' ? 'active' : ''}
                 style={{
                   flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                   padding: '9px 6px', borderRadius: '10px', cursor: 'pointer',

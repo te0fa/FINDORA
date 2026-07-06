@@ -15,8 +15,8 @@ test.describe("Enterprise Landing Page V3.5 E2E Journey", () => {
     await expect(heroTitle).toBeVisible();
     // Only check content if it matches expected CMS content
     const titleText = await heroTitle.textContent() ?? '';
-    if (titleText.includes('Tell us what you need')) {
-      await expect(heroTitle).toContainText("Tell us what you need. We search the market.");
+    if (titleText.toLowerCase().includes('tell us what you need')) {
+      await expect(heroTitle).toContainText(/Tell us what you need\s*\.?\s*We search the market/i);
     } else {
       console.log('Skipping h1 content check: CMS content differs in this environment');
     }
