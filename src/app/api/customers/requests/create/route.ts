@@ -144,6 +144,19 @@ export async function POST(request: Request) {
     const { createAdminClient } = await import('@/lib/dal/customers')
     const adminClient = await createAdminClient()
     
+    const allowedKinds = ['everyday_purchase', 'high_value_asset', 'project_supply', 'general']
+    let finalRequestKind = 'everyday_purchase'
+
+    if (isBusiness) {
+      finalRequestKind = 'project_supply'
+    } else if (allowedKinds.includes(category)) {
+      finalRequestKind = category
+    } else if (category === 'high_value_deals') {
+      finalRequestKind = 'high_value_asset'
+    } else if (category === 'projects_supplies') {
+      finalRequestKind = 'project_supply'
+    }
+
     const requestPayload: any = {
       id: newRequest.id as string, // Keep the same UUID!
       request_code: requestCode,
@@ -152,12 +165,11 @@ export async function POST(request: Request) {
       raw_description: notes || '',
       current_status: 'open',
       source_channel: 'landing_page',
-      request_kind: category || 'everyday_purchase',
+      request_kind: finalRequestKind,
       is_business: !!isBusiness,
     }
 
     if (isBusiness) {
-      requestPayload.request_kind = 'projects_supplies'
       requestPayload.business_metadata = {
         company_name: companyName,
         cr_number: crNumber,

@@ -50,6 +50,7 @@ export default defineConfig({
     },
     {
       name: 'staff-authenticated',
+      testMatch: /staff\.(?!auth\.setup)\..*/,
       use: { 
         ...devices['Desktop Chrome'],
         locale: 'en-US',
@@ -59,6 +60,7 @@ export default defineConfig({
     },
     {
       name: 'chromium-en',
+      testIgnore: /staff\..*/,
       use: { 
         ...devices['Desktop Chrome'],
         locale: 'en-US',
@@ -66,6 +68,7 @@ export default defineConfig({
     },
     {
       name: 'chromium-ar',
+      testIgnore: /staff\..*/,
       use: { 
         ...devices['Desktop Chrome'],
         locale: 'ar-EG',

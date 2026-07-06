@@ -76,6 +76,20 @@ export async function createSourcingRequest(params: CreateSourcingRequestParams)
 
   const requestId = crypto.randomUUID()
 
+  const allowedKinds = ['everyday_purchase', 'high_value_asset', 'project_supply', 'general']
+  let finalRequestKind = 'general'
+  const incomingKind = params.requestKind?.trim()
+
+  if (incomingKind && allowedKinds.includes(incomingKind)) {
+    finalRequestKind = incomingKind
+  } else if (incomingKind === 'product' || incomingKind === 'service') {
+    finalRequestKind = 'everyday_purchase'
+  } else if (incomingKind === 'high_value_deals') {
+    finalRequestKind = 'high_value_asset'
+  } else if (incomingKind === 'projects_supplies') {
+    finalRequestKind = 'project_supply'
+  }
+
   const { data: rpcResult, error: rpcError } = await adminClient.rpc('fn_create_sourcing_request', {
     p_request_id: requestId,
     p_customer_id: params.customerId,
@@ -91,7 +105,7 @@ export async function createSourcingRequest(params: CreateSourcingRequestParams)
     p_raw_description: params.rawDescription || '',
     p_status: params.status,
     p_channel: params.channel,
-    p_request_kind: params.requestKind || 'general',
+    p_request_kind: finalRequestKind,
     p_intake_mode: params.intakeMode || 'quick',
     p_pricing_decision: params.pricingDecision || 'pending_review',
     p_service_fee_amount: serviceFeeAmount,

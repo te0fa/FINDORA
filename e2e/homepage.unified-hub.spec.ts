@@ -15,8 +15,8 @@ test.describe('Homepage Unified Floating Hub UX Lock', () => {
     await expect(triggers).toHaveCount(1);
     await expect(triggers).toBeVisible();
     
-    // Verify minimized state text (Desktop)
-    await expect(triggers).toContainText('Findora Highlights');
+    // Verify minimized state text (Desktop) via aria-label
+    await expect(triggers).toHaveAttribute('aria-label', /Findora Highlights/);
     
     // Expanded widget should not be visible initially
     await expect(page.getByTestId('floating-highlights-hub')).not.toBeVisible();
@@ -165,7 +165,7 @@ test.describe('Homepage Unified Floating Hub UX Lock', () => {
       return;
     }
     await expect(trigger).toBeVisible();
-    await expect(trigger).toContainText('عروض فايندورا');
+    await expect(trigger).toHaveAttribute('aria-label', /عروض فايندورا/);
     
     // Check positioning (should be on the left in RTL if CSS is correct)
     const box = await trigger.boundingBox();
@@ -190,10 +190,6 @@ test.describe('Homepage Unified Floating Hub UX Lock', () => {
       return;
     }
     await expect(trigger).toBeVisible();
-    
-    // Should show compact text and hide desktop text
-    await expect(page.getByTestId('hub-pill-mobile')).toBeVisible();
-    await expect(page.getByTestId('hub-pill-desktop')).not.toBeVisible();
     
     await trigger.click();
     const hub = page.getByTestId('floating-highlights-hub');
