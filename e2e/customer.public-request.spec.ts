@@ -22,11 +22,18 @@ test.describe('Public Customer Request Journey', () => {
     await page.goto('/en/start-request');
     const pageContainer = page.getByTestId('start-request-page');
     await expect(pageContainer).toBeVisible({ timeout: 10000 });
-    // Click Skip if returning step is present
+    // Click Skip if returning step is present (handling dynamic rendering race conditions)
     const skipBtn = page.locator('#rc-skip-btn');
-    const isSkipVisible = await skipBtn.isVisible().catch(() => false);
-    if (isSkipVisible) {
-      await skipBtn.click();
+    try {
+      await Promise.any([
+        skipBtn.waitFor({ state: 'visible', timeout: 4000 }),
+        page.getByTestId('wizard-category-electronics').waitFor({ state: 'visible', timeout: 4000 })
+      ]);
+      if (await skipBtn.isVisible()) {
+        await skipBtn.click();
+      }
+    } catch (e) {
+      // ignore
     }
     // 2. Select a category (electronics) — wizard step 1
     const categoryBtn = page.getByTestId('wizard-category-electronics');
@@ -147,11 +154,18 @@ test.describe('Public Customer Request Journey', () => {
     await page.goto('/en/start-request');
     const pageContainer = page.getByTestId('start-request-page');
     await expect(pageContainer).toBeVisible({ timeout: 10000 });
-    // Click Skip if returning step is present
+    // Click Skip if returning step is present (handling dynamic rendering race conditions)
     const skipBtn = page.locator('#rc-skip-btn');
-    const isSkipVisible = await skipBtn.isVisible().catch(() => false);
-    if (isSkipVisible) {
-      await skipBtn.click();
+    try {
+      await Promise.any([
+        skipBtn.waitFor({ state: 'visible', timeout: 4000 }),
+        page.getByTestId('wizard-category-electronics').waitFor({ state: 'visible', timeout: 4000 })
+      ]);
+      if (await skipBtn.isVisible()) {
+        await skipBtn.click();
+      }
+    } catch (e) {
+      // ignore
     }
     // 2. Select a category (electronics) and subcategory
     const categoryBtn = page.getByTestId('wizard-category-electronics');

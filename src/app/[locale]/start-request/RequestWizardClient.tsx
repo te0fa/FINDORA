@@ -278,7 +278,165 @@ const GENERAL_FIELDS: FieldDefinition[] = [
   { key: 'size', labelAr: 'المقاس / الحجم (اختياري)', labelEn: 'Size / Dimensions (Optional)', type: 'text', placeholderAr: 'مثال: XL أو 65 بوصة', placeholderEn: 'e.g. XL or 65 inch' }
 ]
 
-const ADVANCED_QUESTIONS = [
+interface AdvancedQuestionDefinition {
+  key: string
+  labelAr: string
+  labelEn: string
+  type: 'text' | 'select'
+  options?: { value: string; labelAr: string; labelEn: string }[]
+  placeholderAr?: string
+  placeholderEn?: string
+}
+
+const SUBCATEGORY_ADVANCED_QUESTIONS: Record<string, AdvancedQuestionDefinition[]> = {
+  mobiles: [
+    {
+      key: 'accessories',
+      labelAr: 'الملحقات والإكسسوارات المطلوبة',
+      labelEn: 'Required Accessories',
+      type: 'select',
+      options: [
+        { value: 'device_only', labelAr: 'الجهاز فقط', labelEn: 'Device Only' },
+        { value: 'with_charger', labelAr: 'مع شاحن كامل وسماعة رأس', labelEn: 'With charger & headset' },
+        { value: 'full_bundle', labelAr: 'باقة كاملة (لاصقة حماية وغطاء)', labelEn: 'Full bundle (screen protector & cover)' }
+      ]
+    },
+    {
+      key: 'sim_support',
+      labelAr: 'دعم الشرائح والشبكات',
+      labelEn: 'SIM & Network Support',
+      type: 'select',
+      options: [
+        { value: 'any', labelAr: 'أي نسخة شريحة', labelEn: 'Any SIM version' },
+        { value: 'dual_physical', labelAr: 'شريحتين اتصال فعليتين (Dual SIM)', labelEn: 'Dual Physical SIM' },
+        { value: 'esim', labelAr: 'شريحة إلكترونية مدمجة (eSIM)', labelEn: 'eSIM support' }
+      ]
+    },
+    {
+      key: 'origin_pref',
+      labelAr: 'نسخة الجهاز الإقليمية المفضلة',
+      labelEn: 'Preferred Regional Version',
+      type: 'select',
+      options: [
+        { value: 'any', labelAr: 'لا يهم / أي نسخة', labelEn: 'Does not matter' },
+        { value: 'local_warranty', labelAr: 'نسخة محلية بضمان الوكيل الرسمي', labelEn: 'Local official agent warranty' },
+        { value: 'international', labelAr: 'نسخة دولية (سعر أرخص)', labelEn: 'International version (better price)' }
+      ]
+    }
+  ],
+  cars: [
+    {
+      key: 'car_history',
+      labelAr: 'الحالة وتاريخ الحوادث المقبول',
+      labelEn: 'Acceptable Vehicle History',
+      type: 'select',
+      options: [
+        { value: 'no_accidents', labelAr: 'خالية تماماً من الرش والحوادث (فابريكا)', labelEn: 'Factory paint, no accidents' },
+        { value: 'minor_scratches', labelAr: 'مقبول رش أجزاء بسيطة للنظافة', labelEn: 'Minor cosmetic paint accepted' },
+        { value: 'any', labelAr: 'أي حالة فنية نظيفة', labelEn: 'Any clean technical status' }
+      ]
+    },
+    {
+      key: 'fuel_type',
+      labelAr: 'نوع الوقود المفضل',
+      labelEn: 'Preferred Fuel Type',
+      type: 'select',
+      options: [
+        { value: 'gasoline', labelAr: 'بنزين / غازولين', labelEn: 'Gasoline' },
+        { value: 'diesel', labelAr: 'ديزل / سولار', labelEn: 'Diesel' },
+        { value: 'electric_hybrid', labelAr: 'كهربائية بالكامل أو هجينة (Hybrid)', labelEn: 'Electric / Hybrid' }
+      ]
+    },
+    {
+      key: 'interior_color',
+      labelAr: 'لون وتنجيد فرش السيارة المفضل',
+      labelEn: 'Preferred Interior/Seat Color & Material',
+      type: 'text',
+      placeholderAr: 'مثال: جلد جملي، أو قماش أسود',
+      placeholderEn: 'e.g. Camel leather, black fabric'
+    }
+  ],
+  apartments: [
+    {
+      key: 'payment_plan',
+      labelAr: 'طريقة الدفع والسداد المقبولة',
+      labelEn: 'Acceptable Payment & Installments',
+      type: 'select',
+      options: [
+        { value: 'cash_only', labelAr: 'كاش بالكامل دفعة واحدة', labelEn: 'Cash only' },
+        { value: 'installments', labelAr: 'تقسيط (مقدم + دفعات متساوية)', labelEn: 'Installments (downpayment + terms)' },
+        { value: 'any', labelAr: 'أي نظام متاح', labelEn: 'Any plan' }
+      ]
+    },
+    {
+      key: 'floor_range',
+      labelAr: 'الطابق المفضل للوحدة السكنية',
+      labelEn: 'Preferred Floor Range',
+      type: 'select',
+      options: [
+        { value: 'ground', labelAr: 'أرضي (يفضل بحديقة)', labelEn: 'Ground floor (garden preferred)' },
+        { value: 'middle', labelAr: 'طابق متكرر (وسط)', labelEn: 'Middle floor' },
+        { value: 'top_penthouse', labelAr: 'طابق أخير / بنتهاوس مع روف', labelEn: 'Top floor / Penthouse' },
+        { value: 'any', labelAr: 'لا يهم / أي طابق', labelEn: 'Any floor' }
+      ]
+    },
+    {
+      key: 'view_type',
+      labelAr: 'إطلالة العقار المفضلة',
+      labelEn: 'Preferred View / Outlook',
+      type: 'text',
+      placeholderAr: 'مثال: إطلالة على حديقة، شارع رئيسي، نيل',
+      placeholderEn: 'e.g. Facing park, main street, river view'
+    }
+  ],
+  villas: [
+    {
+      key: 'payment_plan',
+      labelAr: 'طريقة الدفع والسداد المقبولة',
+      labelEn: 'Acceptable Payment & Installments',
+      type: 'select',
+      options: [
+        { value: 'cash_only', labelAr: 'كاش بالكامل دفعة واحدة', labelEn: 'Cash only' },
+        { value: 'installments', labelAr: 'تقسيط (مقدم + دفعات متساوية)', labelEn: 'Installments (downpayment + terms)' },
+        { value: 'any', labelAr: 'أي نظام متاح', labelEn: 'Any plan' }
+      ]
+    },
+    {
+      key: 'view_type',
+      labelAr: 'إطلالة العقار المفضلة',
+      labelEn: 'Preferred View / Outlook',
+      type: 'text',
+      placeholderAr: 'مثال: إطلالة على حديقة، شارع رئيسي، نيل',
+      placeholderEn: 'e.g. Facing park, main street, river view'
+    }
+  ],
+  finishing: [
+    {
+      key: 'design_status',
+      labelAr: 'هل يتوفر لديك تصميم ثلاثي الأبعاد (3D Design) جاهز؟',
+      labelEn: 'Do you already have a 3D design ready?',
+      type: 'select',
+      options: [
+        { value: 'yes_ready', labelAr: 'نعم، يتوفر تصميم ومخطط هندسي كامل', labelEn: 'Yes, full design & blueprints ready' },
+        { value: 'need_design', labelAr: 'لا، أحتاج لعمل التصميم والديكور أولاً', labelEn: 'No, design work is needed first' },
+        { value: 'execution_only', labelAr: 'لا، وأريد البدء في التنفيذ مباشرة بدون تصميم ثلاثي الأبعاد', labelEn: 'No, start execution directly' }
+      ]
+    },
+    {
+      key: 'material_grade',
+      labelAr: 'درجة جودة خامات ومواد التشطيب المطلوبة',
+      labelEn: 'Desired Finishing Material Grade',
+      type: 'select',
+      options: [
+        { value: 'ultra_high', labelAr: 'مستورد بالكامل وفخم جداً (Ultra Luxury)', labelEn: 'Ultra luxury & imported' },
+        { value: 'premium', labelAr: 'مستوى راقي وخامات ممتازة (Premium/Deluxe)', labelEn: 'Premium / Deluxe quality' },
+        { value: 'economical', labelAr: 'تشطيب اقتصادي وعملي بجودة مقبولة', labelEn: 'Economical & functional' }
+      ]
+    }
+  ]
+}
+
+const GENERAL_ADVANCED_QUESTIONS: AdvancedQuestionDefinition[] = [
   {
     key: 'warranty',
     labelAr: 'مدة الضمان المفضلة',
@@ -388,6 +546,41 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
       return SUBCATEGORY_FIELDS[formData.subcategory].fields
     }
     return GENERAL_FIELDS
+  }
+
+  function getProductNamePlaceholder() {
+    const map: Record<string, { ar: string; en: string }> = {
+      mobiles: { ar: 'مثال: آيفون 15 برو ماكس 256 جيجا', en: 'e.g. iPhone 15 Pro Max 256GB' },
+      laptops: { ar: 'مثال: لابتوب ديل XPS 15 بذاكرة 16 جيجا', en: 'e.g. Dell XPS 15 Laptop 16GB RAM' },
+      gaming: { ar: 'مثال: بلايستيشن 5 سليم مع ذراعين', en: 'e.g. PlayStation 5 Slim with 2 Controllers' },
+      audio_video: { ar: 'مثال: شاشة إل جي OLED 65 بوصة 4K', en: 'e.g. LG OLED 65 inch 4K TV' },
+      refrigerator: { ar: 'مثال: ثلاجة شارب 18 قدم سيلفر ديجيتال', en: 'e.g. Sharp Refrigerator 18 Feet Silver Digital' },
+      washing_machine: { ar: 'مثال: غسالة إل جي 9 كيلو اتوماتيك بالبخار', en: 'e.g. LG Washing Machine 9kg Steam Front Load' },
+      ac: { ar: 'مثال: تكييف كاريير سبليت 2.25 حصان انفرتر بارد/ساخن', en: 'e.g. Carrier Split AC 2.25 HP Inverter Cool/Heat' },
+      stove_oven: { ar: 'مثال: بوتاجاز يونيفرسال 5 شعلة ستانلس ستيل', en: 'e.g. Universal Stove 5 Burners Stainless Steel' },
+      cars: { ar: 'مثال: تويوتا كورولا 2023 فئة ثانية', en: 'e.g. Toyota Corolla 2023 Active Pack' },
+      spare_parts: { ar: 'مثال: مساعدين خلفيين تويوتا ياريس 2015', en: 'e.g. Rear Shock Absorbers Toyota Yaris 2015' },
+      living_room: { ar: 'مثال: طقم انتريه مودرن 4 قطع لون رمادي', en: 'e.g. Modern Living Room Sofa Set 4 Pieces Grey' },
+      bedroom: { ar: 'مثال: غرفة نوم خشب زان كاملة سرير ودولاب', en: 'e.g. Full Beech Wood Bedroom Set Bed & Wardrobe' },
+      kitchen: { ar: 'مثال: مطبخ خشب الوميتال خامات مستوردة 3 متر', en: 'e.g. Custom Alumital Kitchen 3 Meters' },
+      clothing: { ar: 'مثال: بدلة رجالي رسمية كحلي مقاس 52', en: 'e.g. Navy Blue Formal Men Suit Size 52' },
+      shoes: { ar: 'مثال: حذاء جري نايكي مقاس 43 أسود', en: 'e.g. Nike Running Shoes Size 43 Black' },
+      apartments: { ar: 'مثال: شقة 3 غرف وصالة للإيجار بالمعادي', en: 'e.g. 3-Bedroom Apartment for Rent in Maadi' },
+      villas: { ar: 'مثال: تاون هاوس للبيع في زايد بضواحي القاهرة', en: 'e.g. Townhouse for Sale in Zayed City' },
+      finishing: { ar: 'مثال: تصميم وتشطيب شقة 150 متر التجمع الخامس', en: 'e.g. Interior Design & Finishing for 150 Sqm Apartment' }
+    }
+    const val = map[formData.subcategory] || {
+      ar: 'اسم المنتج، الماركة، الموديل، التفاصيل بدقة',
+      en: 'Exact product name, brand, model, detailed specs'
+    }
+    return isAr ? val.ar : val.en
+  }
+
+  function getCurrentAdvancedQuestions() {
+    if (formData.subcategory && SUBCATEGORY_ADVANCED_QUESTIONS[formData.subcategory]) {
+      return SUBCATEGORY_ADVANCED_QUESTIONS[formData.subcategory]
+    }
+    return GENERAL_ADVANCED_QUESTIONS
   }
 
   // ── AI Concierge text area ───────────────────────────────────────────────────
@@ -747,7 +940,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
       if (formData.advancedSpecs) {
         Object.entries(formData.advancedSpecs).forEach(([k, v]) => {
           if (!v) return
-          const advDef = ADVANCED_QUESTIONS.find(q => q.key === k)
+          const advDef = getCurrentAdvancedQuestions().find(q => q.key === k)
           const label = isAr ? advDef?.labelAr : advDef?.labelEn
           specsList.push(`- **${label}**: ${v}`)
         })
@@ -1155,7 +1348,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
                 onChange={e => setFormData({ ...formData, productName: e.target.value })}
                 className="wizard-input"
                 data-testid="start-request-title-input"
-                placeholder={isAr ? 'مثال: آيفون 15 برو ماكس 256 جيجا' : 'e.g. iPhone 15 Pro Max 256GB'}
+                placeholder={getProductNamePlaceholder()}
               />
             </div>
 
@@ -1239,7 +1432,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
               {showAdvancedSpecs && (
                 <div className="p-4 mt-3 rounded-xl border border-white/10 bg-black/40 space-y-4 animate-slide-down">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {ADVANCED_QUESTIONS.map(q => (
+                    {getCurrentAdvancedQuestions().map(q => (
                       <div key={q.key} className="wizard-form-group">
                         <label className="wizard-label-sm">{isAr ? q.labelAr : q.labelEn}</label>
                         {q.type === 'select' ? (
@@ -1700,67 +1893,161 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
           text-transform: uppercase; letter-spacing: 0.05em;
         }
 
-        /* Categories */
+        /* Categories Grid */
         .wizard-categories-grid {
-          display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 16px;
+          display: grid; 
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+          gap: 20px; 
+          margin-top: 24px;
         }
         button.wizard-category-btn {
-          background: rgba(255,255,255,0.05) !important; color: white !important;
-          border: 1px solid rgba(255,255,255,0.1) !important; padding: 24px !important;
-          border-radius: 12px !important; display: flex !important; flex-direction: column !important;
-          align-items: center !important; justify-content: center !important;
-          text-align: center !important; cursor: pointer !important;
-          transition: all 0.2s ease !important; width: 100% !important;
+          position: relative;
+          background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%) !important; 
+          color: rgba(255,255,255,0.7) !important;
+          border: 1px solid rgba(255,255,255,0.05) !important; 
+          padding: 28px 24px !important;
+          border-radius: 16px !important; 
+          display: flex !important; 
+          flex-direction: column !important;
+          align-items: center !important; 
+          justify-content: center !important;
+          text-align: center !important; 
+          cursor: pointer !important;
+          backdrop-filter: blur(10px);
+          transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important; 
+          width: 100% !important;
+        }
+        button.wizard-category-btn::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 16px;
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+        }
+        button.wizard-category-btn:hover {
+          background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%) !important; 
+          border-color: rgba(255,255,255,0.15) !important;
+          color: white !important;
+          transform: translateY(-4px) !important;
+          box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(139, 92, 246, 0.05) !important;
         }
         button.wizard-category-btn.is-selected {
-          background: rgba(139,92,246,0.25) !important; border-color: rgba(139,92,246,0.7) !important;
-          box-shadow: 0 0 15px rgba(139,92,246,0.25) !important;
+          background: linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(99,102,241,0.05) 100%) !important; 
+          border-color: rgba(139,92,246,0.5) !important;
+          color: white !important;
+          box-shadow: 0 0 25px rgba(139,92,246,0.2), inset 0 0 12px rgba(139,92,246,0.1) !important;
+        }
+        button.wizard-category-btn.is-selected::before {
+          background: linear-gradient(135deg, rgba(139,92,246,0.6), rgba(99,102,241,0.3));
+        }
+        .wizard-category-icon { 
+          font-size: 40px; 
+          margin-bottom: 14px; 
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        button.wizard-category-btn:hover .wizard-category-icon { 
+          transform: scale(1.15) rotate(2deg); 
+        }
+        .wizard-category-label { 
+          font-weight: 700; 
+          font-size: 15px; 
+          color: white !important; 
+          letter-spacing: -0.01em;
+        }
+
+        /* Subcategories Container */
+        .wizard-subcategory-section {
+          background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%);
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 20px;
+          padding: 24px;
+          margin-top: 32px;
+          backdrop-filter: blur(12px);
         }
         .wizard-subcategories-grid {
-          display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 12px;
+          display: grid; 
+          grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); 
+          gap: 12px; 
+          margin-top: 16px;
         }
         button.wizard-subcategory-btn {
-          background: rgba(255,255,255,0.03) !important; color: rgba(255,255,255,0.8) !important;
-          border: 1px solid rgba(255,255,255,0.08) !important; padding: 12px 16px !important;
-          border-radius: 10px !important; display: flex !important; align-items: center !important;
-          justify-content: flex-start !important; cursor: pointer !important;
-          transition: all 0.2s ease !important; width: 100% !important; font-size: 13px !important;
+          background: rgba(255,255,255,0.02) !important; 
+          color: rgba(255,255,255,0.6) !important;
+          border: 1px solid rgba(255,255,255,0.04) !important; 
+          padding: 14px 18px !important;
+          border-radius: 12px !important; 
+          display: flex !important; 
+          align-items: center !important;
+          justify-content: flex-start !important; 
+          cursor: pointer !important;
+          transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important; 
+          width: 100% !important; 
+          font-size: 13px !important;
           font-weight: 600 !important;
         }
         button.wizard-subcategory-btn:hover {
-          background: rgba(139,92,246,0.15) !important; border-color: rgba(139,92,246,0.4) !important;
+          background: rgba(255,255,255,0.06) !important; 
+          border-color: rgba(255,255,255,0.1) !important;
           color: white !important;
+          transform: scale(1.02);
         }
         button.wizard-subcategory-btn.is-selected {
-          background: rgba(139,92,246,0.25) !important; border-color: rgba(139,92,246,0.7) !important;
-          color: white !important; box-shadow: 0 0 10px rgba(139,92,246,0.2) !important;
+          background: linear-gradient(135deg, rgba(139,92,246,0.2) 0%, rgba(99,102,241,0.1) 100%) !important; 
+          border-color: rgba(139,92,246,0.5) !important;
+          color: white !important; 
+          box-shadow: 0 4px 12px rgba(139,92,246,0.15) !important;
         }
-        .wizard-sub-icon { margin-inline-end: 8px; font-size: 16px; }
-        button.wizard-category-btn:hover {
-          background: rgba(139,92,246,0.2) !important; border-color: rgba(139,92,246,0.5) !important;
-          transform: translateY(-2px) !important;
+        .wizard-sub-icon { 
+          margin-inline-end: 10px; 
+          font-size: 18px; 
         }
-        .wizard-category-icon { font-size: 36px; margin-bottom: 12px; transition: transform 0.2s ease; }
-        button.wizard-category-btn:hover .wizard-category-icon { transform: scale(1.1); }
-        .wizard-category-label { font-weight: 700; font-size: 14px; color: #ffffff !important; }
 
         /* Inputs & Labels */
         .wizard-form-group { margin-bottom: 20px; text-align: start; }
-        .wizard-label { display: block; font-size: 13px; font-weight: 700; color: #94a3b8; margin-bottom: 7px; }
-        .wizard-label-sm { display: block; font-size: 11px; font-weight: 700; color: #94a3b8; margin-bottom: 6px; }
+        .wizard-label { display: block; font-size: 13px; font-weight: 700; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .wizard-label-sm { display: block; font-size: 11px; font-weight: 700; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
         .wizard-input {
-          width: 100%; border-radius: 12px; background: rgba(0,0,0,0.5);
-          padding: 14px; color: white; border: 1px solid rgba(255,255,255,0.2);
-          outline: none; font-size: 15px; transition: border-color 0.2s ease; box-sizing: border-box;
+          width: 100%; 
+          border-radius: 14px; 
+          background: rgba(0,0,0,0.4) !important;
+          padding: 16px !important; 
+          color: white !important; 
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          outline: none !important; 
+          font-size: 15px !important; 
+          transition: all 0.3s ease !important; 
+          box-sizing: border-box !important;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
         }
-        .wizard-input:focus { border-color: hsl(258, 89%, 66%); }
+        .wizard-input:focus { 
+          border-color: rgba(139,92,246,0.6) !important; 
+          background: rgba(0,0,0,0.6) !important;
+          box-shadow: 0 0 15px rgba(139,92,246,0.15), inset 0 2px 4px rgba(0,0,0,0.3) !important;
+        }
         .wizard-input-hint { font-size: 12px; color: #64748b; margin-top: 8px; }
         .wizard-input-sm {
-          width: 100%; border-radius: 10px; background: rgba(0,0,0,0.5);
-          padding: 10px 12px; color: white; border: 1px solid rgba(255,255,255,0.2);
-          outline: none; font-size: 13px; transition: border-color 0.2s ease; box-sizing: border-box;
+          width: 100%; 
+          border-radius: 12px; 
+          background: rgba(0,0,0,0.4) !important;
+          padding: 12px 14px !important; 
+          color: white !important; 
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          outline: none !important; 
+          font-size: 13px !important; 
+          transition: all 0.3s ease !important; 
+          box-sizing: border-box !important;
+          box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
         }
-        .wizard-input-sm:focus { border-color: hsl(258, 89%, 66%); }
+        .wizard-input-sm:focus { 
+          border-color: rgba(139,92,246,0.6) !important; 
+          background: rgba(0,0,0,0.6) !important;
+          box-shadow: 0 0 10px rgba(139,92,246,0.15), inset 0 1px 2px rgba(0,0,0,0.3) !important;
+        }
 
         /* Grid */
         .wizard-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
@@ -1820,42 +2107,94 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
           opacity: 0.5 !important; cursor: not-allowed !important; transform: none !important; box-shadow: none !important;
         }
         button.wizard-btn-primary {
-          width: auto !important; padding: 12px 24px !important;
-          background: hsl(258, 89%, 66%) !important; color: white !important;
-          font-weight: 700 !important; border-radius: 12px !important;
-          border: none !important; cursor: pointer !important;
-          transition: all 0.2s ease !important; display: inline-flex !important;
-          align-items: center !important; justify-content: center !important;
-          box-shadow: 0 0 20px rgba(139,92,246,0.4) !important;
+          position: relative;
+          width: auto !important; 
+          padding: 14px 28px !important;
+          background: linear-gradient(135deg, hsl(258, 89%, 66%) 0%, hsl(243, 75%, 59%) 100%) !important; 
+          color: white !important;
+          font-weight: 800 !important; 
+          border-radius: 14px !important;
+          border: none !important; 
+          cursor: pointer !important;
+          transition: background 0.15s ease, box-shadow 0.15s ease !important; 
+          display: inline-flex !important;
+          align-items: center !important; 
+          justify-content: center !important;
+          box-shadow: 0 4px 20px rgba(139,92,246,0.3) !important;
+          letter-spacing: -0.01em;
         }
         button.wizard-btn-primary:hover:not(:disabled) {
-          background: hsl(258, 89%, 76%) !important; transform: translateY(-1px) !important;
+          background: linear-gradient(135deg, hsl(258, 89%, 71%) 0%, hsl(243, 75%, 64%) 100%) !important; 
+          transform: translateY(-2px) !important;
+          box-shadow: 0 8px 25px rgba(139,92,246,0.5) !important;
         }
-        button.wizard-btn-primary:disabled { opacity: 0.5 !important; cursor: not-allowed !important; box-shadow: none !important; }
+        button.wizard-btn-primary:active:not(:disabled) {
+          transform: translateY(0) !important;
+        }
+        button.wizard-btn-primary:disabled { opacity: 0.4 !important; cursor: not-allowed !important; box-shadow: none !important; transform: none !important; }
+        
         button.wizard-btn-secondary {
-          width: auto !important; padding: 12px 24px !important;
-          background: transparent !important; color: white !important;
-          font-weight: 700 !important; border-radius: 12px !important;
-          border: 1px solid rgba(255,255,255,0.2) !important; cursor: pointer !important;
-          transition: all 0.2s ease !important; display: inline-flex !important;
-          align-items: center !important; justify-content: center !important;
+          width: auto !important; 
+          padding: 14px 28px !important;
+          background: rgba(255,255,255,0.02) !important; 
+          color: white !important;
+          font-weight: 700 !important; 
+          border-radius: 14px !important;
+          border: 1px solid rgba(255,255,255,0.08) !important; 
+          cursor: pointer !important;
+          transition: background 0.15s ease, border-color 0.15s ease !important; 
+          display: inline-flex !important;
+          align-items: center !important; 
+          justify-content: center !important;
         }
         button.wizard-btn-secondary:hover:not(:disabled) {
-          background: rgba(255,255,255,0.1) !important; transform: translateY(-1px) !important;
+          background: rgba(255,255,255,0.08) !important; 
+          border-color: rgba(255,255,255,0.15) !important;
+          transform: translateY(-2px) !important;
         }
+        button.wizard-btn-secondary:disabled { opacity: 0.4 !important; cursor: not-allowed !important; transform: none !important; }
+        
         button.wizard-btn-submit {
-          width: auto !important; padding: 12px 24px !important;
-          background: hsl(152, 69%, 51%) !important; color: black !important;
-          font-weight: 800 !important; border-radius: 12px !important;
-          border: none !important; cursor: pointer !important;
-          transition: all 0.2s ease !important; display: inline-flex !important;
-          align-items: center !important; justify-content: center !important;
-          box-shadow: 0 0 20px rgba(16,185,129,0.4) !important;
+          width: auto !important; 
+          padding: 14px 28px !important;
+          background: linear-gradient(135deg, hsl(152, 69%, 46%) 0%, hsl(162, 79%, 40%) 100%) !important; 
+          color: white !important;
+          font-weight: 800 !important; 
+          border-radius: 14px !important;
+          border: none !important; 
+          cursor: pointer !important;
+          transition: background 0.15s ease, box-shadow 0.15s ease !important; 
+          display: inline-flex !important;
+          align-items: center !important; 
+          justify-content: center !important;
+          box-shadow: 0 4px 20px rgba(16,185,129,0.3) !important;
+          letter-spacing: -0.01em;
         }
         button.wizard-btn-submit:hover:not(:disabled) {
-          background: hsl(152, 69%, 61%) !important; transform: translateY(-1px) !important;
+          background: linear-gradient(135deg, hsl(152, 69%, 51%) 0%, hsl(162, 79%, 45%) 100%) !important; 
+          transform: translateY(-2px) !important;
+          box-shadow: 0 8px 25px rgba(16,185,129,0.5) !important;
         }
-        button.wizard-btn-submit:disabled { opacity: 0.5 !important; cursor: not-allowed !important; box-shadow: none !important; }
+        button.wizard-btn-submit:active:not(:disabled) {
+          transform: translateY(0) !important;
+        }
+        button.wizard-btn-submit:disabled { opacity: 0.4 !important; cursor: not-allowed !important; box-shadow: none !important; transform: none !important; }
+
+        .wizard-spinner {
+          width: 16px; height: 16px; border: 2px solid white;
+          border-top-color: transparent; border-radius: 50%;
+          animation: spin 1s linear infinite; display: inline-block;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+          .wizard-grid-2, .wizard-categories-grid { grid-template-columns: 1fr; }
+          .wizard-container { padding: 20px; }
+        }
+
+        /* Select options dark background */
+        .wizard-select option, select.wizard-input-sm option { background: #0b0f19; color: white; }
 
         .wizard-spinner {
           width: 16px; height: 16px; border: 2px solid white;

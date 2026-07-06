@@ -8,12 +8,14 @@ export const metadata = {
 }
 
 export default async function CustomerDashboardPage({
-  params: { locale },
-  searchParams
+  params,
+  searchParams: searchParamsPromise
 }: {
-  params: { locale: string }
-  searchParams: { requestId?: string; code?: string }
+  params: Promise<{ locale: string }>
+  searchParams: Promise<{ requestId?: string; code?: string; returning?: string }>
 }) {
+  const { locale } = await params
+  const searchParams = await searchParamsPromise
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const isAr = locale === 'ar'
@@ -90,6 +92,25 @@ export default async function CustomerDashboardPage({
                   ? 'تم إنشاء طلبك بنجاح. يمكنك الآن متابعته أو تعديله من لوحة التحكم هذه.'
                   : 'Your request was created successfully. You can track or manage it from this dashboard.'}
               </p>
+
+              {searchParams.returning === 'true' && (
+                <div className="mt-4 p-4 rounded-xl border border-[hsl(258,89%,66%,0.4)] bg-[hsl(258,89%,66%,0.1)] text-sm text-[hsl(258,89%,76%)] animate-fade-in">
+                  <p className="font-bold text-white flex items-center gap-2 mb-1">
+                    <span>💡</span>
+                    {isAr ? 'تم ربط الطلب بحسابك المسجل لدينا!' : 'Request linked to your registered account!'}
+                  </p>
+                  <p>
+                    {isAr 
+                      ? 'لقد وجدنا أن رقم الهاتف هذا مسجل مسبقاً في قاعدة بياناتنا كعميل. تم حفظ طلبك الجديد على حسابك بنجاح.'
+                      : 'We found that this phone number is already registered in our database. Your new request was successfully saved to your account.'}
+                  </p>
+                  <div className="mt-3">
+                    <Link href={`/${locale}/auth/login?next=${encodeURIComponent(`/${locale}/customer/dashboard`)}`} className="inline-block px-4 py-1.5 bg-[hsl(258,89%,66%)] hover:bg-[hsl(258,89%,76%)] text-white text-xs font-bold rounded-lg transition" style={{ textDecoration: 'none' }}>
+                      {isAr ? 'تسجيل الدخول للمتابعة ←' : 'Log In to Follow Up ←'}
+                    </Link>
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-[hsl(152,69%,51%,0.2)]">
                 <span className="text-xs text-[hsl(220,10%,60%)]">
                   {isAr ? 'كود التتبع لتتبع الطلب لاحقاً:' : 'Tracking code to track request later:'}
