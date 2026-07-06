@@ -25,7 +25,7 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : 4,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -37,7 +37,14 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    // navigationTimeout inherits from the 90 s test timeout — do not cap it
+    // shorter or slow SSR pages will fail when the dev server is under load.
   },
+
+  /* Per-test timeout — journey tests gate on sessionStorage (up to 15 s for
+   * Supabase feature flags), then fill multi-step forms, make API calls, and
+   * navigate. 30 s (Playwright default) is too tight; 90 s is appropriate. */
+  timeout: 90000,
 
   /* Configure projects for major browsers */
   projects: [

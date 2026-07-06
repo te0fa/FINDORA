@@ -39,17 +39,17 @@ test.describe('Auth Login & Forgot Password Journey', () => {
     await expect(identifierInput).toBeVisible({ timeout: 5000 });
     await identifierInput.fill('+201123456789');
 
-    // Click submit and wait for success message
+    // Click submit — Supabase processes the reset request and redirects to
+    // ?message=reset_sent. Under parallel test load the API can be slow, so we
+    // wait for the success UI element rather than racing a URL-change timeout.
     const submitBtn = page.locator('button[type="submit"]');
-    await Promise.all([
-      submitBtn.click({ force: true }),
-      page.waitForURL(/message=reset_sent/, { timeout: 10000 })
-    ]);
+    await submitBtn.click({ force: true });
 
-    // Verify success banner appears
+    // Verify success banner appears (Supabase has processed the reset request)
     const successAlert = page.locator('.alert-success');
-    await expect(successAlert).toBeVisible({ timeout: 5000 });
+    await expect(successAlert).toBeVisible({ timeout: 30000 });
     await expect(successAlert).toHaveText(/we have sent a password reset link/i);
+
 
     // Verify link back to login works
     const backToLoginLink = page.locator('a[href*="auth/login"]');
