@@ -201,34 +201,36 @@ test.describe('Public Customer Request Journey', () => {
     await expect(submitBtn).toBeEnabled();
     await submitBtn.click();
 
-    // Wait for navigation to customer dashboard
+    // Wait for navigation to the guest dashboard (API + SSR can take time)
     await page.waitForURL(/\/customer\/dashboard/, { timeout: 30000 });
 
-    // ── 7. Extract request code from URL ─────────────────────────────────────
+    // ── 7. Extract request code from URL (primary source) ────────────────────
     const codeFromUrl = new URL(page.url()).searchParams.get('code');
     if (codeFromUrl) {
       createdRequestCode = codeFromUrl;
       console.log(`[E2E] Created Request Code from URL: ${createdRequestCode}`);
     }
 
-    // ── 8. Check success banner ───────────────────────────────────────────────
+    // ── 8. Check success banner (hard assertion) ──────────────────────────────
+    // The success banner MUST be visible after a successful submission.
+    // If the request-creation flow broke, or the dashboard stopped rendering
+    // it, this is a real regression — not a soft warn.
     const successBanner = page.getByTestId('request-success-banner');
-    const isSuccessBannerVisible = await successBanner.isVisible().catch(() => false);
+    await expect(successBanner).toBeVisible({ timeout: 15000 });
 
-    if (isSuccessBannerVisible) {
-      const codeElement = page.getByTestId('request-success-code');
-      const codeText = await codeElement.textContent().catch(() => null);
-      if (codeText && !createdRequestCode) {
-        createdRequestCode = codeText.trim();
-      }
-      console.log(`[E2E] Request Code from banner: ${createdRequestCode}`);
-    } else {
-      console.log('[E2E] Success banner not visible — checking URL params only');
+    // Secondary: cross-check the code displayed in the banner matches the URL.
+    const codeElement = page.getByTestId('request-success-code');
+    const codeText = await codeElement.textContent().catch(() => null);
+    if (codeText && !createdRequestCode) {
+      createdRequestCode = codeText.trim();
     }
+    console.log(`[E2E] Request Code from banner: ${createdRequestCode}`);
 
-    await expect(page).toHaveURL(/\/customer\/dashboard/);
-
-    // ── 9. Track request ──────────────────────────────────────────────────────
+    // ── 9. Track request (hard assertion) ─────────────────────────────────────
+    // This is a complete end-to-end verification: request code that was just
+    // created must be locatable via the public tracking UI.
+    // With workers=4 (local) and workers=1 (CI), the DB is never saturated.
+    // If tracking is broken — wrong code, API error, UI regression — this FAILS.
     if (createdRequestCode) {
       await page.goto('/en/track-request');
 
@@ -249,25 +251,16 @@ test.describe('Public Customer Request Journey', () => {
       await expect(trackSubmit).toBeEnabled();
       await trackSubmit.click();
 
-      // Track result depends on a live Supabase query. Under parallel test
-      // load both chromium-en and chromium-ar hit the DB simultaneously, which
-      // can make one query return slow. This is a DB-load issue, not a
-      // test-code bug. We soft-assert: try and log, but never hard-fail here
-      // because the primary assertion (request creation) is already proven above.
-      const trackResultVisible = await page
-        .getByTestId('track-result')
-        .waitFor({ state: 'visible', timeout: 15000 })
-        .then(() => true)
-        .catch(() => false);
-
-      if (trackResultVisible) {
-        await expect(page.getByTestId('track-result-status')).toBeVisible({ timeout: 8000 });
-        console.log('[E2E] Track result verified successfully');
-      } else {
-        console.warn('[E2E] track-result not visible — DB query may be slow under parallel load, skipping status assertion');
-      }
+      // Hard assertion: the track-result card MUST appear.
+      // 30 s gives Supabase adequate budget even under moderate load;
+      // if tracking is genuinely broken this will fail and alert CI.
+      await expect(page.getByTestId('track-result')).toBeVisible({ timeout: 30000 });
+      await expect(page.getByTestId('track-result-status')).toBeVisible({ timeout: 8000 });
+      console.log('[E2E] Track result verified successfully');
     } else {
-      console.log('[E2E] No request code captured — skipping track-request verification');
+      // If we have no code to track the request-creation step itself already
+      // failed (code extraction is mandatory). This branch means test is broken.
+      throw new Error('[E2E] No request code captured — cannot verify tracking. Request creation may have failed silently.');
     }
   });
 
