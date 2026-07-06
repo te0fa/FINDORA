@@ -124,7 +124,8 @@ export default async function RequestWorkspacePage({
     )
   }
 
-  const { request, research_runs: researchRuns, shortlist, merchant_quotes: merchantQuotes, online_merchant_quotes: onlineMerchantQuotes, stage_clock: stageClock, sla_monitoring: slaMonitoring, state } = workspaceData
+  const { request: typedRequest, research_runs: researchRuns, shortlist, merchant_quotes: merchantQuotes, online_merchant_quotes: onlineMerchantQuotes, stage_clock: stageClock, sla_monitoring: slaMonitoring, state } = workspaceData
+  const request = typedRequest as any
   const preferences = (workspaceData as any).preferences || {}
   const isAdmin = permissions.isAdmin
   const isResearcher = permissions.canResearch
@@ -1481,6 +1482,88 @@ export default async function RequestWorkspacePage({
 
 
           <aside className="stack" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            {/* AI Concierge & Source Inputs Card */}
+            {(request.source_type && request.source_type !== 'manual') && (
+              <section className="section-card glass-card" style={{ padding: '1.5rem', border: '1px solid rgba(247, 212, 107, 0.2)' }}>
+                <h2 className="card-title-text" style={{ fontSize: '1rem', marginBlockEnd: '1rem', color: '#f7d46b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🧠</span>
+                  {isRTL ? 'تحليل الذكاء الاصطناعي والمصدر' : 'AI Analysis & Original Source'}
+                </h2>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Source Type */}
+                  <div className="field-box">
+                    <div className="field-label" style={{ fontSize: '0.65rem', textTransform: 'uppercase', opacity: 0.5 }}>
+                      {isRTL ? 'قناة الإدخال الأصلية' : 'Original Input Channel'}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fff', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {request.source_type === 'ai_voice' && (isRTL ? '🎙️ رسالة صوتية (ذكية)' : '🎙️ Voice Message')}
+                      {request.source_type === 'ai_image' && (isRTL ? '📸 فحص صورة (ذكية)' : '📸 Image Attachment')}
+                      {request.source_type === 'product_link' && (isRTL ? '🔗 رابط منتج خارجي' : '🔗 Product Link')}
+                      {request.source_type === 'ai_text' && (isRTL ? '✍️ وصف نصي ذكي' : '✍️ Smart Text Description')}
+                    </div>
+                  </div>
+
+                  {/* AI Confidence */}
+                  {request.ai_confidence !== null && request.ai_confidence !== undefined && (
+                    <div className="field-box">
+                      <div className="field-label" style={{ fontSize: '0.65rem', textTransform: 'uppercase', opacity: 0.5 }}>
+                        {isRTL ? 'درجة ثقة تحليل الذكاء الاصطناعي' : 'AI Analysis Confidence'}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                        <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${Math.min(100, Math.max(0, request.ai_confidence * 100))}%`,
+                            height: '100%',
+                            background: request.ai_confidence > 0.8 ? '#22c55e' : request.ai_confidence > 0.5 ? '#eab308' : '#ef4444',
+                            borderRadius: '3px'
+                          }} />
+                        </div>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#fff' }}>
+                          {Math.round(request.ai_confidence * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* original link if product_link */}
+                  {(request.metadata && request.metadata.sourceUrl) && (
+                    <div className="field-box">
+                      <div className="field-label" style={{ fontSize: '0.65rem', textTransform: 'uppercase', opacity: 0.5 }}>
+                        {isRTL ? 'رابط المنتج الأصلي (المصدر)' : 'Original Product URL (Source)'}
+                      </div>
+                      <div style={{ marginTop: '4px', wordBreak: 'break-all' }}>
+                        <a 
+                          href={request.metadata.sourceUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          style={{ color: '#6366f1', textDecoration: 'underline', fontSize: '0.8rem', fontWeight: 'bold' }}
+                        >
+                          {request.metadata.sourceUrl} ↗
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* extracted image url if any */}
+                  {(request.metadata && request.metadata.productImageUrl) && (
+                    <div className="field-box">
+                      <div className="field-label" style={{ fontSize: '0.65rem', textTransform: 'uppercase', opacity: 0.5 }}>
+                        {isRTL ? 'صورة المنتج المستخرجة من الرابط' : 'Product Image Extracted from URL'}
+                      </div>
+                      <div style={{ marginTop: '6px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)', padding: '4px' }}>
+                        <img 
+                          src={request.metadata.productImageUrl} 
+                          alt="Extracted URL product" 
+                          style={{ width: '100%', maxHeight: '180px', objectFit: 'contain', borderRadius: '8px' }} 
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
             {/* Image Card */}
             <section className="section-card glass-card" style={{ padding: '1.5rem' }}>
               <h2 className="card-title-text" style={{ fontSize: '1rem', marginBlockEnd: '1rem' }}>

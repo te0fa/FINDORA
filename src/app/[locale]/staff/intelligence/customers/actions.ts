@@ -1696,14 +1696,7 @@ export async function saveSourcingSourceAction(
   return { success: true };
 }
 
-export async function triggerOnlineSourcingAction(
-  requestId: string,
-  locale: string
-) {
-  await checkAuth(); // Ensure authenticated staff triggers it
-  
-  // Call internal API endpoint to execute multi-sourcing
-  // We can also invoke it directly without fetch to avoid host resolution errors in node
+export async function runOnlineSourcingInternal(requestId: string) {
   const client = await createAdminClient() as any;
 
   // 1. Fetch request details
@@ -1829,7 +1822,7 @@ export async function triggerOnlineSourcingAction(
                   source_name: source.name,
                   store_name: 'Google Organic Search',
                   title: item.title || `${searchTerm}`,
-                  price: 47800.00, // Google Search usually doesn't have structured price field
+                  price: 47800.00,
                   product_url: item.link || 'https://google.com',
                   availability_status: 'In Stock'
                 });
@@ -1911,11 +1904,9 @@ export async function triggerOnlineSourcingAction(
       } else if (source.name === 'scrapingbee_api') {
         if (source.api_key) {
           try {
-            // General Jumia Scraper target request
             const targetUrl = `https://www.jumia.com.eg/catalog/?q=${encodeURIComponent(searchTerm)}`;
             const response = await fetch(`https://app.scrapingbee.com/api/v1/?url=${encodeURIComponent(targetUrl)}&api_key=${source.api_key}&render_js=false`);
             const html = await response.text();
-            // Perform light regex extraction or default
             const priceRegex = /class="prc">EGP\s*([0-9,]+)/i;
             const match = html.match(priceRegex);
             const extractedPrice = match ? parseFloat(match[1].replace(/,/g, '')) : 46900.00;
@@ -1946,7 +1937,7 @@ export async function triggerOnlineSourcingAction(
     }
   }
 
-  // 3. Write results to online_merchant_quotes
+  // Write results to online_merchant_quotes
   for (const res of results) {
     await client.from('online_merchant_quotes').insert({
       request_id: requestId,
@@ -1959,8 +1950,17 @@ export async function triggerOnlineSourcingAction(
     });
   }
 
+  return { count: results.length };
+}
+
+export async function triggerOnlineSourcingAction(
+  requestId: string,
+  locale: string
+) {
+  await checkAuth(); // Ensure authenticated staff triggers it
+  const res = await runOnlineSourcingInternal(requestId);
   revalidatePath(`/${locale}/staff/workspace/${requestId}`);
-  return { success: true, count: results.length };
+  return { success: true, count: res.count };
 }
 
 export async function generateUnifiedOnlineReportAction(
@@ -2119,11 +2119,11 @@ export async function generateUnifiedOfflineReportAction(
   return { success: true, count: quotes.length };
 }
 
-export async function generateFinalProposalSynthesisAction(
+export async function generateFinalProposalSynthesisInternal(
   requestId: string,
-  locale: string
+  locale: string,
+  actorUserId: string
 ) {
-  const { staff } = await checkAuth();
   const client = await createAdminClient() as any;
 
   // 1. Fetch request details
@@ -2135,14 +2135,29 @@ export async function generateFinalProposalSynthesisAction(
 
   if (!req) throw new Error('Request not found');
 
-  // 2. Fetch all online & offline quotes
+  // Fetch the service fee amount from requests table to see if it is a free launch request
+  const { data: rawReq } = await client
+    .from('requests')
+    .select('service_fee_amount')
+    .eq('id', requestId)
+    .single();
+
+  const isFreeReport = rawReq?.service_fee_amount === 0;
+
+  // 2. Fetch all online & offline quotes (including joined vendors data for offline quotes)
   const [onlineQuotesRes, offlineQuotesRes] = await Promise.all([
     client.from('online_merchant_quotes').select('*').eq('request_id', requestId),
-    client.from('merchant_quotes').select('*').eq('request_id', requestId)
+    client.from('merchant_quotes').select('*, vendors(display_name, governorate, area, trust_score)').eq('request_id', requestId)
   ]);
 
   const onlineQuotes = onlineQuotesRes.data || [];
-  const offlineQuotes = offlineQuotesRes.data || [];
+  const offlineQuotes = (offlineQuotesRes.data || []).map((q: any) => ({
+    ...q,
+    merchant_name: q.vendors?.display_name || 'Supply Partner',
+    governorate: q.vendors?.governorate || null,
+    area: q.vendors?.area || null,
+    trust_score: q.vendors?.trust_score || 85
+  }));
 
   if (onlineQuotes.length === 0 && offlineQuotes.length === 0) {
     throw new Error('No quotes found. Run online scans and offline field sourcing first.');
@@ -2160,7 +2175,7 @@ export async function generateFinalProposalSynthesisAction(
 
   // 4. Get or create report
   const { getOrCreateReportForRequestAdmin } = await import('@/lib/dal/reports');
-  const report = await getOrCreateReportForRequestAdmin(requestId, staff?.auth_user_id || 'system');
+  const report = await getOrCreateReportForRequestAdmin(requestId, actorUserId);
 
   // 5. Delete old snapshots
   await client
@@ -2168,13 +2183,40 @@ export async function generateFinalProposalSynthesisAction(
     .delete()
     .eq('report_id', report!.id);
 
-  // 6. Insert synthesized top 5 deals as locked snapshots (reveal_locked: true)
+  // 6. Insert enriched synthesized top 5 deals
   for (const item of synthesis.top_deals) {
+    // Find matching quote to extract original warranty, stock & location details
+     let originalQuote: any = null;
+    if (item.source_type === 'online') {
+      originalQuote = onlineQuotes.find((q: any) => q.id === item.quote_id);
+    } else {
+      originalQuote = offlineQuotes.find((q: any) => q.id === item.quote_id);
+    }
+
+    const warrantyInfo = originalQuote?.warranty_info || '12 Months Shop';
+    const availability = originalQuote?.availability_status || 'in_stock';
+    const deliveryLead = originalQuote?.product_specs_summary || '2-3 Days Delivery';
+    const mapLocation = originalQuote?.vendors?.governorate 
+      ? `${originalQuote.vendors.governorate}, ${originalQuote.vendors.area || ''}` 
+      : originalQuote?.hidden_merchant_location || null;
+    const phone = originalQuote?.whatsapp_number || (originalQuote?.contact_notes ? originalQuote.contact_notes.match(/Tel:\s*([0-9]+)/)?.[1] : null) || 'N/A';
+
     const highlightSummary = locale === 'ar'
       ? `المميزات: ${item.advantages_ar}. العيوب: ${item.disadvantages_ar || 'لا يوجد عيوب واضحة'}`
       : `Pros: ${item.advantages_en}. Cons: ${item.disadvantages_en || 'No critical cons detected'}`;
 
-    // Insert
+    const whyThisOption = locale === 'ar' 
+      ? `هذا الخيار مثالي بسبب التوازن بين السعر والمميزات.` 
+      : `This option offers the optimal balance of price and features.`;
+    const whyNotCheapest = locale === 'ar' 
+      ? `الخيارات الأقل سعراً لا تتضمن فترة ضمان كافية.` 
+      : `Cheaper options carry no official warranty or have lower merchant trust.`;
+
+    const customerSummaryJson = JSON.stringify({
+      why_this_option: whyThisOption,
+      why_not_cheapest: whyNotCheapest
+    });
+
     await client
       .from('report_option_snapshots')
       .insert({
@@ -2185,18 +2227,34 @@ export async function generateFinalProposalSynthesisAction(
         display_rank: item.rank || 1,
         candidate_channel: item.source_type || 'online',
         hidden_merchant_name: item.merchant_name || 'Merchant option',
-        hidden_reference_url: item.product_url || null,
-        hidden_contact_notes: `Top 5 synthesized deal options. Created at ${new Date().toLocaleDateString()}`,
-        reveal_locked: true, // ALWAYS LOCKED until customer pays!
+        hidden_reference_url: originalQuote?.product_url || originalQuote?.revealedSourceUrl || null,
+        hidden_contact_notes: `Direct seller details: Tel: ${phone}. Specs: ${deliveryLead}`,
+        hidden_merchant_location: mapLocation,
+        reveal_locked: !isFreeReport, // Free report options are automatically revealed!
         display_price_amount: Number(item.price || 0),
         currency_code: 'EGP',
         disadvantages_en: item.disadvantages_en || null,
-        disadvantages_ar: item.disadvantages_ar || null
+        disadvantages_ar: item.disadvantages_ar || null,
+        warranty_info: warrantyInfo,
+        availability_status: availability,
+        display_specs_summary: deliveryLead, 
+        trust_score: Number(originalQuote?.trust_score || item.rating_stars * 20),
+        final_score: Number(item.match_score),
+        customer_summary: customerSummaryJson
       });
   }
 
-  revalidatePath(`/${locale}/staff/workspace/${requestId}`);
   return { success: true, count: synthesis.top_deals.length };
+}
+
+export async function generateFinalProposalSynthesisAction(
+  requestId: string,
+  locale: string
+) {
+  const { staff } = await checkAuth();
+  const res = await generateFinalProposalSynthesisInternal(requestId, locale, staff?.auth_user_id || 'system');
+  revalidatePath(`/${locale}/staff/workspace/${requestId}`);
+  return { success: true, count: res.count };
 }
 
 

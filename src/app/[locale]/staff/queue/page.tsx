@@ -34,6 +34,8 @@ type PageProps = {
     area?: string
     assignment?: string
     sla_status?: string
+    sort_by?: string
+    sort_dir?: string
   }>
 }
 
@@ -227,10 +229,62 @@ export default async function StaffQueuePage({ params, searchParams }: PageProps
     area,
     assignment,
     sla_status,
+    sort_by,
+    sort_dir,
   } = await searchParams
 
   const dict = await getDictionary(locale as Locale)
   const isRTL = locale === 'ar'
+
+  const sortBy = sort_by || 'sla'
+  const sortDir = sort_dir || 'desc'
+
+  const getSortLink = (field: string) => {
+    const isCurrent = sortBy === field
+    const nextDir = isCurrent && sortDir === 'asc' ? 'desc' : 'asc'
+    const queryParts = []
+    
+    if (view) queryParts.push(`view=${view}`)
+    if (urgency) queryParts.push(`urgency=${urgency}`)
+    if (stage) queryParts.push(`stage=${stage}`)
+    if (decision) queryParts.push(`decision=${decision}`)
+    if (status) queryParts.push(`status=${status}`)
+    if (scope) queryParts.push(`scope=${scope}`)
+    if (governorate) queryParts.push(`governorate=${encodeURIComponent(governorate)}`)
+    if (area) queryParts.push(`area=${encodeURIComponent(area)}`)
+    if (assignment) queryParts.push(`assignment=${assignment}`)
+    if (sla_status) queryParts.push(`sla_status=${sla_status}`)
+    
+    queryParts.push(`sort_by=${field}`)
+    queryParts.push(`sort_dir=${nextDir}`)
+    
+    return `/${locale}/staff/queue?${queryParts.join('&')}`
+  }
+
+  const renderSortableHeader = (field: string, label: string) => {
+    const isCurrent = sortBy === field
+    const arrow = isCurrent ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+    return (
+      <th style={{ padding: 0 }}>
+        <Link 
+          href={getSortLink(field)} 
+          className="sort-header-link"
+          style={{ 
+            display: 'block', 
+            padding: '1.25rem 0.75rem', 
+            color: isCurrent ? '#f7d46b' : 'rgba(255,255,255,0.4)', 
+            textDecoration: 'none',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {label}
+          <span style={{ fontSize: '0.65rem', opacity: isCurrent ? 1 : 0.25, marginInlineStart: '4px' }}>
+            {arrow}
+          </span>
+        </Link>
+      </th>
+    )
+  }
 
   const supabase = await createClient()
   const {
@@ -380,27 +434,43 @@ export default async function StaffQueuePage({ params, searchParams }: PageProps
   })
 
   const sortedRows = [...filteredRows].sort((a, b) => {
-    // 1. SLA Prioritized Sorting (Authoritative)
-    if (a.is_sla_monitored !== b.is_sla_monitored) {
-      return a.is_sla_monitored ? -1 : 1;
-    }
-    
-    if (a.is_sla_monitored && b.is_sla_monitored) {
-      const aBreach = a.sla_monitoring?.time_to_breach_hours ?? Infinity;
-      const bBreach = b.sla_monitoring?.time_to_breach_hours ?? Infinity;
-      if (aBreach !== bBreach) return aBreach - bBreach;
+    let comparison = 0
+
+    if (sortBy === 'sla') {
+      // SLA Prioritized Sorting
+      if (a.is_sla_monitored !== b.is_sla_monitored) {
+        comparison = a.is_sla_monitored ? -1 : 1;
+      } else if (a.is_sla_monitored && b.is_sla_monitored) {
+        const aBreach = a.sla_monitoring?.time_to_breach_hours ?? Infinity;
+        const bBreach = b.sla_monitoring?.time_to_breach_hours ?? Infinity;
+        comparison = aBreach - bBreach;
+      }
+    } else if (sortBy === 'created_at') {
+      const tA = new Date(a.request_created_at).getTime()
+      const tB = new Date(b.request_created_at).getTime()
+      comparison = tA - tB
+    } else if (sortBy === 'code') {
+      comparison = (a.request_code || '').localeCompare(b.request_code || '')
+    } else if (sortBy === 'title') {
+      comparison = (a.title || '').localeCompare(b.title || '')
+    } else if (sortBy === 'urgency') {
+      comparison = urgencyRank(a.urgency_level) - urgencyRank(b.urgency_level)
+    } else if (sortBy === 'stage') {
+      comparison = stageRank(a.intake_stage) - stageRank(b.intake_stage)
+    } else if (sortBy === 'status') {
+      comparison = (a.current_status || '').localeCompare(b.current_status || '')
+    } else if (sortBy === 'customer') {
+      comparison = (a.customer_name || '').localeCompare(b.customer_name || '')
+    } else if (sortBy === 'kind') {
+      comparison = (a.request_kind || '').localeCompare(b.request_kind || '')
     }
 
-    // 2. Fallback Sorting
-    if (activeView === 'intake') {
-      const stageDiff = stageRank(a.intake_stage) - stageRank(b.intake_stage)
-      if (stageDiff !== 0) return stageDiff
+    if (comparison === 0) {
+      // Default fallback
+      return new Date(b.request_created_at).getTime() - new Date(a.request_created_at).getTime()
     }
 
-    const urgencyDiff = urgencyRank(a.urgency_level) - urgencyRank(b.urgency_level)
-    if (urgencyDiff !== 0) return urgencyDiff
-
-    return new Date(b.request_created_at).getTime() - new Date(a.request_created_at).getTime()
+    return sortDir === 'asc' ? comparison : -comparison
   })
 
   const pendingAiCount = globalStats.pendingAI
@@ -747,28 +817,37 @@ export default async function StaffQueuePage({ params, searchParams }: PageProps
             .queue-table {
               width: 100%;
               border-collapse: collapse;
-              min-width: 1200px;
+              min-width: 1000px;
             }
 
             .queue-table th {
               text-align: start;
-              font-size: 0.7rem;
+              font-size: 0.65rem;
               text-transform: uppercase;
-              letter-spacing: 0.15em;
+              letter-spacing: 0.1rem;
               color: rgba(255,255,255,0.3);
-              padding: 1.25rem 1.5rem;
+              padding: 0.85rem 0.6rem;
               background: rgba(255,255,255,0.02);
               font-weight: 900;
             }
 
             .queue-table td {
-              padding: 1.5rem;
+              padding: 0.85rem 0.6rem;
               border-block-end: 1px solid rgba(255,255,255,0.03);
               vertical-align: middle;
+              font-size: 0.78rem;
             }
 
             .queue-table tr:hover td {
               background: rgba(255,255,255,0.01);
+            }
+
+            .sort-header-link {
+              transition: all 0.2s ease;
+            }
+            .sort-header-link:hover {
+              background: rgba(255,255,255,0.04);
+              color: #f7d46b !important;
             }
 
             .subtext {
@@ -1423,26 +1502,26 @@ export default async function StaffQueuePage({ params, searchParams }: PageProps
                 <table className="queue-table">
                   <thead>
                     <tr>
-                      <th>{dict.staff_queue.table_code}</th>
-                      <th>{dict.staff_queue.table_request}</th>
-                      <th>{dict.staff_queue.table_customer}</th>
-                      <th>{dict.staff_queue.table_kind}</th>
-                      <th>{dict.staff_queue.table_urgency}</th>
-                      <th>{dict.staff_dashboard.status}</th>
+                      {renderSortableHeader('code', dict.staff_queue.table_code)}
+                      {renderSortableHeader('title', dict.staff_queue.table_request)}
+                      {renderSortableHeader('customer', dict.staff_queue.table_customer)}
+                      {renderSortableHeader('kind', dict.staff_queue.table_kind)}
+                      {renderSortableHeader('urgency', dict.staff_queue.table_urgency)}
+                      {renderSortableHeader('sla', `${dict.staff_dashboard.status} / SLA`)}
                       <th>{dict.staff_queue.table_image}</th>
                       {activeView === 'intake' ? (
                         <>
-                          <th>{dict.staff_queue.table_stage}</th>
+                          {renderSortableHeader('stage', dict.staff_queue.table_stage)}
                           <th>{dict.staff_queue.table_assignment}</th>
                           <th>{dict.staff_queue.table_decision}</th>
                         </>
                       ) : (
                         <>
                           <th>{dict.staff_queue.table_scope}</th>
-                          <th>{dict.staff_management.table_status}</th>
+                          {renderSortableHeader('status', dict.staff_management.table_status)}
                         </>
                       )}
-                      <th>{dict.staff_queue.table_created}</th>
+                      {renderSortableHeader('created_at', dict.staff_queue.table_created)}
                       <th>{dict.staff_queue.table_action}</th>
                     </tr>
                   </thead>

@@ -143,3 +143,61 @@ export async function handleUploadPaymentReceipt(formData: FormData) {
     redirect(`/${locale}/reports/${requestId}?error=receipt_upload_failed`)
   }
 }
+
+export async function submitCustomerMerchantFeedback(
+  requestId: string,
+  merchantName: string,
+  rating: number,
+  platformRating: number,
+  comment: string,
+  locale: string
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect(`/${locale}/auth/login`)
+
+  const adminClient = await createAdminClient() as any
+
+  // 1. Fetch vendor to update rating
+  const { data: vendor } = await adminClient
+    .from('vendors')
+    .select('id, trust_score, total_successful_deals')
+    .eq('display_name', merchantName)
+    .maybeSingle()
+
+  if (vendor) {
+    // Recalculate trust score: weight existing + new rating
+    const currentScore = Number(vendor.trust_score || 85)
+    const dealCount = Number(vendor.total_successful_deals || 0)
+    
+    // Scale 1-5 rating to 0-100 score: stars * 20
+    const newRatingScore = rating * 20
+    const updatedScore = Math.min(100, Math.max(0, Math.round((currentScore * dealCount + newRatingScore) / (dealCount + 1))))
+
+    await adminClient
+      .from('vendors')
+      .update({
+        trust_score: updatedScore,
+        total_successful_deals: dealCount + 1,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', vendor.id)
+
+    // Insert Review
+    const customer = await getCustomerByAuthId(user.id)
+    await adminClient
+      .from('vendor_reviews')
+      .insert({
+        vendor_id: vendor.id,
+        request_id: requestId,
+        customer_id: customer?.id || null,
+        vendor_rating: rating,
+        platform_rating: platformRating,
+        platform_comment: comment,
+        is_published: true
+      })
+  }
+
+  revalidatePath(`/${locale}/reports/${requestId}`)
+  redirect(`/${locale}/reports/${requestId}?success=feedback_submitted`)
+}

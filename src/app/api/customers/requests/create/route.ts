@@ -173,6 +173,9 @@ export async function POST(request: Request) {
       source_channel: 'landing_page',
       request_kind: finalRequestKind,
       is_business: !!isBusiness,
+      source_type: body.source_type || 'manual',
+      ai_confidence: body.ai_confidence ? Number(body.ai_confidence) : null,
+      metadata: body.metadata || {},
     }
 
     if (isBusiness) {

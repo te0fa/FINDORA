@@ -31,8 +31,24 @@ export async function dispatchResearchAgents(request: any): Promise<void> {
 
       // Execute Online Research Agent (Async background)
       executeOnlineResearch(onlineJobId, request.id)
-        .then(res => {
+        .then(async res => {
           log.info(`[ONLINE_RESEARCH_COMPLETED] Request: ${request.id}, Success: ${res.success}`);
+          
+          // 1. Run the web scraping and online sourcing quotes to populate online_merchant_quotes
+          try {
+            log.info(`[ORCHESTRATOR_AUTOMATION] Running runOnlineSourcingInternal for request ${request.id}`);
+            const { runOnlineSourcingInternal } = await import('@/app/[locale]/staff/intelligence/customers/actions');
+            const sourcingRes = await runOnlineSourcingInternal(request.id);
+            log.info(`[ORCHESTRATOR_AUTOMATION] Sourced ${sourcingRes.count} online quotes for request ${request.id}`);
+
+            // 2. Generate final AI synthesis proposal report automatically
+            log.info(`[ORCHESTRATOR_AUTOMATION] Compiling final synthesized proposal report for request ${request.id}`);
+            const { generateFinalProposalSynthesisInternal } = await import('@/app/[locale]/staff/intelligence/customers/actions');
+            await generateFinalProposalSynthesisInternal(request.id, request.customer_lang || 'ar', 'system');
+            log.info(`[ORCHESTRATOR_AUTOMATION] Successfully synthesized top 5 deals for request ${request.id}`);
+          } catch (err: any) {
+            log.error(`[ORCHESTRATOR_AUTOMATION_FAILED] Sourcing or synthesis failed:`, err.message);
+          }
         })
         .catch(err => {
           log.error(`[ONLINE_RESEARCH_FAILED] Request: ${request.id}`, err);

@@ -187,6 +187,51 @@ export default function PricingSettingsClient({
           </h2>
         </div>
 
+        {/* Launch Mode Configurator Panel */}
+        <div className="rounded-3xl border border-emerald-500/30 p-6 bg-gradient-to-br from-black/80 to-emerald-500/5 shadow-[0_0_50px_rgba(16,185,129,0.05)]">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">🎉</span>
+                <h3 className="text-lg font-bold text-white">
+                  {isAr ? 'متحكم فترة الإطلاق المجاني للطلبات اليومية' : 'Everyday Purchase Free Launch Configurator'}
+                </h3>
+              </div>
+              <p className="text-slate-400 text-xs md:text-sm max-w-2xl">
+                {isAr
+                  ? 'بينما يكون وضع الإطلاق النشط (free_launch) مفعلاً، يتم تعيين رسوم الخدمة تلقائياً إلى 0 ج.م ويتم فك حجب تقارير التسوق للعميل فور صدورها.'
+                  : 'While Free Launch phase is active, service fees resolve to 0 EGP and reports are auto-unlocked for customers immediately.'}
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {activeCustomerPhase?.phase_name === 'free_launch' ? (
+                <div className="flex flex-col items-end gap-2">
+                  <span className="bg-emerald-500/20 text-emerald-400 text-xs font-black uppercase px-4 py-1.5 rounded-full border border-emerald-500/30 flex items-center gap-1.5 animate-pulse">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
+                    {isAr ? 'وضع الإطلاق المجاني نشط حالياً' : 'Free Launch Mode Active'}
+                  </span>
+                  {nextCustomerPhase && (
+                    <button
+                      onClick={() => handleAdvanceCustomerPhase(nextCustomerPhase.phase_name)}
+                      className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
+                    >
+                      {isAr ? 'إنهاء المبادرة وتطبيق الرسوم' : 'Deactivate & Transition to Growth Fees'}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleAdvanceCustomerPhase('free_launch')}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-6 py-3 font-bold text-sm shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:scale-[1.02] active:scale-95 transition-all animate-bounce"
+                >
+                  {isAr ? 'تفعيل وضع الإطلاق المجاني 🎉' : 'Activate Free Launch Mode 🎉'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-3">
           {customerPhases.map((phase, idx) => (
             <div 
