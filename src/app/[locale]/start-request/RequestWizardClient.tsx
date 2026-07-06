@@ -7,6 +7,7 @@ import { useFeature } from '@/lib/feature-flags/useFeature'
 import ReviewScreen from './ReviewScreen'
 import ReturningCustomerStep, { type ReusedRequestData } from './ReturningCustomerStep'
 import type { AIExtractedData } from '@/lib/intelligence/ai-concierge-agent'
+import { Modal } from '@/components/ui/Overlays'
 
 // ─── Step Constants ───────────────────────────────────────────────────────────
 const STEP_RETURNING  = 0   // Phase 3: Optional returning-customer lookup (feature-flag gated)
@@ -71,6 +72,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   const [mounted, setMounted] = useState(false)
   const [isRestored, setIsRestored] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
+  const [showMicPermissionModal, setShowMicPermissionModal] = useState(false)
 
   // Step starts at STEP_CATEGORY (safe default). Once the history flag finishes
   // loading, if it is enabled we rewind to STEP_RETURNING (the optional lookup
@@ -232,9 +234,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
       setIsListening(false)
       console.warn('[SpeechRecognition] error:', event.error)
       if (event.error === 'not-allowed') {
-        alert(isAr 
-          ? 'تعذر الوصول للمايكروفون. يرجى تفعيل صلاحية استخدام المايكروفون من إعدادات المتصفح.' 
-          : 'Microphone access denied. Please enable microphone permissions in your browser settings.')
+        setShowMicPermissionModal(true)
       } else {
         alert(isAr 
           ? 'حدث خطأ في التسجيل الصوتي. حاول مرة أخرى.' 
@@ -1014,6 +1014,86 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
           </div>
         </form>
       )}
+
+      <Modal
+        isOpen={showMicPermissionModal}
+        onClose={() => setShowMicPermissionModal(false)}
+        title={isAr ? 'تفعيل صلاحية استخدام المايكروفون' : 'Enable Microphone Permission'}
+      >
+        <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: '1.6', textAlign: 'start' }}>
+          <p style={{ marginBottom: 'var(--space-16)', color: 'var(--text-secondary)' }}>
+            {isAr 
+              ? 'يبدو أن الوصول للميكروفون محجوب من إعدادات المتصفح أو نظام التشغيل. يرجى اتباع الخطوات التالية للتفعيل:'
+              : 'Microphone access is blocked by your browser or operating system settings. Please follow these steps to enable it:'}
+          </p>
+
+          <div style={{ marginBottom: 'var(--space-20)' }}>
+            <h4 style={{ color: 'hsl(258, 89%, 76%)', margin: '0 0 var(--space-8) 0', fontSize: '1rem', fontWeight: 700 }}>
+              {isAr ? '1. من إعدادات المتصفح (الموقع):' : '1. Browser Site Settings:'}
+            </h4>
+            <ul style={{ margin: 0, paddingInlineStart: 'var(--space-20)', listStyleType: 'disc' }}>
+              <li>
+                {isAr
+                  ? 'اضغط على أيقونة القفل أو الإعدادات 🔒 بجانب رابط الموقع في شريط العنوان بالأعلى.'
+                  : 'Click the padlock or settings icon 🔒 next to the website URL in the address bar at the top.'}
+              </li>
+              <li>
+                {isAr
+                  ? 'ابحث عن "الميكروفون" (Microphone) وقم بتعديل الخيار إلى "سماح" (Allow).'
+                  : 'Find "Microphone" and change the option to "Allow".'}
+              </li>
+              <li>
+                {isAr
+                  ? 'قم بتحديث الصفحة (Refresh) وحاول مجدداً.'
+                  : 'Refresh the page and try again.'}
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 style={{ color: 'hsl(258, 89%, 76%)', margin: '0 0 var(--space-8) 0', fontSize: '1rem', fontWeight: 700 }}>
+              {isAr ? '2. من إعدادات الويندوز (إذا ظل معطلاً):' : '2. Windows Settings (if still disabled):'}
+            </h4>
+            <ul style={{ margin: 0, paddingInlineStart: 'var(--space-20)', listStyleType: 'disc' }}>
+              <li>
+                {isAr
+                  ? 'افتح قائمة ابدأ (Start) ثم الإعدادات (Settings ⚙️).'
+                  : 'Open the Start menu and go to Settings ⚙️.'}
+              </li>
+              <li>
+                {isAr
+                  ? 'اذهب إلى الخصوصية والأمان (Privacy & security) -> الميكروفون (Microphone).'
+                  : 'Go to Privacy & security -> Microphone.'}
+              </li>
+              <li>
+                {isAr
+                  ? 'تأكد من تفعيل "الوصول إلى الميكروفون" (Microphone access).'
+                  : 'Ensure "Microphone access" is turned On.'}
+              </li>
+              <li>
+                {isAr
+                  ? 'تأكد من تفعيل "السماح للتطبيقات بالوصول إلى الميكروفون" (Let apps access your microphone).'
+                  : 'Ensure "Let apps access your microphone" is turned On.'}
+              </li>
+              <li>
+                {isAr
+                  ? 'انزل لأسفل وتأكد من تفعيل "السماح لبرامج سطح المكتب بالوصول للميكروفون" (Let desktop apps access your microphone) وتأكد من السماح للمتصفح (Chrome).'
+                  : 'Scroll down and ensure "Let desktop apps access your microphone" is turned On, and that your browser (e.g. Chrome) is allowed.'}
+              </li>
+            </ul>
+          </div>
+
+          <div style={{ marginTop: 'var(--space-24)', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setShowMicPermissionModal(false)}
+              className="wizard-btn-primary"
+              style={{ padding: '8px 20px', fontSize: '0.85rem' }}
+            >
+              {isAr ? 'حسناً، فهمت' : 'OK, Got it'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ─── Scoped CSS ─────────────────────────────────────────────────────── */}
       <style dangerouslySetInnerHTML={{ __html: `
