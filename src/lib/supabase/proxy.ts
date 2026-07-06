@@ -210,7 +210,10 @@ export async function updateSession(request: NextRequest, existingUser?: any) {
   }
 
   if (isCustomerPath(url.pathname)) {
-    if (!user) {
+    const isRequestDetailPage = url.pathname.includes('/customer/request/')
+    const isGuestTracking = url.searchParams.has('requestId') || isRequestDetailPage
+
+    if (!user && !isGuestTracking) {
       return NextResponse.redirect(loginUrl)
     }
 

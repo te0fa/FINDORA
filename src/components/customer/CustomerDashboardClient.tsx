@@ -51,6 +51,11 @@ export default function CustomerDashboardClient({ locale, requests }: { locale: 
                 <span className={`text-xs font-bold px-3 py-1 rounded-full border ${getStatusColor(req.status)}`}>
                   {getStatusLabel(req.status || 'open')}
                 </span>
+                {req.request_code && (
+                  <span className="text-xs font-mono px-2 py-0.5 bg-white/10 text-[hsl(258,89%,76%)] rounded">
+                    #{req.request_code}
+                  </span>
+                )}
                 <span className="text-xs text-[hsl(220,10%,60%)] font-mono">{new Date(req.created_at).toLocaleDateString()}</span>
               </div>
               <h2 className="text-xl font-bold text-white group-hover:text-[hsl(258,89%,66%)] transition">

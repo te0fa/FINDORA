@@ -22,7 +22,7 @@ const securityHeaders = [
   // Control referrer info
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // Restrict browser APIs
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), interest-cohort=()' },
+  { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(self), interest-cohort=()' },
   // XSS protection (legacy browsers)
   { key: 'X-XSS-Protection', value: '1; mode=block' },
   // DNS prefetch control

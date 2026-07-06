@@ -139,74 +139,82 @@ export async function signup(formData: FormData) {
   const fullName = formData.get('fullName') as string
   const phone = formData.get('phone') as string
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: fullName,
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
       },
-    },
-  })
+    })
 
-  if (error) {
-    redirect(`/${locale}/auth/signup?error=${encodeURIComponent(error.message)}`)
-  }
-
-  if (data.user) {
-    const phoneObj = normalizePhone(phone)
-    if (phoneObj) {
-      const adminClient = await createAdminClient()
-      
-      // Try to link to an existing guest profile
-      const linked = await linkAuthUserToCustomer(data.user.id, phoneObj.normalized)
-      
-      if (!linked) {
-        // Create new customer profile with verified phone
-        const customerCode = `CUST-${Math.floor(1000 + Math.random() * 9000)}`
-        const { error: insertError } = await adminClient.from('customers').insert({
-          auth_user_id: data.user.id,
-          full_name: fullName,
-          customer_code: customerCode,
-          phone_number_raw: phoneObj.raw,
-          phone_number_normalized: phoneObj.normalized,
-          phone_verified_at: new Date().toISOString(),
-          preferred_language: locale,
-          email: email,
-          status: 'active'
-        })
-        if (insertError) {
-          console.error('Error inserting customer:', insertError)
-          redirect(`/${locale}/auth/signup?error=${encodeURIComponent(insertError.message)}`)
-        }
-      } else {
-        // Profile was linked, now mark phone as verified and update missing info
-        const { error: updateError } = await adminClient.from('customers').update({
-          phone_verified_at: new Date().toISOString(),
-          full_name: fullName,
-          email: email
-        }).eq('id', linked.id)
-        if (updateError) {
-          console.error('Error updating customer:', updateError)
-          redirect(`/${locale}/auth/signup?error=${encodeURIComponent(updateError.message)}`)
-        }
-      }
-      
-      // Auto-confirm email to allow immediate login since phone is verified
-      const { error: confirmError } = await adminClient.auth.admin.updateUserById(data.user.id, {
-        email_confirm: true
-      })
-      if (confirmError) {
-        console.error('Error auto-confirming email:', confirmError)
-        redirect(`/${locale}/auth/signup?error=${encodeURIComponent(confirmError.message)}`)
-      }
-      
-    } else {
-      await ensureCustomerProfile(data.user.id, fullName, locale)
+    if (error) {
+      return { error: error.message }
     }
-  }
 
-  redirect(`/${locale}/auth/login?message=${encodeURIComponent('تم التسجيل بنجاح، يمكنك الآن تسجيل الدخول')}`)
+    if (data.user) {
+      const phoneObj = normalizePhone(phone)
+      if (phoneObj) {
+        const adminClient = await createAdminClient()
+        
+        // Try to link to an existing guest profile
+        const linked = await linkAuthUserToCustomer(data.user.id, phoneObj.normalized)
+        
+        if (!linked) {
+          // Create new customer profile with verified phone
+          const customerCode = `CUST-${Math.floor(1000 + Math.random() * 9000)}`
+          const { error: insertError } = await adminClient.from('customers').insert({
+            auth_user_id: data.user.id,
+            full_name: fullName,
+            customer_code: customerCode,
+            phone_number_raw: phoneObj.raw,
+            phone_number_normalized: phoneObj.normalized,
+            phone_verified_at: new Date().toISOString(),
+            preferred_language: locale,
+            email: email,
+            status: 'active'
+          })
+          if (insertError) {
+            console.error('Error inserting customer:', insertError)
+            return { error: insertError.message }
+          }
+        } else {
+          // Profile was linked, now mark phone as verified and update missing info
+          const { error: updateError } = await adminClient.from('customers').update({
+            phone_verified_at: new Date().toISOString(),
+            full_name: fullName,
+            email: email
+          }).eq('id', linked.id)
+          if (updateError) {
+            console.error('Error updating customer:', updateError)
+            return { error: updateError.message }
+          }
+        }
+        
+        // Auto-confirm email to allow immediate login since phone is verified
+        const { error: confirmError } = await adminClient.auth.admin.updateUserById(data.user.id, {
+          email_confirm: true
+        })
+        if (confirmError) {
+          console.error('Error auto-confirming email:', confirmError)
+          return { error: confirmError.message }
+        }
+        
+      } else {
+        const customerProfile = await ensureCustomerProfile(data.user.id, fullName, locale)
+        if (!customerProfile) {
+          return { error: 'Failed to create customer profile' }
+        }
+      }
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('Signup error:', err)
+    return { error: err.message || 'System error during signup' }
+  }
 }
 
 export async function signOut() {

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { sendSignupOtp, verifySignupOtp, signup } from '../actions'
 
 interface SignupClientProps {
@@ -11,6 +12,7 @@ interface SignupClientProps {
 }
 
 export default function SignupClient({ locale, dict, errorMsg }: SignupClientProps) {
+  const router = useRouter()
   const [step, setStep] = useState<1 | 2>(1)
   const [loading, setLoading] = useState(false)
   const [clientError, setClientError] = useState<string | null>(errorMsg || null)
@@ -67,7 +69,13 @@ export default function SignupClient({ locale, dict, errorMsg }: SignupClientPro
       formData.append('password', password)
 
       // The server action handles redirect on success or error on failure
-      await signup(formData)
+      const resSignup = await signup(formData)
+      if (resSignup && resSignup.error) {
+        setClientError(resSignup.error)
+        setLoading(false)
+      } else {
+        router.push(`/${locale}/auth/login?message=${encodeURIComponent(isRTL ? 'تم التسجيل بنجاح، يمكنك الآن تسجيل الدخول' : 'Registered successfully, you can now log in')}`)
+      }
     } catch (err) {
       setClientError(isRTL ? 'حدث خطأ أثناء التسجيل.' : 'Error during signup.')
       setLoading(false)

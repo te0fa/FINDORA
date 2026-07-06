@@ -44,7 +44,20 @@ export default async function CustomerDashboardPage({
       .select('*')
       .eq('id', searchParams.requestId)
       .order('created_at', { ascending: false })
-    customerRequests = data || []
+    const reqs = data || []
+    if (reqs.length > 0) {
+      const { data: requestRow } = await supabase
+        .from('requests')
+        .select('request_code')
+        .eq('id', searchParams.requestId)
+        .maybeSingle()
+      customerRequests = reqs.map(r => ({
+        ...r,
+        request_code: requestRow?.request_code || null
+      }))
+    } else {
+      customerRequests = []
+    }
   }
 
   return (

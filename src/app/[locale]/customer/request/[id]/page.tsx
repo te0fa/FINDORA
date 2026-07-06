@@ -27,6 +27,18 @@ export default async function OfferRoomPage({
     redirect(`/${locale}/customer/dashboard`)
   }
 
+  // Fetch request_code from requests table
+  const { data: requestRow } = await supabase
+    .from('requests')
+    .select('request_code')
+    .eq('id', id)
+    .maybeSingle()
+
+  const requestWithCode = {
+    ...request,
+    request_code: requestRow?.request_code || null
+  }
+
   // Fetch Offers (simulating that the contributor_submissions table holds the offers)
   const { data: offers } = await supabase
     .from('contributor_submissions')
@@ -55,6 +67,11 @@ export default async function OfferRoomPage({
             <span>📍 {request.target_location}</span>
             {request.max_price && <span>💰 Max: {request.max_price} EGP</span>}
             <span className="font-mono">📅 {new Date(request.created_at).toLocaleDateString()}</span>
+            {requestWithCode.request_code && (
+              <span className="font-mono px-2 py-0.5 bg-white/10 text-[hsl(258,89%,76%)] rounded text-xs">
+                #{requestWithCode.request_code}
+              </span>
+            )}
           </div>
           {request.notes && (
             <div className="mt-4 p-4 rounded-xl bg-white/5 text-sm italic border border-white/5">
@@ -64,7 +81,7 @@ export default async function OfferRoomPage({
         </div>
 
         {/* The Offer Room Client */}
-        <OfferRoomClient locale={locale} request={request} offers={offers || []} />
+        <OfferRoomClient locale={locale} request={requestWithCode} offers={offers || []} />
 
       </div>
     </div>
