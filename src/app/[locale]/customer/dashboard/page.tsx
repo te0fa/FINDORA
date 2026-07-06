@@ -66,7 +66,7 @@ export default async function CustomerDashboardPage({
 
         {/* Success / Request Created Banner */}
         {searchParams.code && (
-          <div className="p-6 rounded-2xl border border-[hsl(152,69%,51%,0.4)] bg-[hsl(152,69%,51%,0.1)] flex gap-4 items-start animate-fade-in" data-testid="dashboard-success-banner">
+          <div className="p-6 rounded-2xl border border-[hsl(152,69%,51%,0.4)] bg-[hsl(152,69%,51%,0.1)] flex gap-4 items-start animate-fade-in" data-testid="request-success-banner">
             <div className="text-3xl text-[hsl(152,69%,51%)]">🎉</div>
             <div className="space-y-1">
               <h4 className="font-bold text-[hsl(152,69%,51%)] text-lg">
@@ -81,7 +81,7 @@ export default async function CustomerDashboardPage({
                 <span className="text-xs text-[hsl(220,10%,60%)]">
                   {isAr ? 'كود التتبع لتتبع الطلب لاحقاً:' : 'Tracking code to track request later:'}
                 </span>
-                <span className="px-3 py-1 font-mono text-sm font-bold bg-black/40 text-[hsl(152,69%,51%)] border border-[hsl(152,69%,51%,0.3)] rounded-lg">
+                <span className="px-3 py-1 font-mono text-sm font-bold bg-black/40 text-[hsl(152,69%,51%)] border border-[hsl(152,69%,51%,0.3)] rounded-lg" data-testid="request-success-code">
                   {searchParams.code}
                 </span>
               </div>

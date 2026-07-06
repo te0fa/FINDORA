@@ -482,7 +482,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   // ─────────────────────────────────────────────────────────────────────────────
   if (!mounted) {
     return (
-      <div className="wizard-container" dir={isAr ? 'rtl' : 'ltr'}>
+      <div className="wizard-container" dir={isAr ? 'rtl' : 'ltr'} data-testid="start-request-page">
         <div className="wizard-header relative z-10" style={{ opacity: 0.5 }}>
           <h1 className="wizard-title">
             {isAr ? 'جاري التحميل...' : 'Loading...'}
@@ -493,7 +493,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   }
 
   return (
-    <div className="wizard-container" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="wizard-container" dir={isAr ? 'rtl' : 'ltr'} data-testid="start-request-page">
       {/* Decorative Glow */}
       <div className="wizard-glow-top" />
       <div className="wizard-glow-bottom" />
@@ -700,6 +700,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
                   setStep(STEP_DETAILS)
                 }}
                 className="wizard-category-btn"
+                data-testid={`wizard-category-${cat.id}`}
               >
                 <div className="wizard-category-icon">{cat.icon}</div>
                 <div className="wizard-category-label">{cat.label}</div>
@@ -784,6 +785,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
                 value={formData.productName}
                 onChange={e => setFormData({ ...formData, productName: e.target.value })}
                 className="wizard-input"
+                data-testid="start-request-title-input"
                 placeholder={isAr ? 'مثال: آيفون 15 برو ماكس 256 جيجا' : 'e.g. iPhone 15 Pro Max 256GB'}
               />
             </div>
@@ -926,7 +928,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
             <div className="wizard-actions">
               <button type="button" onClick={() => setStep(STEP_CATEGORY)} className="wizard-btn-secondary">{isAr ? 'رجوع' : 'Back'}</button>
-              <button type="submit" disabled={!formData.productName || (formData.isBusiness && (!formData.companyName || !formData.crNumber || !formData.taxNumber))} className="wizard-btn-primary">{isAr ? 'التالي' : 'Next'}</button>
+              <button type="submit" disabled={!formData.productName || (formData.isBusiness && (!formData.companyName || !formData.crNumber || !formData.taxNumber))} className="wizard-btn-primary" data-testid="wizard-next-details">{isAr ? 'التالي' : 'Next'}</button>
             </div>
           </div>
         </form>
@@ -940,7 +942,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
             <div className="wizard-form-group">
               <label className="wizard-label">{isAr ? 'في أي منطقة تبحث؟' : 'Which area are you searching in?'}</label>
-              <input required autoFocus value={formData.targetLocation} onChange={e => setFormData({ ...formData, targetLocation: e.target.value })} className="wizard-input" placeholder={isAr ? 'مثال: المعادي، القاهرة' : 'e.g. Maadi, Cairo'} />
+              <input required autoFocus value={formData.targetLocation} onChange={e => setFormData({ ...formData, targetLocation: e.target.value })} className="wizard-input" data-testid="wizard-location-input" placeholder={isAr ? 'مثال: المعادي، القاهرة' : 'e.g. Maadi, Cairo'} />
             </div>
 
             <div className="wizard-form-group">
@@ -953,7 +955,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
             <div className="wizard-actions">
               <button type="button" onClick={() => setStep(STEP_DETAILS)} className="wizard-btn-secondary">{isAr ? 'رجوع' : 'Back'}</button>
-              <button type="submit" disabled={!formData.targetLocation} className="wizard-btn-primary">{isAr ? 'التالي' : 'Next'}</button>
+              <button type="submit" disabled={!formData.targetLocation} className="wizard-btn-primary" data-testid="wizard-next-location">{isAr ? 'التالي' : 'Next'}</button>
             </div>
           </div>
         </form>
@@ -979,7 +981,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
             <div className="wizard-grid-2">
               <div className="wizard-form-group">
                 <label className="wizard-label">{isAr ? 'الاسم *' : 'Your Name *'}</label>
-                <input required autoFocus value={formData.customerName} onChange={e => setFormData({ ...formData, customerName: e.target.value })} className="wizard-input" />
+                <input required autoFocus value={formData.customerName} onChange={e => setFormData({ ...formData, customerName: e.target.value })} className="wizard-input" data-testid="start-request-full-name-input" />
               </div>
               <div className="wizard-form-group">
                 <label className="wizard-label">{isAr ? 'رقم الهاتف (لإرسال العروض) *' : 'Phone Number (to send offers) *'}</label>
@@ -988,7 +990,8 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
                 <input required type="tel"
                   value={formData.customerPhone || lookupPhone}
                   onChange={e => setFormData({ ...formData, customerPhone: e.target.value })}
-                  className="wizard-input" />
+                  className="wizard-input"
+                  data-testid="start-request-phone-input" />
               </div>
             </div>
 
@@ -1004,7 +1007,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
             <div className="wizard-actions wizard-footer-actions">
               <button type="button" onClick={prevStep} disabled={isSubmitting} className="wizard-btn-secondary">{isAr ? 'رجوع' : 'Back'}</button>
-              <button type="submit" disabled={isSubmitting || !formData.customerName || !formData.customerPhone || !formData.targetLocation} className="wizard-btn-submit">
+              <button type="submit" disabled={isSubmitting || !formData.customerName || !formData.customerPhone || !formData.targetLocation} className="wizard-btn-submit" data-testid="start-request-submit">
                 {isSubmitting ? (isAr ? 'جاري الإرسال...' : 'Sending...') : (isAr ? 'أرسل الطلب الآن' : 'Submit Request')}
               </button>
             </div>
