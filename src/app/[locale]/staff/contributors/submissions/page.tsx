@@ -8,10 +8,11 @@ export const metadata = {
 }
 
 export default async function QualityReviewPage({
-  params: { locale }
+  params
 }: {
-  params: { locale: string }
+  params: Promise<{ locale: string }>
 }) {
+  const { locale } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -34,36 +35,7 @@ export default async function QualityReviewPage({
     .order('created_at', { ascending: true })
     .limit(30)
 
-  // Fallback mock data if empty (for UI development visibility)
-  let displaySubs = pendingSubmissions || []
-  if (displaySubs.length === 0) {
-    displaySubs = [
-      {
-        id: 'mock-sub-1',
-        submission_type: 'price_report',
-        price_reported: 25000,
-        details: {
-          product_name: 'Samsung TV 55 Inch Smart',
-          notes: 'Seen at Carrefour Maadi branch',
-          ai_analysis: { confidence_score: 92, flags: [] }
-        },
-        created_at: new Date().toISOString(),
-        contributor: { full_name: 'Ahmed Y.', role: 'field_scout' }
-      },
-      {
-        id: 'mock-sub-2',
-        submission_type: 'vendor_offer',
-        price_reported: 120,
-        details: {
-          product_name: 'Wireless Mouse Logitech',
-          notes: 'Special offer till Friday',
-          ai_analysis: { confidence_score: 40, flags: ['Suspiciously extreme price'] }
-        },
-        created_at: new Date().toISOString(),
-        contributor: { full_name: 'Sara M.', role: 'store_insider' }
-      }
-    ]
-  }
+  const displaySubs = pendingSubmissions || []
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">

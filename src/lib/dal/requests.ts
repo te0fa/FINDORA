@@ -238,6 +238,8 @@ export async function getIntakeQueueRequests(staffId?: string) {
     .from('requests')
     .select('id, request_code, title, raw_description, current_status, request_kind, reference_image_path, customer_id, reviewer_decision, reviewer_notes, assigned_reviewer_staff_id, reviewer_assignment_status, reviewer_assigned_at, reviewer_assigned_by_staff_id, created_at, updated_at, is_archived')
     .eq('canonical_state', 'INTAKE')
+    .eq('is_archived', false)
+    .eq('is_soft_deleted', false)
 
   if (staffId) {
     query = query.eq('assigned_reviewer_staff_id', staffId)
@@ -309,6 +311,8 @@ export async function getReadyQueueRequests() {
     .from('requests')
     .select('id, request_code, title, raw_description, current_status, request_kind, reviewer_decision, created_at, reference_image_path, customer_id, is_archived')
     .eq('canonical_state', 'READY')
+    .eq('is_archived', false)
+    .eq('is_soft_deleted', false)
 
   if (reqsRes.error) throw new Error(reqsRes.error.message)
   const readyRows = reqsRes.data as any[]
@@ -359,6 +363,8 @@ export async function getCompletedQueueRequests() {
     .from('requests')
     .select('id, request_code, title, raw_description, current_status, request_kind, reviewer_decision, created_at, reference_image_path, customer_id, is_archived')
     .eq('canonical_state', 'COMPLETED')
+    .eq('is_archived', false)
+    .eq('is_soft_deleted', false)
 
   if (reqsRes.error) throw new Error(reqsRes.error.message)
   const completedRows = reqsRes.data as any[]
@@ -407,6 +413,8 @@ export async function getIssuesQueueRequests() {
     .from('requests')
     .select('id, request_code, title, raw_description, current_status, request_kind, reviewer_decision, created_at, reference_image_path, customer_id, is_archived')
     .eq('canonical_state', 'ISSUES')
+    .eq('is_archived', false)
+    .eq('is_soft_deleted', false)
 
   if (reqsRes.error) throw new Error(reqsRes.error.message)
   const issuesRows = reqsRes.data as any[]
@@ -454,6 +462,8 @@ export async function getRejectedQueueRequests() {
     .from('requests')
     .select('id, request_code, title, raw_description, current_status, request_kind, reviewer_decision, created_at, reference_image_path, customer_id, is_archived')
     .eq('canonical_state', 'REJECTED')
+    .eq('is_archived', false)
+    .eq('is_soft_deleted', false)
 
   if (reqsRes.error) throw new Error(reqsRes.error.message)
   const rejectedRows = reqsRes.data as any[]
@@ -501,6 +511,8 @@ export async function getOperationsQueueRequests() {
     .from('requests')
     .select('id, request_code, title, raw_description, current_status, request_kind, reviewer_decision, created_at, reference_image_path, customer_id, is_archived')
     .eq('canonical_state', 'OPERATIONS')
+    .eq('is_archived', false)
+    .eq('is_soft_deleted', false)
 
   if (reqsRes.error) throw new Error(reqsRes.error.message)
   const operationsRows = reqsRes.data as any[]

@@ -219,6 +219,7 @@ export async function getPricingVersionsAdmin(client?: any) {
     async () => await (adminClient as any)
       .from('service_pricing_versions')
       .select('*, service:service_catalog(title_en, title_ar)')
+      .or('promo_label_en.is.null,promo_label_en.neq.__HARD_DELETED__')
       .order('created_at', { ascending: false }),
     'getPricingVersionsAdmin',
     []
@@ -245,7 +246,6 @@ export async function getDealsAdmin(client?: any) {
     async () => await (adminClient as any)
       .from('findora_deals')
       .select('*, vendors(display_name, trust_score)')
-      .neq('deal_status', 'deleted')
       .order('created_at', { ascending: false }),
     'getDealsAdmin',
     []
@@ -654,7 +654,7 @@ export async function deleteFindoraDealAdmin(id: string, client?: any) {
     async () => await (adminClient as any)
       .from('findora_deals')
       .update({ 
-        deal_status: 'deleted',
+        deal_status: 'archived',
         is_active: false,
         updated_at: new Date().toISOString()
       })
@@ -670,7 +670,11 @@ export async function hardDeleteFindoraDealAdmin(id: string, client?: any) {
   return safeSupabaseQuery(
     async () => await (adminClient as any)
       .from('findora_deals')
-      .delete()
+      .update({ 
+        deal_status: 'draft',
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id),
     `hardDeleteFindoraDealAdmin:${id}`,
     false

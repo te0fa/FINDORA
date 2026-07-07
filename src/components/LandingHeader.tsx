@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import HeaderLocaleDropdown from "@/components/HeaderLocaleDropdown";
 import HeaderLogo from "@/components/HeaderLogo";
 import { Locale } from "@/lib/i18n/config";
@@ -8,54 +9,50 @@ import './LandingHeader.css';
 type Props = {
   locale: string;
   isRTL: boolean;
+  isRecruitmentActive?: boolean;
   labels: {
     home: string;
-
     how: string;
-
     why: string;
-
     categories: string;
-
     flow: string;
-
     pricing: string;
-
     faq: string;
-
     deals: string;
-
     start: string;
-
     track: string;
-
     login: string;
-
     signup: string;
-
   };
 };
 const DESKTOP_NAV_BREAKPOINT = 1120;
 const DESKTOP_ACTIONS_BREAKPOINT = 920;
-export default function LandingHeader({ locale, isRTL, labels }: Props) {
+export default function LandingHeader({ locale, isRTL, labels, isRecruitmentActive = false }: Props) {
+  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const sectionLinks = useMemo(
-    () => [
-      // Top 4 links
-      { href: `/${locale}#home`, label: labels.home },
-      { href: `/${locale}#how`, label: labels.how },
-      { href: `/${locale}#pricing`, label: labels.pricing },
-      { href: `/${locale}#faq`, label: labels.faq },
-      // Dropdown links
-      { href: `/${locale}#trust-framework`, label: labels.why },
-      { href: `/${locale}#categories`, label: labels.categories },
-      { href: `/${locale}#flow`, label: labels.flow },
-    ],
-    [locale, labels]
+    () => {
+      const base = [
+        // Top 4 links
+        { href: `/${locale}#home`, label: labels.home },
+        { href: `/${locale}#how`, label: labels.how },
+        { href: `/${locale}#pricing`, label: labels.pricing },
+        { href: `/${locale}#faq`, label: labels.faq },
+        // Dropdown links
+        { href: `/${locale}#trust-framework`, label: labels.why },
+        { href: `/${locale}#categories`, label: labels.categories },
+        { href: `/${locale}#flow`, label: labels.flow },
+      ];
+      if (isRecruitmentActive) {
+        base.push({ href: `/${locale}/contributors`, label: isRTL ? "اشتغل معانا 💰" : "Work With Us 💰" });
+      }
+      return base;
+    },
+    [locale, labels, isRecruitmentActive, isRTL]
   );
   const closeMenu = () => {
     setIsMobileMenuOpen(false);
@@ -526,12 +523,61 @@ export default function LandingHeader({ locale, isRTL, labels }: Props) {
 
         <div className="mobile-separator" />
 
-
-
-        <div className="mobile-language">
-
-          <HeaderLocaleDropdown currentLocale={locale as Locale} />
-
+        <div className="mobile-language" style={{ display: 'flex', gap: 12, width: '100%', padding: '0 8px', marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={() => {
+              const segments = window.location.pathname.split("/");
+              if (segments[1] === "en" || segments[1] === "ar") {
+                segments[1] = "ar";
+              } else {
+                segments.splice(1, 0, "ar");
+              }
+              const hash = window.location.hash || "";
+              router.push(segments.join("/") + hash);
+              closeMenu();
+            }}
+            style={{
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              border: locale === 'ar' ? '1px solid hsl(258,89%,66%)' : '1px solid rgba(255,255,255,0.1)',
+              background: locale === 'ar' ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.02)',
+              color: locale === 'ar' ? 'hsl(258,89%,75%)' : 'rgba(255,255,255,0.6)',
+              fontWeight: 800,
+              fontSize: '0.85rem',
+              cursor: 'pointer'
+            }}
+          >
+            العربية
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const segments = window.location.pathname.split("/");
+              if (segments[1] === "en" || segments[1] === "ar") {
+                segments[1] = "en";
+              } else {
+                segments.splice(1, 0, "en");
+              }
+              const hash = window.location.hash || "";
+              router.push(segments.join("/") + hash);
+              closeMenu();
+            }}
+            style={{
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              border: locale === 'en' ? '1px solid hsl(258,89%,66%)' : '1px solid rgba(255,255,255,0.1)',
+              background: locale === 'en' ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.02)',
+              color: locale === 'en' ? 'hsl(258,89%,75%)' : 'rgba(255,255,255,0.6)',
+              fontWeight: 800,
+              fontSize: '0.85rem',
+              cursor: 'pointer'
+            }}
+          >
+            English
+          </button>
         </div>
 
       </div>

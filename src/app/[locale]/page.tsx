@@ -6,6 +6,8 @@ import FloatingHighlightsHub from "@/components/marketing/FloatingHighlightsHub"
 import { getActiveHomepageAnnouncements, getFeaturedFindoraDeals } from "@/lib/dal/marketing";
 import { resolvePricing } from "@/lib/pricing/resolver";
 import { createClient } from "@/lib/supabase/server";
+import { getRegistrationAvailability } from "@/lib/contributors/scarcity";
+import Link from "next/link";
 
 // Enterprise Sourcing Components (Modularized & A/B Ready)
 import Hero from "@/components/landing/Hero/Hero";
@@ -66,6 +68,22 @@ export default async function Home({
   // 2. Fetch marketing announcements and marketplace deals
   const announcements = await getActiveHomepageAnnouncements();
   const featuredDeals = await getFeaturedFindoraDeals(3);
+
+  // Check if recruitment campaign is active to dynamically display alert card & highlight
+  const recruitmentAvailability = await getRegistrationAvailability();
+  const isRecruitmentActive = recruitmentAvailability.is_active;
+
+  if (isRecruitmentActive) {
+    announcements.unshift({
+      id: 'recruitment-active-announcement',
+      title_en: '🟢 Work with us: Scout registration slots are open!',
+      title_ar: '🟢 اشتغل معانا: باب التسجيل مفتوح للمناديب والشركاء!',
+      body_en: 'Join our team as a Field Scout or Store Partner. Earn commissions on deals.',
+      body_ar: 'انضم كشريك أو مندوب ميداني لتوثيق وتوريد الصفقات واكسب عمولات حقيقية.',
+      link_url: '/contributors',
+      announcement_type: 'announcement'
+    });
+  }
 
   // 3. Dynamic Pricing Engine Resolution with Safe Baseline Fallbacks
   const [everydayPricing, highValuePricing, projectPricing] = await Promise.all([
@@ -153,7 +171,7 @@ export default async function Home({
       </a>
 
       {/* Shared Navigation Header */}
-      <LandingHeader locale={locale} isRTL={isRTL} labels={headerLabels} />
+      <LandingHeader locale={locale} isRTL={isRTL} labels={headerLabels} isRecruitmentActive={isRecruitmentActive} />
 
       {/* Floating Announcements Widget */}
       <FloatingHighlightsHub
@@ -205,6 +223,59 @@ export default async function Home({
           />
         </Suspense>
       </main>
+
+      {isRecruitmentActive && (
+        <section style={{
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.03))',
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          padding: '60px 24px',
+          textAlign: 'center'
+        }}>
+          <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            <span style={{
+              background: 'rgba(139,92,246,0.15)',
+              color: '#a5b4fc',
+              border: '1px solid rgba(139,92,246,0.3)',
+              padding: '6px 16px',
+              borderRadius: 999,
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              display: 'inline-block',
+              marginBottom: 16
+            }}>
+              {isRTL ? 'فرص عمل للشركاء والمناديب' : 'Partners & Scouts Opportunities'}
+            </span>
+            <h2 style={{ fontSize: '2rem', fontWeight: 900, color: '#fff', marginBottom: 12 }}>
+              {isRTL ? 'انضم لشبكة مناديب وموردي فايندورا 💰' : 'Join Findora Sourcing Network & Earn'}
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '1rem', marginBottom: 24, lineHeight: 1.6 }}>
+              {isRTL 
+                ? `باب التسجيل مفتوح الآن لفترة محدودة! متبقي فقط ${recruitmentAvailability.open_slots} مكان معتمد للانضمام كمناديب ميدان أو شركاء معارض والبدء في كسب عمولات على الصفقات.`
+                : `Sourcing slots are open for a limited time! Only ${recruitmentAvailability.open_slots} spots remaining to join as field scouts or store partners and earn commissions.`}
+            </p>
+            <Link
+              href={`/${locale}/contributors`}
+              style={{
+                display: 'inline-block',
+                background: 'hsl(258,89%,66%)',
+                color: '#fff',
+                textDecoration: 'none',
+                fontWeight: 700,
+                fontSize: '0.95rem',
+                padding: '12px 28px',
+                borderRadius: '999px',
+                boxShadow: '0 4px 16px rgba(139,92,246,0.3)',
+                transition: 'all 0.2s'
+              }}
+            >
+              {isRTL ? 'ابدأ كسب الأرباح معنا' : 'Start Earning With Us'}
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Enterprise Localized Footer */}
       <Footer dict={dict} locale={locale} isRTL={isRTL} />

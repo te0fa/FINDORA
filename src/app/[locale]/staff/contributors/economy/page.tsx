@@ -4,6 +4,7 @@ import { getStaffMemberByAuthUserId, getStaffUiPermissions } from '@/lib/dal/sta
 import { getStabilizerHistory } from '@/lib/contributors/stabilizer'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Metadata } from 'next'
+import RecruitmentSettingsClient from '@/components/staff/RecruitmentSettingsClient'
 
 export const metadata: Metadata = {
   title: 'Economy Control Panel — FINDORA Staff',
@@ -28,14 +29,33 @@ export default async function EconomyPanelPage({
 
   // Load data
   const db = createAdminClient()
-  const [stabilizerHistory, configRes, levelsRes] = await Promise.all([
+  const [stabilizerHistory, configRes, levelsRes, scarcityRes] = await Promise.all([
     getStabilizerHistory(14),
     db.from('economy_config').select('*').order('config_key'),
     db.from('contributor_levels').select('*').order('level_number'),
+    db.from('contributor_scarcity_limits').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ])
 
   const configs = configRes.data ?? []
+
+  // Ensure recruitment_targets key is present in configs
+  let recruitmentTargets = configs.find(c => c.config_key === 'recruitment_targets')
+  if (!recruitmentTargets) {
+    const defaultVal = { field_scout: 15, store_insider: 5, casual: 20 }
+    const { data: newCfg } = await db.from('economy_config').insert({
+      config_key: 'recruitment_targets',
+      value: defaultVal,
+      description_en: 'Recruitment Slots Targets by Division (Field Scout, Store Insider, Casual)',
+      description_ar: 'العدد المستهدف للتسجيل بكل دور (مندوب ميداني، موظف معرض، مساهم عادي)',
+      is_system_controlled: false
+    }).select().single()
+    if (newCfg) {
+      configs.push(newCfg)
+    }
+  }
+
   const levels = levelsRes.data ?? []
+  const initialLimit = scarcityRes.data
 
   const t = {
     title: isAr ? 'لوحة التحكم الاقتصادي' : 'Economy Control Panel',
@@ -88,6 +108,9 @@ export default async function EconomyPanelPage({
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: 4 }}>{t.title}</h1>
           <p style={{ color: 'hsl(220,10%,55%)', fontSize: 14 }}>{t.subtitle}</p>
         </div>
+
+        {/* Recruitment Settings */}
+        <RecruitmentSettingsClient initialLimit={initialLimit} initialConfigs={configs} initialLevels={levels} locale={locale} />
 
         {/* Economy Stabilizer History */}
         <div style={card}>

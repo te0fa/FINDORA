@@ -136,3 +136,67 @@ export async function handleRestoreRequest(formData: FormData) {
   revalidatePath(`/${locale}/staff/queue`)
   revalidatePath(`/${locale}/staff/dashboard`)
 }
+
+export async function handleBulkArchiveRequests(requestIds: string[], reason: string, locale: string) {
+  if (!requestIds || requestIds.length === 0) return
+  const { staff } = await getStaffAndPermissions(locale)
+  for (const id of requestIds) {
+    try {
+      await archiveRequestAdmin(id, staff.auth_user_id, reason)
+    } catch (e) {
+      console.error(`Failed to archive request ${id}:`, e)
+    }
+  }
+  revalidatePath(`/${locale}/staff/queue`)
+  revalidatePath(`/${locale}/staff/dashboard`)
+}
+
+export async function handleBulkRestoreRequests(requestIds: string[], locale: string) {
+  if (!requestIds || requestIds.length === 0) return
+  const { staff } = await getStaffAndPermissions(locale)
+  for (const id of requestIds) {
+    try {
+      await restoreRequestAdmin(id, staff.auth_user_id)
+    } catch (e) {
+      console.error(`Failed to restore request ${id}:`, e)
+    }
+  }
+  revalidatePath(`/${locale}/staff/queue`)
+  revalidatePath(`/${locale}/staff/dashboard`)
+}
+
+export async function handleBulkDeleteRequests(requestIds: string[], locale: string) {
+  if (!requestIds || requestIds.length === 0) return
+  const adminClient = await createAdminClient()
+  await adminClient.from('requests').update({
+    is_soft_deleted: true,
+    soft_deleted_at: new Date().toISOString(),
+    soft_delete_reason: 'Bulk deleted by admin'
+  }).in('id', requestIds)
+  revalidatePath(`/${locale}/staff/queue`)
+  revalidatePath(`/${locale}/staff/dashboard`)
+}
+
+export async function handleBulkAssignReviewer(requestIds: string[], reviewerId: string | null, locale: string) {
+  if (!requestIds || requestIds.length === 0) return
+  const { staff, permissions } = await getStaffAndPermissions(locale)
+  if (!permissions.isAdmin) throw new Error('Admin only')
+
+  for (const id of requestIds) {
+    try {
+      if (reviewerId) {
+        await assignReviewerToRequest({
+          requestId: id,
+          reviewerStaffId: reviewerId,
+          assignedByStaffId: staff.id
+        })
+      } else {
+        await unassignReviewerFromRequest(id, staff.id)
+      }
+    } catch (e) {
+      console.error(`Failed to assign/unassign reviewer for request ${id}:`, e)
+    }
+  }
+  revalidatePath(`/${locale}/staff/queue`)
+  revalidatePath(`/${locale}/staff/dashboard`)
+}

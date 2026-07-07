@@ -87,7 +87,7 @@ export default function Footer({ dict, locale, isRTL }: FooterProps) {
               <Link href={`/${locale}/services/coming-soon`}>{labels.vendorPortal}</Link>
             </li>
             <li className={styles.linkItem}>
-              <Link href={`/${locale}/services/coming-soon`}>{labels.scoutNetwork}</Link>
+              <Link href={`/${locale}/contributors`}>{labels.scoutNetwork}</Link>
             </li>
             <li className={styles.linkItem}>
               <Link href={`/${locale}/services/coming-soon`}>{labels.careers}</Link>

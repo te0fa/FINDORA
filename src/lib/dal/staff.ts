@@ -1034,11 +1034,12 @@ export async function getAdminGlobalStats(staffId?: string, authUserId?: string)
     !aiCompletedIds.has(r.id)
   ).length
 
+  const activeRequestIds = new Set(resolvedRows.filter(r => r.state !== 'ARCHIVED').map(r => r.id))
   const aiCompleted = resolvedRows.filter(r => 
     r.state !== 'ARCHIVED' && 
     aiCompletedIds.has(r.id)
   ).length
-  const aiFailed = aiFailedIds.size
+  const aiFailed = Array.from(aiFailedIds).filter(reqId => activeRequestIds.has(reqId)).length
 
   // STAFF COMPLETED METRICS
   const staffActions = staffHistoryRes.data || []

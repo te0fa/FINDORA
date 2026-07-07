@@ -235,3 +235,41 @@ export async function handleReactivateRequest(formData: FormData) {
 
   revalidatePath(`/${locale}/staff/users`)
 }
+
+export async function handleBulkDeleteCustomers(customerIds: string[], locale: string) {
+  if (!customerIds || customerIds.length === 0) return
+  for (const id of customerIds) {
+    try {
+      await deleteCustomer(id)
+    } catch (e) {
+      console.error(`Failed to delete customer ${id}:`, e)
+    }
+  }
+  revalidatePath(`/${locale}/staff/users`)
+}
+
+export async function handleBulkToggleArchiveCustomers(customerIds: string[], archive: boolean, locale: string) {
+  if (!customerIds || customerIds.length === 0) return
+  const adminClient = await createAdminClient()
+  await adminClient.from('customers').update({
+    is_archived: archive,
+    archived_at: archive ? new Date().toISOString() : null
+  }).in('id', customerIds)
+  revalidatePath(`/${locale}/staff/users`)
+}
+
+export async function handleBulkBlockCustomers(customerIds: string[], block: boolean, reason: string, locale: string) {
+  if (!customerIds || customerIds.length === 0) return
+  for (const id of customerIds) {
+    try {
+      if (block) {
+        await blockCustomer(id, reason)
+      } else {
+        await unblockCustomer(id)
+      }
+    } catch (e) {
+      console.error(`Failed to toggle block status for customer ${id}:`, e)
+    }
+  }
+  revalidatePath(`/${locale}/staff/users`)
+}

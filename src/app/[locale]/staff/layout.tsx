@@ -140,6 +140,7 @@ export default async function StaffLayout({
       visible: permissions?.isAdmin || false,
       subLinks: [
         { href: `/${locale}/staff/users`, label: locale === "ar" ? "الموظفين" : "Staff Members", visible: permissions?.isAdmin || false },
+        { href: `/${locale}/staff/users?tab=customers`, label: locale === "ar" ? "العملاء" : "Registered Customers", visible: permissions?.isAdmin || false },
         { href: `/${locale}/staff/settings/payments`, label: locale === "ar" ? "بوابات الدفع" : "Payment Config", visible: permissions?.isAdmin || false },
         { href: `/${locale}/staff/settings/specializations`, label: locale === "ar" ? "التخصصات" : "Specializations", visible: permissions?.isAdmin || false },
       ]
@@ -153,7 +154,7 @@ export default async function StaffLayout({
         { href: `/${locale}`, label: locale === "ar" ? "الصفحة الرئيسية" : "Home Page", visible: true },
         { href: `/${locale}/deals`, label: locale === "ar" ? "عروض المنتجات" : "Products Deals", visible: true },
         { href: `/${locale}/pricing`, label: locale === "ar" ? "أسعار الخدمات" : "Services Pricing", visible: true },
-        { href: `/${locale}/contributors`, label: locale === "ar" ? "صفحة المناديب" : "Scouts Page", visible: true },
+        { href: `/${locale}/staff/contributors`, label: locale === "ar" ? "صفحة المناديب" : "Scouts Page", visible: true },
       ]
     }
   ];

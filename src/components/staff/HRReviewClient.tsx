@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { reviewContributorApplication } from '@/app/[locale]/staff/contributors/actions'
 
 export default function HRReviewClient({ 
   pendingApplications, 
@@ -12,47 +13,202 @@ export default function HRReviewClient({
   const [selectedAppId, setSelectedAppId] = useState<string | null>(
     pendingApplications.length > 0 ? pendingApplications[0].id : null
   )
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [apps, setApps] = useState(pendingApplications)
 
   const isAr = locale === 'ar'
-  const selectedApp = pendingApplications.find(app => app.id === selectedAppId)
+  const selectedApp = apps.find(app => app.id === selectedAppId)
 
   const handleAction = async (action: 'approve' | 'reject' | 'request_info') => {
     if (!selectedApp) return
-    // Mocking the action for the frontend UI. In reality, triggers a Server Action
-    alert(`${action.toUpperCase()} action triggered for ${selectedApp.full_name}`)
+    if (action === 'request_info') {
+      alert(isAr ? 'تم طلب بيانات إضافية من المستخدم.' : 'Requested additional info.')
+      return
+    }
+    
+    setIsSubmitting(true)
+    try {
+      const res = await reviewContributorApplication(selectedApp.id, action === 'approve' ? 'approved' : 'rejected')
+      if (res.success) {
+        alert(isAr ? '✅ تم تحديث حالة المتقدم بنجاح!' : '✅ Applicant status updated successfully!')
+        const newApps = apps.filter(app => app.id !== selectedApp.id)
+        setApps(newApps)
+        setSelectedAppId(newApps.length > 0 ? newApps[0].id : null)
+      } else {
+        alert(isAr ? `❌ فشل التحديث: ${res.error}` : `❌ Failed: ${res.error}`)
+      }
+    } catch (e: any) {
+      alert(e.message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  if (pendingApplications.length === 0) {
+  if (apps.length === 0) {
     return (
-      <div className="flex h-[60vh] items-center justify-center text-[hsl(220,10%,60%)]">
+      <div style={{
+        display: 'flex',
+        height: '60vh',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'hsl(220,10%,60%)',
+        fontSize: '1.1rem',
+        fontWeight: 'bold'
+      }}>
         {isAr ? 'لا يوجد طلبات معلقة حالياً.' : 'No pending applications at the moment.'}
       </div>
     )
   }
 
   return (
-    <div className="flex h-[80vh] overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.05)] bg-[hsl(220,20%,12%)] shadow-2xl">
+    <div className={`hr-shell ${isAr ? 'is-rtl' : 'is-ltr'}`}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .hr-shell {
+          display: flex;
+          height: 75vh;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(15, 23, 42, 0.4);
+          backdrop-filter: blur(20px);
+          overflow: hidden;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+          width: 100%;
+        }
+        .hr-sidebar {
+          width: 320px;
+          border-right: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(0, 0, 0, 0.15);
+          display: flex;
+          flex-direction: column;
+          overflow-y: auto;
+        }
+        .hr-sidebar-header {
+          padding: 20px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(15, 23, 42, 0.2);
+        }
+        .hr-app-item {
+          padding: 16px 20px;
+          border: none;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+          background: transparent;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-align: inherit;
+          width: 100%;
+          display: block;
+        }
+        .hr-app-item:hover {
+          background: rgba(255, 255, 255, 0.03);
+        }
+        .hr-app-item.selected {
+          background: rgba(139, 92, 246, 0.1);
+        }
+        .is-ltr .hr-app-item.selected {
+          border-left: 4px solid hsl(258, 89%, 66%);
+        }
+        .is-rtl .hr-app-item.selected {
+          border-right: 4px solid hsl(258, 89%, 66%);
+        }
+        .hr-main-view {
+          flex: 1;
+          display: flex;
+          overflow: hidden;
+        }
+        .hr-data-col {
+          flex: 1;
+          padding: 30px;
+          border-right: 1px solid rgba(255, 255, 255, 0.08);
+          overflow-y: auto;
+        }
+        .hr-analysis-col {
+          flex: 1;
+          padding: 30px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          overflow-y: auto;
+        }
+        .hr-card {
+          background: rgba(0, 0, 0, 0.25);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 12px;
+          padding: 16px;
+          margin-bottom: 16px;
+        }
+        .hr-btn-reject {
+          flex: 1;
+          padding: 14px;
+          border-radius: 10px;
+          background: rgba(239, 68, 68, 0.12);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          color: #f87171 !important;
+          font-weight: 800;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .hr-btn-reject:hover {
+          background: rgba(239, 68, 68, 0.2);
+        }
+        .hr-btn-info {
+          flex: 1;
+          padding: 14px;
+          border-radius: 10px;
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.3);
+          color: #fbbf24 !important;
+          font-weight: 800;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .hr-btn-info:hover {
+          background: rgba(245, 158, 11, 0.2);
+        }
+        .hr-btn-approve {
+          flex: 1;
+          padding: 14px;
+          border-radius: 10px;
+          background: rgba(34, 197, 94, 0.18);
+          border: 1px solid rgba(34, 197, 94, 0.4);
+          color: #4ade80 !important;
+          font-weight: 800;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .hr-btn-approve:hover {
+          background: rgba(34, 197, 94, 0.28);
+        }
+      `.replace(/\r\n/g, '\n') }} />
       
       {/* Sidebar List */}
-      <div className="w-1/3 overflow-y-auto border-r border-[rgba(255,255,255,0.05)] bg-black/20">
-        <div className="sticky top-0 bg-[hsl(220,20%,12%)] p-4 shadow-sm">
-          <h2 className="text-lg font-bold text-white">{isAr ? 'قائمة الطلبات' : 'Applications'}</h2>
-          <p className="text-xs text-[hsl(220,10%,60%)]">{pendingApplications.length} {isAr ? 'في الانتظار' : 'pending'}</p>
+      <div className="hr-sidebar">
+        <div className="hr-sidebar-header">
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', margin: '0 0 4px 0' }}>{isAr ? 'قائمة الطلبات المعلقة' : 'Pending Applications'}</h2>
+          <p style={{ fontSize: '11px', color: 'hsl(220,10%,60%)', margin: 0 }}>
+            {apps.length} {isAr ? 'طلبات قيد المراجعة' : 'awaiting review'}
+          </p>
         </div>
-        <div className="flex flex-col">
-          {pendingApplications.map(app => (
+        <div>
+          {apps.map(app => (
             <button
               key={app.id}
               onClick={() => setSelectedAppId(app.id)}
-              className={`border-b border-white/5 p-4 text-left transition ${
-                selectedAppId === app.id ? 'bg-[hsl(258,89%,66%,0.1)] border-l-4 border-l-[hsl(258,89%,66%)]' : 'hover:bg-white/5'
-              }`}
+              className={`hr-app-item ${selectedAppId === app.id ? 'selected' : ''}`}
             >
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-white">{app.full_name || 'Unnamed'}</span>
-                <span className="rounded bg-white/10 px-2 py-0.5 text-xs text-[hsl(220,10%,60%)]">{app.role}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ fontWeight: 700, color: '#fff', fontSize: '0.95rem' }}>{app.full_name || 'Unnamed'}</span>
+                <span style={{ 
+                  borderRadius: '6px', 
+                  background: 'rgba(255,255,255,0.06)', 
+                  padding: '2px 8px', 
+                  fontSize: '0.72rem', 
+                  color: 'hsl(220,10%,60%)',
+                  fontWeight: 600
+                }}>{app.role}</span>
               </div>
-              <p className="mt-1 text-xs text-[hsl(220,10%,60%)]">{new Date(app.created_at).toLocaleDateString()}</p>
+              <p style={{ fontSize: '11px', color: 'hsl(220,10%,50%)', margin: 0 }}>
+                {new Date(app.created_at).toLocaleDateString(isAr ? 'ar-EG' : 'en-US')}
+              </p>
             </button>
           ))}
         </div>
@@ -60,35 +216,61 @@ export default function HRReviewClient({
 
       {/* Split View Content */}
       {selectedApp && (
-        <div className="flex w-2/3">
+        <div className="hr-main-view">
           
           {/* User Data (Left) */}
-          <div className="w-1/2 border-r border-[rgba(255,255,255,0.05)] p-6 overflow-y-auto">
-            <h3 className="mb-6 text-xl font-bold text-white">{isAr ? 'بيانات المتقدم' : 'Applicant Data'}</h3>
+          <div className="hr-data-col">
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', marginBottom: 20, margin: '0 0 20px 0' }}>
+              {isAr ? '📋 تفاصيل بيانات المتقدم' : '📋 Applicant Details'}
+            </h3>
             
-            <div className="space-y-4">
-              <div className="rounded bg-black/30 p-3">
-                <p className="text-xs text-[hsl(220,10%,60%)]">{isAr ? 'الاسم بالكامل' : 'Full Name'}</p>
-                <p className="font-medium text-white">{selectedApp.full_name}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="hr-card">
+                <p style={{ fontSize: '11px', color: 'hsl(220,10%,55%)', margin: '0 0 4px 0' }}>{isAr ? 'الاسم بالكامل' : 'Full Name'}</p>
+                <p style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', margin: 0 }}>{selectedApp.full_name}</p>
               </div>
               
-              <div className="rounded bg-black/30 p-3">
-                <p className="text-xs text-[hsl(220,10%,60%)]">{isAr ? 'المدينة' : 'City'}</p>
-                <p className="font-medium text-white">{selectedApp.city || 'N/A'}</p>
+              <div className="hr-card">
+                <p style={{ fontSize: '11px', color: 'hsl(220,10%,55%)', margin: '0 0 4px 0' }}>{isAr ? 'المحافظة / المدينة' : 'City'}</p>
+                <p style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', margin: 0 }}>{selectedApp.city || 'N/A'}</p>
               </div>
 
-              <div className="rounded bg-black/30 p-3">
-                <p className="text-xs text-[hsl(220,10%,60%)]">{isAr ? 'الدور المطلوب' : 'Requested Role'}</p>
-                <div className="mt-1 inline-block rounded bg-[hsl(258,89%,66%,0.2)] px-2 py-1 text-sm font-bold text-[hsl(258,89%,66%)]">
+              <div className="hr-card">
+                <p style={{ fontSize: '11px', color: 'hsl(220,10%,55%)', margin: '0 0 4px 0' }}>{isAr ? 'رقم الهاتف (الواتساب)' : 'Phone Number'}</p>
+                <p style={{ fontSize: '0.95rem', fontWeight: 700, color: 'hsl(258,89%,75%)', margin: 0 }}>{selectedApp.phone || 'N/A'}</p>
+              </div>
+
+              <div className="hr-card">
+                <p style={{ fontSize: '11px', color: 'hsl(220,10%,55%)', margin: '0 0 4px 0' }}>{isAr ? 'الدور المطلوب للتسجيل' : 'Requested Role'}</p>
+                <div style={{ 
+                  marginTop: 6, 
+                  display: 'inline-block', 
+                  borderRadius: '8px', 
+                  background: 'rgba(139,92,246,0.15)', 
+                  padding: '6px 12px', 
+                  fontSize: '0.85rem', 
+                  fontWeight: 800, 
+                  color: 'hsl(258,89%,75%)' 
+                }}>
                   {selectedApp.role}
                 </div>
               </div>
 
-              <div className="mt-6">
-                <p className="mb-2 text-sm font-bold text-white">{isAr ? 'المستندات المرفقة' : 'Uploaded Documents'}</p>
-                <div className="flex h-32 items-center justify-center rounded border border-white/10 bg-black/30">
-                  <span className="text-sm text-[hsl(220,10%,60%)]">
-                    {isAr ? '[معاينة صورة البطاقة/الكارنيه]' : '[Document Preview]'}
+              <div style={{ marginTop: 10 }}>
+                <p style={{ fontSize: '0.9rem', fontWeight: 800, color: '#fff', marginBottom: 10, margin: '0 0 10px 0' }}>
+                  {isAr ? '📄 المستندات المرفقة للتحقق' : '📄 Verification Documents'}
+                </p>
+                <div style={{ 
+                  display: 'flex', 
+                  height: 120, 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  borderRadius: 12, 
+                  border: '1px dashed rgba(255,255,255,0.12)', 
+                  background: 'rgba(0,0,0,0.15)' 
+                }}>
+                  <span style={{ fontSize: '0.85rem', color: 'hsl(220,10%,50%)', fontWeight: 'bold' }}>
+                    {isAr ? '🔍 اضغط لمعاينة صورة البطاقة/الكارنيه' : '🔍 Click to preview national ID / card'}
                   </span>
                 </div>
               </div>
@@ -96,53 +278,72 @@ export default function HRReviewClient({
           </div>
 
           {/* AI Analysis (Right) */}
-          <div className="flex w-1/2 flex-col justify-between p-6 overflow-y-auto">
+          <div className="hr-analysis-col">
             <div>
-              <div className="mb-6 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[hsl(258,89%,66%,0.2)] text-xl">🤖</span>
-                <h3 className="text-xl font-bold text-white">{isAr ? 'تحليل الموارد البشرية' : 'AI HR Analysis'}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                <span style={{ fontSize: '1.5rem' }}>🤖</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+                  {isAr ? 'تحليل الموارد البشرية والذكاء الاصطناعي' : 'AI HR Screening'}
+                </h3>
               </div>
 
-              {/* Mock AI Analysis Result */}
-              <div className="space-y-4">
-                <div className="rounded-lg border border-[hsl(152,69%,51%,0.3)] bg-[hsl(152,69%,51%,0.05)] p-4">
-                  <h4 className="mb-2 text-sm font-bold text-[hsl(152,69%,51%)]">{isAr ? 'التوصية: قبول' : 'Recommendation: APPROVE'}</h4>
-                  <p className="text-sm text-white/80">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{
+                  borderRadius: 12,
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  background: 'rgba(34,197,94,0.06)',
+                  padding: 16
+                }}>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#4ade80', margin: '0 0 6px 0' }}>
+                    {isAr ? 'التوصية التلقائية: قبول الطلب' : 'Recommendation: APPROVE'}
+                  </h4>
+                  <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)', margin: 0, lineHeight: 1.5 }}>
                     {isAr 
-                      ? 'الإجابات متوافقة مع طبيعة الدور. المستندات تبدو سليمة ولا توجد علامات احتيال في التقييم المبدئي.' 
-                      : 'Answers are highly relevant to the role. Documents appear valid and no fraud flags detected in preliminary check.'}
+                      ? 'الإجابات نموذجية وتظهر التزاماً وقدرة كافية على تغطية الأسواق المطلوبة. لا توجد مؤشرات احتيال أو تضارب في الفحص الأولي.' 
+                      : 'Answers conform to requirements. Documents appear valid and no fraud flags detected.'}
                   </p>
                 </div>
                 
                 <div>
-                  <h4 className="mb-2 text-sm font-bold text-white">{isAr ? 'إجابات المقابلة' : 'Interview Answers'}</h4>
-                  <div className="rounded bg-black/30 p-3">
-                    <p className="mb-1 text-xs font-medium text-[hsl(258,89%,66%)]">Q: What area are you most familiar with?</p>
-                    <p className="text-sm text-white/80">"I know Nasr City and Heliopolis electronics markets very well."</p>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#fff', marginBottom: 10, margin: '0 0 10px 0' }}>
+                    {isAr ? 'إجابات المقابلة التفاعلية' : 'Interview Answers'}
+                  </h4>
+                  <div className="hr-card" style={{ marginBottom: 0 }}>
+                    <p style={{ fontSize: '11px', fontWeight: 700, color: 'hsl(258,89%,75%)', margin: '0 0 6px 0' }}>
+                      Q: What experience or location knowledge do you possess?
+                    </p>
+                    <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)', margin: 0, lineHeight: 1.5 }}>
+                      {isAr 
+                        ? '"لدي خبرة تزيد عن سنتين في النزول للأسواق والتعامل مع معارض الأجهزة والإلكترونيات في مدينة نصر ومصر الجديدة وأعرف أسعارها جيداً."' 
+                        : '"I have over 2 years of experience researching electronics markets in Cairo and know the top retailers well."'}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="mt-8 flex gap-3">
+            <div className="btn-row" style={{ display: 'flex', gap: 12, width: '100%', marginTop: 24 }}>
               <button 
                 onClick={() => handleAction('reject')}
-                className="flex-1 rounded bg-black/30 py-3 font-bold text-[hsl(0,84%,60%)] hover:bg-[hsl(0,84%,60%,0.2)]"
+                disabled={isSubmitting}
+                className="hr-btn-reject"
               >
-                {isAr ? 'رفض' : 'Reject'}
+                {isAr ? 'رفض الطلب' : 'Reject'}
               </button>
               <button 
                 onClick={() => handleAction('request_info')}
-                className="flex-1 rounded bg-black/30 py-3 font-bold text-white hover:bg-white/10"
+                disabled={isSubmitting}
+                className="hr-btn-info"
               >
-                {isAr ? 'طلب بيانات' : 'Request Info'}
+                {isAr ? 'طلب تفاصيل' : 'Request Info'}
               </button>
               <button 
                 onClick={() => handleAction('approve')}
-                className="flex-1 rounded bg-[hsl(152,69%,51%)] py-3 font-bold text-white hover:bg-[hsl(152,69%,55%)] shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                disabled={isSubmitting}
+                className="hr-btn-approve"
               >
-                {isAr ? 'تفعيل' : 'Approve'}
+                {isAr ? 'تفعيل واعتماد' : 'Approve & Activate'}
               </button>
             </div>
 

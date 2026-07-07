@@ -19,7 +19,7 @@ export default function BasePriceEditor({ serviceKey, pricingId, currentPrice, l
 
   const handleSave = () => {
     const parsed = parseFloat(value)
-    if (isNaN(parsed) || parsed <= 0) {
+    if (isNaN(parsed) || parsed < 0) {
       setError(isRTL ? 'سعر غير صالح' : 'Invalid price')
       return
     }

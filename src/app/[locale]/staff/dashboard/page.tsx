@@ -263,28 +263,28 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
         <KpiCard 
           label={locale === 'ar' ? 'إجمالي الإيرادات (Gross Revenue)' : 'Gross Revenue'}
           value={`${grossRevenue.toLocaleString(isRTL ? 'ar-EG' : 'en-US')} EGP`}
-          trend="12.5%" isPositive={true}
+          trend={grossRevenue > 0 ? "12.5%" : undefined} isPositive={true}
           icon="💰" color="#10b981"
           subtitle={locale === 'ar' ? 'حقيقية من دفتر الخزينة' : 'Real-time from Financial Ledger'}
         />
         <KpiCard 
           label={locale === 'ar' ? 'صافي الربح (Net Profit)' : 'Net Profit'}
           value={`${netProfit.toLocaleString(isRTL ? 'ar-EG' : 'en-US')} EGP`}
-          trend="8.2%" isPositive={true}
+          trend={netProfit > 0 ? "8.2%" : undefined} isPositive={true}
           icon="📈" color="#3b82f6"
           subtitle={locale === 'ar' ? 'بعد خصم جميع المصروفات المسجلة' : 'After deducting all recorded expenses'}
         />
         <KpiCard 
           label={locale === 'ar' ? 'العملاء النشطين (Active Customers)' : 'Active Customers'}
           value={activeCustomers.toLocaleString()}
-          trend="5.1%" isPositive={true}
+          trend={activeCustomers > 0 ? "5.1%" : undefined} isPositive={true}
           icon="👥" color="#8b5cf6"
           subtitle={locale === 'ar' ? 'العملاء الذين قاموا بعمليات مؤخراً' : 'Customers with recent successful orders'}
         />
         <KpiCard 
           label={locale === 'ar' ? 'إجمالي الطلبات (Total Requests)' : 'Total Requests'}
           value={displayStats.totalRequests.toLocaleString()}
-          trend="2.4%" isPositive={true}
+          trend={displayStats.totalRequests > 0 ? "2.4%" : undefined} isPositive={true}
           icon="📦" color="#f59e0b"
           subtitle={locale === 'ar' ? 'حجم العمليات الكلي على المنصة' : 'Total operational volume on the platform'}
         />

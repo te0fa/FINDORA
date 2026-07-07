@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { 
   getStaffMemberByAuthUserId, 
   getStaffUiPermissions 
@@ -51,11 +53,12 @@ export default async function DealsManagementPage({
 
   // Derived datasets
   const now = new Date()
-  const activeDeals = allDeals.filter((d: any) => d.is_active && d.deal_status === 'active' && (!d.starts_at || new Date(d.starts_at) <= now) && (!d.ends_at || new Date(d.ends_at) > now))
-  const scheduledDeals = allDeals.filter((d: any) => d.is_active && d.deal_status === 'active' && d.starts_at && new Date(d.starts_at) > now)
-  const expiredDeals = allDeals.filter((d: any) => (d.deal_status === 'active' && (!d.is_active || (d.ends_at && new Date(d.ends_at) <= now))))
-  const deletedDeals = allDeals.filter((d: any) => d.deal_status === 'deleted')
-  const featuredDeals = allDeals.filter((d: any) => d.featured_on_homepage && d.deal_status === 'active')
+  const nonDeletedDeals = allDeals.filter((d: any) => d.deal_status === 'active')
+  const activeDeals = nonDeletedDeals.filter((d: any) => d.is_active && (!d.starts_at || new Date(d.starts_at) <= now) && (!d.ends_at || new Date(d.ends_at) > now))
+  const scheduledDeals = nonDeletedDeals.filter((d: any) => d.is_active && d.starts_at && new Date(d.starts_at) > now)
+  const expiredDeals = nonDeletedDeals.filter((d: any) => !d.is_active || (d.ends_at && new Date(d.ends_at) <= now))
+  const deletedDeals = allDeals.filter((d: any) => d.deal_status === 'archived')
+  const featuredDeals = nonDeletedDeals.filter((d: any) => d.featured_on_homepage)
 
   const currentList = 
     tab === 'scheduled' ? scheduledDeals :
@@ -160,7 +163,7 @@ export default async function DealsManagementPage({
             { label: isRTL ? 'نشط' : 'Active Products', value: activeDeals.length, color: '#34d399', icon: '🟢' },
             { label: isRTL ? 'مجدول' : 'Scheduled', value: scheduledDeals.length, color: '#60a5fa', icon: '📅' },
             { label: isRTL ? 'مميز بالواجهة' : 'Featured', value: featuredDeals.length, color: '#f472b6', icon: '✨' },
-            { label: isRTL ? 'الكل' : 'Total', value: allDeals.length, color: '#d4a63c', icon: '📦' },
+            { label: isRTL ? 'الكل' : 'Total', value: nonDeletedDeals.length, color: '#d4a63c', icon: '📦' },
           ].map((stat, i) => (
             <div key={i} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -331,7 +334,7 @@ export default async function DealsManagementPage({
                           )}
 
                           {/* Hard Delete -> Admin Only */}
-                          {permissions.isAdmin && tab === 'deleted' && (
+                          {permissions.isAdmin && (
                             <HardDeleteDealButton id={d.id} locale={locale} />
                           )}
                         </div>

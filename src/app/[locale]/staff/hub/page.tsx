@@ -1088,23 +1088,25 @@ export default async function StaffHubPage({
           <div className="section-heading">{isRTL ? '📊 مؤشرات الأداء اللحظية' : '📊 Live KPI Overview'}</div>
           <div className="kpi-strip">
             {allowedKpis.map((k, i) => (
-              <Link key={i} href={k.href} className="kpi-tile-link">
-                <div className="kpi-tile" style={{ '--kpi-color': k.color } as React.CSSProperties}>
-                  <div className="kpi-info-container" onClick={(e) => e.stopPropagation()}>
-                    <div className="kpi-info-icon">
-                      i
-                      <div className="kpi-tooltip">
-                        {k.desc}
-                      </div>
+              <div key={i} style={{ position: 'relative' }}>
+                <div className="kpi-info-container">
+                  <div className="kpi-info-icon">
+                    i
+                    <div className="kpi-tooltip">
+                      {k.desc}
                     </div>
                   </div>
-                  <div className="kpi-tile-icon">{k.icon}</div>
-                  <div>
-                    <div className="kpi-tile-label">{k.label}</div>
-                    <div className="kpi-tile-value">{k.value}</div>
-                  </div>
                 </div>
-              </Link>
+                <Link href={k.href} className="kpi-tile-link">
+                  <div className="kpi-tile" style={{ '--kpi-color': k.color } as React.CSSProperties}>
+                    <div className="kpi-tile-icon">{k.icon}</div>
+                    <div>
+                      <div className="kpi-tile-label">{k.label}</div>
+                      <div className="kpi-tile-value">{k.value}</div>
+                    </div>
+                  </div>
+                </Link>
+              </div>
             ))}
           </div>
         </>
@@ -1185,7 +1187,7 @@ export default async function StaffHubPage({
               className="hub-card"
               style={{ '--card-border': section.borderColor, '--card-gradient': section.gradient, position: 'relative' } as React.CSSProperties}
             >
-              <div className="card-info-container" onClick={(e) => e.stopPropagation()}>
+              <div className="card-info-container">
                 <div className="card-info-icon">
                   i
                   <div className="card-tooltip">

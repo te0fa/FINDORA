@@ -48,17 +48,52 @@ export default function CTA({ dict, locale, isRTL, pricing }: CTAProps) {
   // ─────────────────────────────────────────────────────────
   // PRICING PLANS — Clear, honest, no misleading language
   // ─────────────────────────────────────────────────────────
+  const getPlanPrice = (planKey: string, defaultPrice: number) => {
+    const data = pricing?.[planKey];
+    if (!data) return { amount: defaultPrice, label: isRTL ? `${defaultPrice} جنيه` : `${defaultPrice} EGP`, sub: isRTL ? "رسوم ثابتة" : "Flat fee", original: null };
+
+    const amount = Number(data.price);
+    const original = data.original_price ? Number(data.original_price) : null;
+    const hasPromo = data.is_promo;
+    const promoLabel = isRTL ? data.promo_label_ar : data.promo_label_en;
+
+    let label = isRTL ? `${amount.toLocaleString('ar-EG')} جنيه` : `${amount.toLocaleString('en-US')} EGP`;
+    if (amount === 0) {
+      label = isRTL ? "مجاناً" : "FREE";
+    }
+
+    let sub = isRTL ? "رسوم ثابتة / للطلب" : "Flat fee / per request";
+    if (planKey === 'everyday') {
+      sub = isRTL ? "خلال فترة الإطلاق" : "During Launch";
+    }
+    if (planKey === 'project') {
+      sub = isRTL ? "رسوم دراسة الطلب (مبدئياً)" : "Study fee (starting from)";
+    }
+
+    if (hasPromo && promoLabel) {
+      sub = promoLabel;
+    }
+
+    return { amount, label, sub, original };
+  };
+
+  const everydayInfo = getPlanPrice('everyday', 0);
+  const highValueInfo = getPlanPrice('highValue', 1500);
+  const projectInfo = getPlanPrice('project', 2500);
+
   const plans = [
     {
       title: isRTL ? "المشتريات العادية" : "Everyday Purchases",
       desc: isRTL
         ? "الهواتف، الأجهزة المنزلية، الإلكترونيات، التكييفات"
         : "Phones, home appliances, electronics, air conditioners",
-      currentPrice: { amount: 0, label: isRTL ? "مجاناً" : "FREE" },
-      currentPriceSub: isRTL ? "خلال فترة الإطلاق" : "During Launch",
+      currentPrice: { amount: everydayInfo.amount, label: everydayInfo.label },
+      currentPriceSub: everydayInfo.sub,
+      originalPrice: everydayInfo.original,
       futurePrice: isRTL 
-        ? "سيتم الإعلان عن التسعير بعد انتهاء فترة الإطلاق." 
-        : "Pricing will be announced after launch period ends.",
+        ? `سيكون السعر الأساسي للخدمة ${everydayInfo.original || 299} جنيه بعد انتهاء فترة الإطلاق.` 
+        : `Pricing will return to the base fee of ${everydayInfo.original || 299} EGP after the launch period ends.`,
+      showFuturePriceOnlyIfPromo: true,
       status: isRTL ? "مفتوح — نقبل الطلبات الآن" : "Open — Accepting requests now",
       statusColor: "#22c55e",
       highlight: true,
@@ -84,8 +119,9 @@ export default function CTA({ dict, locale, isRTL, pricing }: CTAProps) {
       desc: isRTL
         ? "السيارات، العقارات، الأجهزة المرتفعة السعر"
         : "Cars, real estate, high-value equipment",
-      currentPrice: { amount: 1500, label: isRTL ? "١٬٥٠٠ جنيه" : "1,500 EGP" },
-      currentPriceSub: isRTL ? "رسوم ثابتة / للطلب" : "Flat fee / per request",
+      currentPrice: { amount: highValueInfo.amount, label: highValueInfo.label },
+      currentPriceSub: highValueInfo.sub,
+      originalPrice: highValueInfo.original,
       futurePrice: isRTL 
         ? "بعد الإطلاق: نسبة من قيمة الصفقة حسب الاتفاق." 
         : "After launch: Commission-based percentage by agreement.",
@@ -112,10 +148,11 @@ export default function CTA({ dict, locale, isRTL, pricing }: CTAProps) {
     {
       title: isRTL ? "المشاريع والتوريد" : "Projects & Supply",
       desc: isRTL
-        ? "تأثيث، تشطيبات، مطاعم، مشاريع تجارية"
-        : "Furnishing, fit-out, restaurants, commercial projects",
-      currentPrice: { amount: 2500, label: isRTL ? "٢٬٥٠٠ جنيه" : "2,500 EGP" },
-      currentPriceSub: isRTL ? "رسوم دراسة الطلب (مبدئياً)" : "Study fee (starting from)",
+        ? "خدمات التوريدات العامة، التشطيبات، الإنشاءات، الإشراف على التنفيذ، الشحن والخدمات اللوجستية، تأثيث وتجهيز المطاعم والفنادق والمنشأت أو أي طلب مخصص."
+        : "General supply services, fit-outs, construction, execution supervision, shipping & logistics, furnishing and equipping restaurants, hotels, establishments, or any custom request.",
+      currentPrice: { amount: projectInfo.amount, label: projectInfo.label },
+      currentPriceSub: projectInfo.sub,
+      originalPrice: projectInfo.original,
       futurePrice: isRTL 
         ? "＋ نسبة عند التنفيذ حسب نطاق المشروع والاتفاق." 
         : "+ Execution commission based on project scope & agreement.",
@@ -125,19 +162,21 @@ export default function CTA({ dict, locale, isRTL, pricing }: CTAProps) {
       features: isRTL
         ? [
             "تجميع ومقارنة عروض الأسعار (RFQ)",
-            "أوزان تقييم مخصصة وتصفية الموردين",
-            "عقود توريد متكاملة وضوابط أمان",
-            "متابعة ميدانية وحل النزاعات",
+            "خدمات الإشراف على التنفيذ والتشطيبات والإنشاءات",
+            "إدارة الشحن الدولي والمحلي والخدمات اللوجستية",
+            "عقود توريد متكاملة وضوابط أمان للدفعات الماليّة",
+            "تنفيذ أي طلبات مخصصة عبر شبكة الموردين",
           ]
         : [
             "RFQ compilation & vendor matching",
-            "Custom evaluation weights & filtering",
-            "Supply contracts & safety controls",
-            "Field follow-up & dispute resolution",
+            "Execution oversight, fit-outs & construction",
+            "Logistics, shipping & custom delivery routing",
+            "Supply contracts & secure payment milestones",
+            "Execution of any custom or bespoke sourcing requests",
           ],
       limitations: isRTL
-        ? ["لا يشمل التنفيذ المباشر أو الإشراف الهندسي", "النسبة تُحدد بعد دراسة نطاق المشروع"]
-        : ["Does not include direct execution or engineering oversight", "Commission determined after project scope review"],
+        ? ["لا يشمل الرسوم الحكومية أو استخراج التراخيص الرسمية", "النسبة الإضافية للمشاريع تُحدد بعد دراسة نطاق العمل"]
+        : ["Does not include governmental fees or official licensing", "Additional execution commission determined after scope review"],
     },
   ];
 
@@ -219,37 +258,46 @@ export default function CTA({ dict, locale, isRTL, pricing }: CTAProps) {
                 <span style={labelStyle}>
                   {isRTL ? "السعر الحالي" : "Current Price"}
                 </span>
-                <span className={styles.planPrice}>
-                  {plan.currentPrice.label}
-                </span>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
+                  <span className={styles.planPrice}>
+                    {plan.currentPrice.label}
+                  </span>
+                  {plan.originalPrice && Number(plan.originalPrice) !== Number(plan.currentPrice.amount) && (
+                    <span style={{ fontSize: "1.1rem", textDecoration: "line-through", color: "rgba(255,255,255,0.25)", fontWeight: 600 }}>
+                      {isRTL ? `${Number(plan.originalPrice).toLocaleString('ar-EG')} جنيه` : `${Number(plan.originalPrice).toLocaleString('en-US')} EGP`}
+                    </span>
+                  )}
+                </div>
                 <span className={styles.planPriceSub}>
                   {" "}{plan.currentPriceSub}
                 </span>
               </div>
 
               {/* ── 4. FUTURE PRICE ── */}
-              <div style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: "10px",
-                padding: "10px 14px",
-                marginBottom: "20px",
-              }}>
-                <span style={{
-                  ...labelStyle,
-                  marginBottom: "2px",
+              {(!plan.showFuturePriceOnlyIfPromo || !!plan.originalPrice) && (
+                <div style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: "10px",
+                  padding: "10px 14px",
+                  marginBottom: "20px",
                 }}>
-                  {isRTL ? "بعد فترة الإطلاق" : "After Launch"}
-                </span>
-                <span style={{
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  color: "rgba(255,255,255,0.5)",
-                  lineHeight: 1.5,
-                }}>
-                  {plan.futurePrice}
-                </span>
-              </div>
+                  <span style={{
+                    ...labelStyle,
+                    marginBottom: "2px",
+                  }}>
+                    {isRTL ? "بعد فترة الإطلاق" : "After Launch"}
+                  </span>
+                  <span style={{
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    color: "rgba(255,255,255,0.5)",
+                    lineHeight: 1.5,
+                  }} suppressHydrationWarning>
+                    {plan.futurePrice}
+                  </span>
+                </div>
+              )}
 
               <div style={dividerStyle} />
 

@@ -11,6 +11,7 @@ import {
 } from '@/lib/dal/marketing'
 import { getStaffMemberByAuthUserId, getStaffUiPermissions } from '@/lib/dal/staff'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/dal/customers'
 import { redirect } from 'next/navigation'
 
 async function checkStaffAuth() {
@@ -222,6 +223,37 @@ export async function handleBulkDeletePricingVersions(ids: string[], locale: str
     return { success: true }
   } catch (err: any) {
     console.error('[PricingAction] Bulk Delete Error:', err.message)
+    return { error: err.message }
+  }
+}
+
+export async function handleBulkHardDeletePricingVersions(ids: string[], locale: string) {
+  try {
+    await checkStaffAuth()
+    const db = await createAdminClient()
+    
+    await db.from('service_pricing_versions')
+      .update({
+        promo_label_en: '__HARD_DELETED__',
+        is_active: false,
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .in('id', ids)
+
+    console.log({
+      action: "pricing_mutation",
+      type: "bulk_hard_delete",
+      ids,
+      timestamp: new Date().toISOString()
+    })
+
+    revalidatePath(`/${locale}/staff/marketing/pricing`)
+    revalidatePath(`/${locale}`)
+    revalidatePath('/', 'layout')
+    return { success: true }
+  } catch (err: any) {
+    console.error('[PricingAction] Bulk Hard Delete Error:', err.message)
     return { error: err.message }
   }
 }

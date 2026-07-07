@@ -8,6 +8,7 @@ import ReviewScreen from './ReviewScreen'
 import ReturningCustomerStep, { type ReusedRequestData } from './ReturningCustomerStep'
 import type { AIExtractedData } from '@/lib/intelligence/ai-concierge-agent'
 import { Modal } from '@/components/ui/Overlays'
+import { createClient } from '@/lib/supabase/client'
 
 // ─── Step Constants ───────────────────────────────────────────────────────────
 const STEP_RETURNING  = 0   // Phase 3: Optional returning-customer lookup (feature-flag gated)
@@ -540,6 +541,34 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
     aiConfidence:  null as number | null,
     aiMetadata:    {} as Record<string, unknown>,
   })
+
+  const [currentCustomer, setCurrentCustomer] = useState<any>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) {
+        const { data: customerData } = await supabase
+          .from('customers')
+          .select('id, full_name, phone_number_raw, governorate, area')
+          .eq('auth_user_id', user.id)
+          .maybeSingle()
+        const customer = customerData as any
+
+        if (customer) {
+          setCurrentCustomer(customer)
+          setFormData(prev => ({
+            ...prev,
+            customerName: customer.full_name || prev.customerName,
+            customerPhone: customer.phone_number_raw || prev.customerPhone,
+            targetLocation: customer.governorate 
+              ? `${customer.governorate}${customer.area ? `، ${customer.area}` : ''}`
+              : prev.targetLocation
+          }))
+        }
+      }
+    })
+  }, [])
 
   function getCurrentSpecsFields() {
     if (formData.subcategory && SUBCATEGORY_FIELDS[formData.subcategory]) {
@@ -1560,35 +1589,53 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
       {step === STEP_INTAKE && (
         <form onSubmit={handleSubmit} className="relative z-10">
           <div className="wizard-step-panel space-y-6">
-            <h2 className="wizard-step-title">{isAr ? 'الخطوة الأخيرة 🚀' : 'Final Step 🚀'}</h2>
+            <h2 className="wizard-step-title">
+              {currentCustomer 
+                ? (isAr ? 'تأكيد إرسال الطلب 🚀' : 'Confirm & Submit Request 🚀')
+                : (isAr ? 'الخطوة الأخيرة 🚀' : 'Final Step 🚀')
+              }
+            </h2>
 
-            <div className="wizard-upsell-banner">
-              <div className="wizard-upsell-emoji">🎁</div>
-              <div className="wizard-upsell-content">
-                <h4 className="wizard-upsell-title">{isAr ? 'احصل على خدمة "المشتريات العادية" مجاناً!' : 'Get "Everyday Purchase" service for FREE!'}</h4>
-                <p className="wizard-upsell-text">{isAr ? 'إذا أنشأت حساباً مجانياً الآن، ستحصل على بحث مجاني تماماً.' : 'If you create a free account now, this search is on us.'}</p>
-                <Link href={`/${locale}/auth/signup`} className="wizard-upsell-link">
-                  {isAr ? 'إنشاء حساب والحصول على العرض' : 'Create Account & Claim Offer'}
-                </Link>
+            {!currentCustomer && (
+              <div className="wizard-upsell-banner">
+                <div className="wizard-upsell-emoji">🎁</div>
+                <div className="wizard-upsell-content">
+                  <h4 className="wizard-upsell-title">{isAr ? 'احصل على خدمة "المشتريات العادية" مجاناً!' : 'Get "Everyday Purchase" service for FREE!'}</h4>
+                  <p className="wizard-upsell-text">{isAr ? 'إذا أنشأت حساباً مجانياً الآن، ستحصل على بحث مجاني تماماً.' : 'If you create a free account now, this search is on us.'}</p>
+                  <Link href={`/${locale}/auth/signup`} className="wizard-upsell-link">
+                    {isAr ? 'إنشاء حساب والحصول على العرض' : 'Create Account & Claim Offer'}
+                  </Link>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="wizard-grid-2">
-              <div className="wizard-form-group">
-                <label className="wizard-label">{isAr ? 'الاسم *' : 'Your Name *'}</label>
-                <input required autoFocus value={formData.customerName} onChange={e => setFormData({ ...formData, customerName: e.target.value })} className="wizard-input" data-testid="start-request-full-name-input" />
+            {!currentCustomer ? (
+              <div className="wizard-grid-2">
+                <div className="wizard-form-group">
+                  <label className="wizard-label">{isAr ? 'الاسم *' : 'Your Name *'}</label>
+                  <input required autoFocus value={formData.customerName} onChange={e => setFormData({ ...formData, customerName: e.target.value })} className="wizard-input" data-testid="start-request-full-name-input" />
+                </div>
+                <div className="wizard-form-group">
+                  <label className="wizard-label">{isAr ? 'رقم الهاتف (لإرسال العروض) *' : 'Phone Number (to send offers) *'}</label>
+                  <input required type="tel"
+                    value={formData.customerPhone || lookupPhone}
+                    onChange={e => setFormData({ ...formData, customerPhone: e.target.value })}
+                    className="wizard-input"
+                    data-testid="start-request-phone-input" />
+                </div>
               </div>
-              <div className="wizard-form-group">
-                <label className="wizard-label">{isAr ? 'رقم الهاتف (لإرسال العروض) *' : 'Phone Number (to send offers) *'}</label>
-                {/* Phase 3: pre-filled from returning-customer lookup if customer used that step.
-                    Customer can still edit freely — this is convenience only, not locked. */}
-                <input required type="tel"
-                  value={formData.customerPhone || lookupPhone}
-                  onChange={e => setFormData({ ...formData, customerPhone: e.target.value })}
-                  className="wizard-input"
-                  data-testid="start-request-phone-input" />
+            ) : (
+              <div className="p-4 bg-white/5 rounded-2xl border border-white/10 text-slate-300 text-sm leading-relaxed space-y-2">
+                <div>
+                  <span className="text-slate-500 font-bold block text-xs uppercase">{isAr ? 'الاسم:' : 'Name:'}</span>
+                  <span className="font-bold text-white text-base">{formData.customerName}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-bold block text-xs uppercase">{isAr ? 'رقم الهاتف:' : 'Phone:'}</span>
+                  <span className="font-bold text-white text-base">{formData.customerPhone}</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Target Location input — required for database request creation */}
             <div className="wizard-form-group" style={{ marginTop: '16px' }}>

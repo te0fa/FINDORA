@@ -25,6 +25,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/dal/customers'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { ModalBackdrop } from '@/components/ModalBackdrop'
+import UserManagementClient from './UserManagementClient'
 
 
 function formatDate(dateStr: string | null | undefined, locale: string) {
@@ -822,163 +823,14 @@ export default async function StaffManagementPage({
         </ModalBackdrop>
       )}
 
-      {activeTab === 'staff' ? (
-        /* 👥 STAFF / EMPLOYEES PANEL */
-        <div className="data-table-container glass-card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{dict.staff_management.table_employee}</th>
-                <th>{dict.staff_management.table_role_team}</th>
-                <th>{dict.staff_management.table_status}</th>
-                <th>{dict.staff_management.table_workload}</th>
-                <th>{dict.staff_management.table_stats}</th>
-                <th>{dict.staff_management.table_last_activity}</th>
-                <th>{dict.staff_management.table_actions}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredStaff.map((s, idx) => (
-                <tr key={`staff-${s.id}-${idx}`}>
-                  <td>
-                    <div className="font-bold text-base text-white">{s.name}</div>
-                    <div className="text-xs mt-1 text-accent font-medium">{s.email}</div>
-                    <div className="text-xs mt-1 text-white/50">{s.phone}</div>
-                    {s.is_archived && <span className="badge badge-muted mt-1">{isRTL ? '🗄️ مؤرشف' : '🗄️ Archived'}</span>}
-                  </td>
-                  <td>
-                    <div className="text-xs font-black text-accent uppercase">{dict.roles[s.role as keyof typeof dict.roles] || s.role}</div>
-                    <div className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>{s.team ? (dict.teams[s.team as keyof typeof dict.teams] || s.team) : dict.staff_management.no_team}</div>
-                  </td>
-                  <td>
-                    <span className={`badge ${s.is_active ? 'badge-green' : 'badge-red'}`}>
-                      {s.is_active ? dict.staff_management.active : dict.staff_management.inactive}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="flex items-center">
-                      <span className={`workload-dot ${s.workload > 2 ? 'workload-busy' : 'workload-ready'}`}></span>
-                      <span className="text-sm">{s.workload} {dict.staff_management.workload_jobs}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="font-bold text-white">{s.approval_rate}% {dict.staff_management.stats_accuracy}</div>
-                    <div className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      {dict.staff_management.stats_summary
-                        .replace('{a}', String(s.approved_count))
-                        .replace('{r}', String(s.rejected_count))
-                        .replace('{c}', String(s.clarification_count))}
-                    </div>
-                  </td>
-                  <td className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                    {formatDate(s.last_activity, locale)}
-                  </td>
-                  <td>
-                    <div className="flex gap-2">
-                      <Link 
-                        href={`/${locale}/staff/users?tab=staff&editStaff=${s.id}&q=${searchQ}`} 
-                        className="btn-accent px-4 py-2 text-xs font-bold block text-center" 
-                        style={{ textDecoration: 'none', borderRadius: '12px', minWidth: '80px' }}
-                      >
-                        ✏️ {isRTL ? 'تعديل' : 'Edit'}
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        /* 🛍️ CUSTOMERS & BLOCKED LIST PANEL */
-        <div className="data-table-container glass-card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{isRTL ? 'العميل والكود' : 'Customer & Code'}</th>
-                <th>{isRTL ? 'البريد الإلكتروني' : 'Email Address'}</th>
-                <th>{isRTL ? 'الهاتف والطلبات' : 'Phone Number & Orders'}</th>
-                <th>{isRTL ? 'الحالة الحالية' : 'Account Status'}</th>
-                <th>{isRTL ? 'الفترة المجانية' : 'Everyday Trial Offer'}</th>
-                <th>{isRTL ? 'التحكم والإجراءات' : 'Actions'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredCustomers.map((c) => {
-                const isPhoneVerified = !!c.phone_verified_at
-                const isFreeTrialUsed = !!c.free_trial_used_at
-                const isBlocked = c.status === 'blocked'
-                const isSuspended = c.status === 'suspended'
-
-                return (
-                  <tr key={`customer-${c.id}`} style={{ borderLeft: isBlocked ? '4px solid #ef4444' : isSuspended ? '4px solid #f59e0b' : 'none' }}>
-                    <td>
-                      <div className="font-bold text-base text-white">{c.full_name || '-'}</div>
-                      <span className="badge badge-muted mt-1 font-mono text-10">{c.customer_code}</span>
-                      {c.is_archived && <span className="badge badge-muted mt-1 ms-1">{isRTL ? '🗄️ مؤرشف' : '🗄️ Archived'}</span>}
-                    </td>
-                    <td className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{c.email || '—'}</td>
-                    <td>
-                      <div className="text-sm font-bold text-white">{c.phone_number_raw || '—'}</div>
-                      <div className="text-xs mt-1" style={{ opacity: 0.5 }}>{c.phone_number_normalized || ''}</div>
-                      
-                      {/* Linked Orders Count Display */}
-                      <div className="mt-2 flex items-center gap-2">
-                        <Link href={`/${locale}/staff/users?tab=${activeTab}&selectedCustomer=${c.id}&q=${searchQ}&customerStatus=${filterCustomerStatus}`} className="badge badge-gold font-black" style={{ textDecoration: 'none', cursor: 'pointer' }}>
-                          📦 {isRTL ? `الطلبات (${c.orderCount})` : `Orders (${c.orderCount})`}
-                        </Link>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="flex flex-col gap-1 items-start">
-                        <span className={`badge ${isBlocked ? 'badge-red' : isSuspended ? 'badge-muted' : 'badge-green'}`}>
-                          {isBlocked 
-                            ? (isRTL ? '🚫 محظور' : '🚫 Blocked') 
-                            : isSuspended 
-                              ? (isRTL ? '🛑 معطل' : '🛑 Suspended')
-                              : (isRTL ? '✔️ نشط' : '✔️ Active')
-                          }
-                        </span>
-                        {isBlocked && c.block_reason && (
-                          <div className="text-xs text-red-400 mt-1 italic max-w-xs" style={{ whiteSpace: 'normal' }}>
-                            {isRTL ? `السبب: ${c.block_reason}` : `Reason: ${c.block_reason}`}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      {isFreeTrialUsed ? (
-                        <span className="badge badge-muted">
-                          {isRTL ? `تم استخدامه 🎫` : `Consumed 🎫`}
-                        </span>
-                      ) : isPhoneVerified ? (
-                        <span className="badge badge-gold font-black">
-                          {isRTL ? 'متاح للاستخدام 🎁' : 'Available / Free Sourcing Ready 🎁'}
-                        </span>
-                      ) : (
-                        <span className="badge badge-red" style={{ opacity: 0.6 }}>
-                          {isRTL ? 'غير مؤهل (أكد رقم الهاتف)' : 'Not Eligible (Verify Phone)'}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="flex gap-2">
-                        <Link 
-                          href={`/${locale}/staff/users?tab=customers&editCustomer=${c.id}&q=${searchQ}`} 
-                          className="btn-accent px-4 py-2 text-xs font-bold block text-center" 
-                          style={{ textDecoration: 'none', borderRadius: '12px', minWidth: '80px' }}
-                        >
-                          ⚙️ {isRTL ? 'إدارة' : 'Manage'}
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <UserManagementClient 
+        initialStaff={allStaff as any}
+        initialCustomers={filteredCustomers as any}
+        locale={locale}
+        dict={dict}
+        permissions={permissions}
+        searchQ={searchQ}
+      />
     </main>
   )
 }

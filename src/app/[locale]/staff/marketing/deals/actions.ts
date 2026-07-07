@@ -305,6 +305,9 @@ export async function handleHardDeleteDeal(formData: FormData) {
   const id = formData.get('id') as string
 
   try {
+    const adminClient = await createAdminClient()
+    await adminClient.from('findora_deal_inquiries').delete().eq('deal_id', id)
+
     await hardDeleteFindoraDealAdmin(id)
     revalidatePath(`/${locale}/staff/marketing/deals`)
     revalidatePath(`/${locale}/deals`)

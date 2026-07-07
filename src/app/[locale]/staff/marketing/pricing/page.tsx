@@ -18,7 +18,7 @@ import { resolvePricing } from '@/lib/pricing/resolver'
 import BasePriceEditor from './BasePriceEditor'
 import PromoServiceSelector from './PromoServiceSelector'
 import ExpiredPricingList from './ExpiredPricingList'
-import PromoAnalyticsDashboard from './PromoAnalyticsDashboard'
+import PricingListClient from './PricingListClient'
 
 export default async function PricingManagementPage({
   params,
@@ -105,10 +105,12 @@ export default async function PricingManagementPage({
   const serviceMap = new Map<string, any>((catalog || []).map((s: any) => [s.service_key, s]))
 
   for (const v of (versions || [])) {
+    const is_promo_version = !!(v.promo_label_en || v.promo_label_ar)
+    if (!is_promo_version) continue
+
     const serviceInfo = serviceMap.get(v.service_key) || { title_en: v.service_key, title_ar: v.service_key }
     const resolved = resolvedPricingMap.get(v.service_key)
-    const is_promo_version = !!(v.promo_label_en || v.promo_label_ar)
-    const is_promo = v.status === 'active' && resolved ? resolved.is_promo === true && is_promo_version : false
+    const is_promo = v.status === 'active' && resolved ? resolved.is_promo === true : false
 
     const enriched = { 
       ...v, 
@@ -202,18 +204,24 @@ export default async function PricingManagementPage({
             </Link>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', flexWrap: 'wrap' }}>
             <Link 
               href={`/${locale}/staff/marketing/deals`} 
               style={{ padding: '0.5rem 1.5rem', borderRadius: '12px', fontSize: '0.875rem', fontWeight: 700, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', textDecoration: 'none', transition: 'all 0.2s' }}
             >
-              {isRTL ? 'المنتجات (Deals)' : 'Products (Deals)'}
+              📦 {isRTL ? 'المنتجات (Deals)' : 'Products (Deals)'}
             </Link>
             <Link 
               href={`/${locale}/staff/marketing/pricing`} 
               style={{ padding: '0.5rem 1.5rem', borderRadius: '12px', fontSize: '0.875rem', fontWeight: 700, background: '#d4a63c', color: '#000', textDecoration: 'none', boxShadow: '0 0 15px rgba(212,166,60,0.3)', transition: 'all 0.2s' }}
             >
-              {isRTL ? 'خصومات الباقات (Offers)' : 'Service Offers (Pricing)'}
+              🏷️ {isRTL ? 'خصومات الباقات (Offers)' : 'Service Offers (Pricing)'}
+            </Link>
+            <Link 
+              href={`/${locale}/staff/marketing/pricing/analytics`} 
+              style={{ padding: '0.5rem 1.5rem', borderRadius: '12px', fontSize: '0.875rem', fontWeight: 700, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', textDecoration: 'none', transition: 'all 0.2s' }}
+            >
+              📊 {isRTL ? 'سجل وتحليلات العروض' : 'Promo Log & Analytics'}
             </Link>
           </div>
         </header>
@@ -245,21 +253,130 @@ export default async function PricingManagementPage({
               <div style={{ fontSize: '2rem', fontWeight: 900, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
             </div>
           ))}
-        </div>
+        </div>        {/* ── SECTION 1: Service Base Prices Catalog & Billing Models ── */}
+        <section style={{ marginBottom: '2.5rem', background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '24px', padding: '1.5rem 1.75rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.2rem' }}>🏷️</span>
+              {isRTL ? 'الأسعار الأساسية للخدمات ونماذج الفوترة' : 'Service Base Prices & Billing Models'}
+            </h2>
+            <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ color: '#34d399' }}>✏️</span>
+              {isRTL ? 'انقر على أيقونة القلم لتعديل السعر الأساسي لكل خدمة.' : 'Click pencil icon to edit base price.'}
+            </div>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+            {catalog.map((s: any) => {
+              const ui = getServiceIcon(s.service_key)
+              const baseId = basePricingIdMap.get(s.service_key)
+              const basePrice = basePriceValueMap.get(s.service_key)
+              const resolved = resolvedPricingMap.get(s.service_key)
+              const displayPrice = basePrice ?? (resolved ? resolved.price : '—')
+              const hasActivePromo = promoPricingIdMap.has(s.service_key)
 
-        {/* ── Main Grid ── */}
+              // Determine display billing model
+              let modelAr = 'سعر ثابت'
+              let modelEn = 'Fixed Fee'
+              let descAr = 'رسوم دراسة الطلب محددة وثابتة.'
+              let descEn = 'Fixed request study fee.'
+              
+              if (s.service_key === 'high_value_asset' || s.service_key === 'high_value_deals') {
+                modelAr = 'سعر ثابت + نسبة تفاوض'
+                modelEn = 'Fixed + % Negotiation'
+                descAr = 'رسوم ثابتة للطلب + نسبة تفاوض في العروض.'
+                descEn = 'Flat fee + commission on deal discount.'
+              } else if (s.service_key === 'project_supply' || s.service_key === 'projects_supplies') {
+                modelAr = 'سعر ثابت + نسبة توريد'
+                modelEn = 'Fixed + % Supply'
+                descAr = 'رسوم ثابتة للطلب + نسبة عمولة توريد مشاريع.'
+                descEn = 'Flat study fee + project supply commission.'
+              }
+
+              return (
+                <div
+                  key={s.id}
+                  style={{
+                    padding: '1.25rem',
+                    background: hasActivePromo ? 'linear-gradient(135deg, rgba(212,166,60,0.03) 0%, rgba(255,255,255,0.015) 100%)' : 'rgba(255,255,255,0.02)',
+                    border: hasActivePromo ? '1px solid rgba(212,166,60,0.2)' : '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: ui.bg, border: `1px solid ${ui.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0 }}>
+                        {ui.icon}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <h3 style={{ margin: 0, fontWeight: 800, fontSize: '0.88rem', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {isRTL ? s.title_ar : s.title_en}
+                        </h3>
+                        <span style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace' }}>
+                          {s.service_key}
+                        </span>
+                      </div>
+                    </div>
+
+                    <span style={{
+                      fontSize: '0.6rem',
+                      fontWeight: 800,
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: '999px',
+                      background: 'rgba(255,255,255,0.06)',
+                      color: 'rgba(255,255,255,0.5)',
+                      border: '1px solid rgba(255,255,255,0.08)'
+                    }}>
+                      {isRTL ? modelAr : modelEn}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '0.75rem', gap: '0.5rem' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: 'block', fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: '0.15rem' }}>
+                        {isRTL ? 'طريقة الاحتساب' : 'Billing policy'}
+                      </span>
+                      <span style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
+                        {isRTL ? descAr : descEn}
+                      </span>
+                    </div>
+
+                    <div style={{ flexShrink: 0 }}>
+                      <span style={{ display: 'block', fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textAlign: 'end', marginBottom: '0.15rem' }}>
+                        {isRTL ? 'السعر الأساسي' : 'Base Price'}
+                      </span>
+                      <BasePriceEditor
+                        serviceKey={s.service_key}
+                        pricingId={baseId}
+                        currentPrice={displayPrice}
+                        locale={locale}
+                        isRTL={isRTL}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* ── SECTION 2: Promotional Campaigns & Discounts ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem', alignItems: 'start' }}>
 
-          {/* ═══ LEFT COLUMN: Active versions table ═══ */}
+          {/* Left Column: Promotions tabs and list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-
             {/* Tab bar */}
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '0.35rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
               {[
-                { id: 'active', label: isRTL ? 'الإصدارات النشطة' : 'Active Versions', count: activePricing.length },
+                { id: 'active', label: isRTL ? 'النشطة' : 'Active', count: activePricing.length },
                 { id: 'scheduled', label: isRTL ? 'مجدولة' : 'Scheduled', count: scheduledPricing.length },
-                { id: 'expired', label: isRTL ? 'منتهية / غير نشطة' : 'Expired / Inactive', count: expiredPricing.length },
-                { id: 'deleted', label: isRTL ? 'محذوفة' : 'Deleted', count: deletedPricing.length },
+                { id: 'expired', label: isRTL ? 'منتهية / غير نشطة' : 'Expired/Inactive', count: expiredPricing.length },
+                { id: 'deleted', label: isRTL ? 'الأرشيف' : 'Archive', count: deletedPricing.length },
               ].map(t => (
                 <Link
                   key={t.id}
@@ -294,210 +411,18 @@ export default async function PricingManagementPage({
             {/* Version Cards */}
             {tab === 'expired' ? (
               <ExpiredPricingList expiredPricing={expiredPricing} locale={locale} isRTL={isRTL} />
-            ) : currentList.length === 0 ? (
-              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '3rem', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem', fontWeight: 600 }}>
-                {tab === 'scheduled' ? (isRTL ? '📅 لا توجد عروض مجدولة' : '📅 No scheduled promotions') :
-                 tab === 'deleted' ? (isRTL ? '🗑️ لا يوجد أرشيف محذوف' : '🗑️ No deleted records') :
-                 (isRTL ? '✨ لا يوجد تسعير نشط' : '✨ No active pricing')}
-              </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                {currentList.map((v: any) => {
-                  const ui = getServiceIcon(v.service_key)
-                  const showPromo = v.is_promo && v.status === 'active'
-                  const isBaseVersion = !v.is_promo_version
-
-                  return (
-                    <div
-                      key={v.id}
-                      data-testid="pricing-service-row"
-                      id={`pricing-version-${v.id}`}
-                      style={{
-                        background: showPromo
-                          ? 'linear-gradient(135deg, rgba(212,166,60,0.06) 0%, rgba(245,158,11,0.03) 100%)'
-                          : isBaseVersion
-                          ? 'rgba(255,255,255,0.02)'
-                          : 'rgba(255,255,255,0.015)',
-                        border: showPromo
-                          ? '1px solid rgba(212,166,60,0.25)'
-                          : isBaseVersion
-                          ? '1px solid rgba(255,255,255,0.08)'
-                          : '1px solid rgba(255,255,255,0.05)',
-                        borderRadius: '18px',
-                        padding: '1.25rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '1rem',
-                        position: 'relative',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      {/* Card shimmer effect */}
-                      {showPromo && (
-                        <div style={{ position: 'absolute', top: 0, right: 0, left: 0, height: '2px', background: 'linear-gradient(90deg, transparent, #d4a63c, transparent)' }} />
-                      )}
-
-                      {/* Header */}
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: ui.bg, border: `1px solid ${ui.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0 }}>
-                            {ui.icon}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'white', marginBottom: '0.15rem' }}>{v.serviceTitle}</div>
-                            <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>{v.service_key} · v{v.version_no}</div>
-                          </div>
-                        </div>
-                        {/* Type badge */}
-                        <span style={{
-                          fontSize: '0.6rem', fontWeight: 800, padding: '0.2rem 0.55rem', borderRadius: '999px', letterSpacing: '0.05em',
-                          ...(showPromo
-                            ? { background: 'rgba(212,166,60,0.15)', color: '#d4a63c', border: '1px solid rgba(212,166,60,0.25)' }
-                            : isBaseVersion
-                            ? { background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.2)' }
-                            : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' })
-                        }}>
-                          {showPromo ? '🎁 PROMO' : isBaseVersion ? '📌 BASE' : '📄'}
-                        </span>
-                      </div>
-
-                      {/* Price row */}
-                      <div>
-                        {showPromo ? (
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '1.75rem', fontWeight: 900, color: '#d4a63c', lineHeight: 1 }}>
-                              {v.current_price}
-                            </span>
-                            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)' }}>EGP</span>
-                            {v.original_price && Number(v.original_price) !== Number(v.current_price) && (
-                              <span style={{ fontSize: '0.8rem', textDecoration: 'line-through', color: 'rgba(255,255,255,0.25)' }}>
-                                {v.original_price} EGP
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '1.75rem', fontWeight: 900, color: 'white', lineHeight: 1 }}>
-                              {v.current_price}
-                            </span>
-                            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)' }}>EGP</span>
-                          </div>
-                        )}
-                        {showPromo && (v.promo_label_en || v.promo_label_ar) && (
-                          <div style={{ marginTop: '0.35rem', fontSize: '0.72rem', fontWeight: 700, color: '#fbbf24' }}>
-                            🏷️ {isRTL ? v.promo_label_ar : v.promo_label_en}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Dates */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '0.75rem' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>📅 {isRTL ? 'البدء' : 'Start'}</span>
-                          <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
-                            {v.starts_at ? new Date(v.starts_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US') : (isRTL ? 'فوري' : 'Immediately')}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>⏰ {isRTL ? 'الانتهاء' : 'Expires'}</span>
-                          <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
-                            {v.ends_at || v.expires_at
-                              ? new Date(v.ends_at || v.expires_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US')
-                              : (isRTL ? 'مستمر' : 'Never')}
-                          </span>
-                        </div>
-                      </div>
-
-                      <PricingRowActions 
-                        id={v.id} 
-                        isActive={v.is_active} 
-                        isDeleted={tab === 'deleted'}
-                        locale={locale} 
-                        isRTL={isRTL} 
-                      />
-                    </div>
-                  )
-                })}
-              </div>
+              <PricingListClient 
+                initialPricingList={currentList} 
+                tab={tab} 
+                locale={locale} 
+                isRTL={isRTL} 
+              />
             )}
           </div>
 
-          {/* ═══ RIGHT COLUMN: Controls ═══ */}
+          {/* Right Column: New Promo Form */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', position: 'sticky', top: '1.5rem' }}>
-
-            {/* ── Base Prices Card ── */}
-            <section style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '20px', padding: '1.5rem', backdropFilter: 'blur(12px)' }}>
-              <h2 style={{ margin: '0 0 1.25rem 0', fontSize: '0.95rem', fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <span style={{ fontSize: '1.1rem' }}>🏷️</span>
-                {isRTL ? 'الأسعار الأساسية للخدمات' : 'Service Base Prices'}
-                <span style={{ marginInlineStart: 'auto', fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  {isRTL ? 'السعر الفعلي' : 'Real Price'}
-                </span>
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                {catalog.map((s: any) => {
-                  const ui = getServiceIcon(s.service_key)
-                  // Show the actual BASE price (not promo price)
-                  const baseId = basePricingIdMap.get(s.service_key)
-                  const basePrice = basePriceValueMap.get(s.service_key)
-                  const resolved = resolvedPricingMap.get(s.service_key)
-                  const displayPrice = basePrice ?? (resolved ? resolved.price : '—')
-                  const hasActivePromo = promoPricingIdMap.has(s.service_key)
-
-                  return (
-                    <div
-                      key={s.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '0.75rem',
-                        padding: '0.75rem 0.875rem',
-                        background: hasActivePromo ? 'rgba(212,166,60,0.04)' : 'rgba(255,255,255,0.02)',
-                        border: hasActivePromo ? '1px solid rgba(212,166,60,0.12)' : '1px solid rgba(255,255,255,0.04)',
-                        borderRadius: '12px',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                        <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: ui.bg, border: `1px solid ${ui.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', flexShrink: 0 }}>
-                          {ui.icon}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: '0.78rem', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {isRTL ? s.title_ar : s.title_en}
-                          </div>
-                          <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace' }}>
-                            {s.service_key}
-                            {hasActivePromo && <span style={{ marginInlineStart: '0.3rem', color: '#d4a63c' }}>· 🎁 عرض</span>}
-                          </div>
-                        </div>
-                      </div>
-                      {/* BasePriceEditor always gets the BASE version ID (never promo) */}
-                      <BasePriceEditor
-                        serviceKey={s.service_key}
-                        pricingId={baseId}
-                        currentPrice={displayPrice}
-                        locale={locale}
-                        isRTL={isRTL}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-              <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <span style={{ color: '#34d399' }}>✏️</span>
-                  {isRTL ? 'انقر على أيقونة القلم لتعديل السعر الأساسي فقط' : 'Click pencil to edit BASE price only'}
-                </div>
-                <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <span style={{ color: '#d4a63c' }}>🎁</span>
-                  {isRTL ? 'السعر الأساسي لا يتأثر بالعروض الترويجية' : 'Base price is not affected by promos'}
-                </div>
-              </div>
-            </section>
-
-            {/* ── New Promo Form ── */}
             <section style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '20px', padding: '1.5rem', backdropFilter: 'blur(12px)' }}>
               <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '0.95rem', fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span>✨</span>
@@ -505,8 +430,8 @@ export default async function PricingManagementPage({
               </h2>
               <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.5, paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                 {isRTL 
-                  ? 'لتغيير السعر الأساسي فقط استخدم أيقونة القلم ✏️ أعلاه. هذه النموذج للعروض الترويجية المؤقتة.'
-                  : 'Use ✏️ above for base price only. Use this form for promo offers.'}
+                  ? 'لتغيير السعر الأساسي فقط استخدم حقول السعر للخدمة أعلاه. هذه النموذج للعروض الترويجية المؤقتة.'
+                  : 'Use base price editors above for base price only. Use this form for promo offers.'}
               </p>
               
               <form action={handleCreatePricingVersion} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }} data-testid="pricing-create-version-form">
@@ -547,7 +472,8 @@ export default async function PricingManagementPage({
 
                 <input type="hidden" name="currency_code" value="EGP" />
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                {/* Stacked date inputs to prevent horizontal layout break */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       📅 {isRTL ? 'تاريخ البدء' : 'Start Date'}
@@ -607,10 +533,7 @@ export default async function PricingManagementPage({
           </div>
         </div>
 
-        {/* ── Analytics section ── */}
-        <div style={{ marginTop: '2rem' }}>
-          <PromoAnalyticsDashboard promos={promoAnalytics} isRTL={isRTL} />
-        </div>
+
       </div>
     </main>
   )
