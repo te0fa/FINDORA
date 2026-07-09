@@ -82,6 +82,7 @@ export default function EarningsCalculator({ locale }: { locale: string }) {
             key={r}
             type="button"
             onClick={() => setRole(r)}
+            suppressHydrationWarning
             style={{
               flex: 1,
               minWidth: 140,
@@ -115,6 +116,7 @@ export default function EarningsCalculator({ locale }: { locale: string }) {
           type="range"
           min="1"
           max="30"
+          suppressHydrationWarning
           value={dailyTasks}
           onChange={(e) => setDailyTasks(Number(e.target.value))}
           style={{

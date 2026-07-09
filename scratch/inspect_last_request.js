@@ -1,39 +1,18 @@
-const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
-const path = require('path');
-const dotenv = require('dotenv');
+const crypto = require('crypto');
 
-const envPath = path.resolve(__dirname, '../.env.local');
-if (fs.existsSync(envPath)) {
-  dotenv.config({ path: envPath });
+const file1 = 'C:\\Users\\mosta\\.gemini\\antigravity\\brain\\889c76e8-ec4f-4989-90be-fe8e411795c9\\media__1783587992563.jpg';
+const file2 = 'e:\\FINDORA\\public\\logo-2-processed.png';
+const file3 = 'e:\\FINDORA\\public\\logo-1-processed.png';
+
+function getMd5(filePath) {
+  if (!fs.existsSync(filePath)) return 'Does not exist';
+  const content = fs.readFileSync(filePath);
+  const hash = crypto.createHash('md5');
+  hash.update(content);
+  return hash.digest('hex') + ' (' + content.length + ' bytes)';
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseSecret = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseSecret);
-
-async function run() {
-  const { data: staffMembers, error: err } = await supabase
-    .from('staff_members')
-    .select('*');
-
-  if (err) {
-    console.error('Error:', err);
-    return;
-  }
-
-  const { data: authData } = await supabase.auth.admin.listUsers();
-  const userMap = {};
-  for (const u of authData.users) {
-    userMap[u.id] = u.email;
-  }
-
-  console.log('Staff members mapped to auth emails:');
-  for (const m of staffMembers) {
-    const email = userMap[m.auth_user_id] || 'Unknown';
-    console.log(`ID: ${m.id} | Name: ${m.full_name} | Role: ${m.staff_role} | Email: ${email} | auth_user_id: ${m.auth_user_id}`);
-  }
-}
-
-run();
+console.log('File 1 (Source):', getMd5(file1));
+console.log('File 2 (logo-2):', getMd5(file2));
+console.log('File 3 (logo-1):', getMd5(file3));

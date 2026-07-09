@@ -32,6 +32,12 @@ export default function LandingHeader({ locale, isRTL, labels, isRecruitmentActi
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const sectionLinks = useMemo(
@@ -47,12 +53,12 @@ export default function LandingHeader({ locale, isRTL, labels, isRecruitmentActi
         { href: `/${locale}#categories`, label: labels.categories },
         { href: `/${locale}#flow`, label: labels.flow },
       ];
-      if (isRecruitmentActive) {
+      if (isMounted && isRecruitmentActive) {
         base.push({ href: `/${locale}/contributors`, label: isRTL ? "اشتغل معانا 💰" : "Work With Us 💰" });
       }
       return base;
     },
-    [locale, labels, isRecruitmentActive, isRTL]
+    [locale, labels, isRecruitmentActive, isRTL, isMounted]
   );
   const closeMenu = () => {
     setIsMobileMenuOpen(false);

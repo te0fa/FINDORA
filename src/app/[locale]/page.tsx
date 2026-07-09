@@ -124,7 +124,7 @@ export default async function Home({
         "@id": "https://findora.app/#organization",
         "name": "Findora",
         "url": "https://findora.app",
-        "logo": "https://findora.app/logo-2-processed.png",
+        "logo": "https://findora.app/logo-new.png",
         "sameAs": [
           "https://facebook.com/findora.app",
           "https://twitter.com/findora_app",

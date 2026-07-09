@@ -138,12 +138,13 @@ export default async function StaffLayout({
       id: "settings",
       label: locale === "ar" ? "⚙️ الإعدادات" : "⚙️ Settings",
       href: `/${locale}/staff/settings/specializations`,
-      visible: permissions?.isAdmin || false,
+      visible: permissions?.isAdmin || permissions?.canManageCommunications || false,
       subLinks: [
         { href: `/${locale}/staff/users`, label: locale === "ar" ? "الموظفين" : "Staff Members", visible: permissions?.isAdmin || false },
         { href: `/${locale}/staff/users?tab=customers`, label: locale === "ar" ? "العملاء" : "Registered Customers", visible: permissions?.isAdmin || false },
         { href: `/${locale}/staff/settings/payments`, label: locale === "ar" ? "بوابات الدفع" : "Payment Config", visible: permissions?.isAdmin || false },
         { href: `/${locale}/staff/settings/specializations`, label: locale === "ar" ? "التخصصات" : "Specializations", visible: permissions?.isAdmin || false },
+        { href: `/${locale}/staff/settings/site`, label: locale === "ar" ? "إعدادات الموقع" : "Site Settings", visible: permissions?.isAdmin || permissions?.canManageCommunications || false },
       ]
     },
 

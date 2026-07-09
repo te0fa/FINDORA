@@ -29,7 +29,7 @@ export default function HeaderLogo({
       aria-label={ariaLabel}
     >
       <Image
-        src="/logo-2-processed.png"
+        src="/logo-v5.png"
         alt="Findora"
         width={300}
         height={200}

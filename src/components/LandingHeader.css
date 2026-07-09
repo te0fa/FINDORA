@@ -42,7 +42,6 @@
 }
 
 .is-rtl .landing-header-inner {
-  transform: translateX(0.7cm);
 }
 
 .logo-shell {
@@ -51,19 +50,10 @@
   align-items: center;
   width: auto;
   overflow: visible;
-  transform: translateX(-0.5cm);
 }
 
-@media (max-width: 768px) {
-  .logo-shell {
-    transform: translateX(0);
-  }
-}
 
-.logo-shell .logo-link {
-  width: 100% !important;
-  min-width: unset !important;
-}
+
 
 .nav-shell {
   flex: 0 1 auto;
@@ -71,7 +61,6 @@
   justify-content: center;
   min-width: 0;
   overflow: visible;
-  transform: translateX(-1cm);
 }
 
 .section-nav {
@@ -178,7 +167,6 @@
   align-items: center;
   gap: 6px;
   justify-content: flex-end;
-  transform: translateX(-1cm);
 }
 
 .desktop-actions {
