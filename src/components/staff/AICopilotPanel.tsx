@@ -17,6 +17,8 @@ interface AICopilotPanelProps {
   actionPermissions?: any
   isAdmin?: boolean
   canReviewIntake?: boolean
+  canResearch?: boolean
+  canReport?: boolean
 }
 
 type Tab = 'intake' | 'pricing' | 'research' | 'report' | 'message' | 'safety'
@@ -30,13 +32,29 @@ export function AICopilotPanel({
   isRTL,
   actionPermissions,
   isAdmin,
-  canReviewIntake
+  canReviewIntake,
+  canResearch,
+  canReport
 }: AICopilotPanelProps) {
   const params = useParams()
   const locale = (params?.locale as string) || 'en'
   const isAdminUser = isAdmin || false
   const hasReviewerRole = canReviewIntake || (actionPermissions && actionPermissions.canReviewIntake) || false
-  const defaultTab = (actionPermissions && !actionPermissions.canReviewIntake && !isAdminUser && !canReviewIntake) ? 'research' : 'intake'
+  
+  // Set default tab based on role priority: intake > research > report
+  let defaultTab: Tab = 'intake'
+  if (!isAdminUser) {
+    if (hasReviewerRole) {
+      defaultTab = 'intake'
+    } else if (canResearch) {
+      defaultTab = 'research'
+    } else if (canReport) {
+      defaultTab = 'report'
+    } else {
+      defaultTab = 'safety' // fallback
+    }
+  }
+  
   const [activeTab, setActiveTab] = useState<Tab>(defaultTab)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
@@ -45,16 +63,40 @@ export function AICopilotPanel({
   const [gatePayload, setGatePayload] = useState<any>(null)
   const [gateError, setGateError] = useState<string | null>(null)
 
+  // Pre-populate manual intake fields from parsed interpreted_summary or original client preferences
+  let initialBrand = ''
+  let initialName = ''
+  let initialCategory = ''
+  let initialNotes = ''
+  let initialAttrs = ''
+
+  try {
+    let intakeData: any = null
+    if (requestData?.interpreted_summary) {
+      intakeData = typeof requestData.interpreted_summary === 'string'
+        ? JSON.parse(requestData.interpreted_summary)
+        : requestData.interpreted_summary
+    }
+    const product = intakeData?.ai_analysis?.product
+    initialBrand = product?.brand || intakeData?.product?.brand || preferences?.preferred_brands || ''
+    initialName = product?.name || intakeData?.product?.name || preferences?.preferred_models || requestData?.title || ''
+    initialCategory = product?.category || intakeData?.product?.category || ''
+    initialAttrs = product?.key_attributes?.join(', ') || preferences?.preferred_specs || ''
+    initialNotes = preferences?.notes || requestData?.raw_description || ''
+  } catch (e) {
+    console.error('Error pre-populating manual intake fields:', e)
+  }
+
   // Manual Intake Mode
   const [intakeMode, setIntakeMode] = useState<'ai' | 'manual'>('ai')
   const [manualSaving, setManualSaving] = useState(false)
   const [manualSaveError, setManualSaveError] = useState<string | null>(null)
   const [manualSaveSuccess, setManualSaveSuccess] = useState(false)
-  const [manualBrand, setManualBrand] = useState('')
-  const [manualName, setManualName] = useState('')
-  const [manualCategory, setManualCategory] = useState('')
-  const [manualNotes, setManualNotes] = useState('')
-  const [manualAttrs, setManualAttrs] = useState('')
+  const [manualBrand, setManualBrand] = useState(initialBrand)
+  const [manualName, setManualName] = useState(initialName)
+  const [manualCategory, setManualCategory] = useState(initialCategory)
+  const [manualNotes, setManualNotes] = useState(initialNotes)
+  const [manualAttrs, setManualAttrs] = useState(initialAttrs)
 
   const applyApprove = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -328,9 +370,20 @@ export function AICopilotPanel({
   ]
   
   // Tab visibility: Admins always see ALL tabs
-  // Non-admins only see INTAKE/PRICING if they have intake review permission (reviewer role)
-  if (!isAdminUser && !hasReviewerRole) {
-    tabs = tabs.filter(t => t.id !== 'intake' && t.id !== 'pricing')
+  // Non-admins see only tabs matching their permissions/roles
+  if (!isAdminUser) {
+    tabs = tabs.filter(t => {
+      if (t.id === 'intake' || t.id === 'pricing') {
+        return hasReviewerRole
+      }
+      if (t.id === 'research') {
+        return !!canResearch
+      }
+      if (t.id === 'report' || t.id === 'safety') {
+        return !!canReport
+      }
+      return false
+    })
   }
 
   return (

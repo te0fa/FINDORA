@@ -299,21 +299,27 @@ export default async function ForgotPasswordPage({
 
         @media (max-width: 768px) {
           .auth-header {
-            padding: 1rem 1rem 0.5rem;
+            padding: 1rem 1.25rem 0.5rem;
           }
 
           .auth-header-inner {
-            flex-wrap: wrap;
-            justify-content: center;
+            flex-wrap: nowrap;
+            justify-content: space-between;
+          }
+
+          .auth-main {
+            padding: 1rem;
           }
 
           .auth-card-container {
             transform: none;
             margin-top: 1rem;
+            margin-left: auto;
+            margin-right: auto;
           }
 
           .auth-card {
-            padding: 2rem 1.25rem;
+            padding: 1.85rem 1.25rem;
           }
 
           .auth-form-header h1 {

@@ -105,9 +105,31 @@ export default function SettingsClient({ customer, locale }: SettingsClientProps
           </div>
 
           <div className="border-t border-white/10 mt-6 pt-6 space-y-4 text-sm text-white/60">
-            <div className="flex justify-between">
-              <span>{isAr ? 'معرف العميل' : 'Client ID'}</span>
-              <span className="font-mono text-white/80">{customer.id.slice(0, 8)}...</span>
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between items-center" style={{ width: '100%' }}>
+                <span>{isAr ? 'معرف العميل' : 'Client ID'}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(customer.id);
+                  }}
+                  className="font-mono text-accent hover:text-white transition"
+                  style={{ 
+                    fontSize: '11px', 
+                    background: 'transparent', 
+                    border: 'none', 
+                    padding: 0, 
+                    width: 'auto',
+                    cursor: 'pointer',
+                    color: '#c8973b'
+                  }}
+                >
+                  {isAr ? 'نسخ 📋' : 'Copy 📋'}
+                </button>
+              </div>
+              <span className="font-mono text-white/50 text-[10px] select-all break-all" style={{ textAlign: isAr ? 'right' : 'left', display: 'block', width: '100%', marginTop: '4px' }}>
+                {customer.id}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>{isAr ? 'اللغة المفضلة' : 'Language'}</span>
@@ -175,7 +197,7 @@ export default function SettingsClient({ customer, locale }: SettingsClientProps
               </div>
             </div>
 
-            <div>
+            <div style={{ marginTop: '1.25rem' }}>
               <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider mb-2">
                 {isAr ? 'البريد الإلكتروني (غير قابل للتعديل)' : 'Email Address (Non-editable)'}
               </label>
@@ -187,7 +209,7 @@ export default function SettingsClient({ customer, locale }: SettingsClientProps
               />
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex justify-end" style={{ marginTop: '2.25rem' }}>
               <button 
                 type="submit" 
                 disabled={profileLoading} 
@@ -256,7 +278,7 @@ export default function SettingsClient({ customer, locale }: SettingsClientProps
               </div>
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex justify-end" style={{ marginTop: '2.25rem' }}>
               <button 
                 type="submit" 
                 disabled={passwordLoading} 

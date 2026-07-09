@@ -40,6 +40,7 @@ export default async function StaffLayout({
       visible: permissions?.isAdmin || permissions?.canReviewIntake || permissions?.canResearch || permissions?.canSourceOffline || permissions?.canReport || false,
       subLinks: [
         { href: `/${locale}/staff/dashboard`, label: locale === "ar" ? "لوحة القياس" : "Dashboard", visible: permissions?.isAdmin || permissions?.canReviewIntake || permissions?.canResearch || permissions?.canReport || false },
+        { href: `/${locale}/staff/performance`, label: locale === "ar" ? "تقييم الأداء" : "My Performance", visible: permissions?.isAdmin || permissions?.canReviewIntake || permissions?.canResearch || permissions?.canReport || false },
         { href: `/${locale}/staff/queue`, label: locale === "ar" ? "طابور الطلبات" : "Intake Queue", visible: permissions?.isAdmin || permissions?.canReviewIntake || false },
         { href: `/${locale}/staff/workspace`, label: locale === "ar" ? "مساحات العمل" : "Workspaces", visible: permissions?.isAdmin || permissions?.canResearch || permissions?.canReport || false },
         { href: `/${locale}/staff/archive`, label: locale === "ar" ? "الأرشيف" : "Archive", visible: permissions?.isAdmin || permissions?.canReport || permissions?.canManageArchive || false },
@@ -49,9 +50,9 @@ export default async function StaffLayout({
       id: "contributors",
       label: locale === "ar" ? "🌍 المناديب" : "🌍 Scouts",
       href: `/${locale}/staff/contributors`,
-      visible: permissions?.isAdmin || permissions?.isSourcingResearcher || permissions?.isQualityReviewer || permissions?.canAccessQueue || false,
+      visible: permissions?.isAdmin || permissions?.isQualityReviewer || permissions?.canManageFinancials || false,
       subLinks: [
-        { href: `/${locale}/staff/contributors`, label: locale === "ar" ? "قاعدة البيانات" : "Scout Database", visible: permissions?.isAdmin || permissions?.canAccessQueue || false },
+        { href: `/${locale}/staff/contributors`, label: locale === "ar" ? "قاعدة البيانات" : "Scout Database", visible: permissions?.isAdmin || permissions?.isQualityReviewer || false },
         { href: `/${locale}/staff/contributors/wallets`, label: locale === "ar" ? "المحافظ والأرباح" : "Wallets & Rewards", visible: permissions?.isAdmin || permissions?.canManageFinancials || false },
         { href: `/${locale}/staff/contributors/submissions`, label: locale === "ar" ? "مراجعة التقديمات" : "Submissions Review", visible: permissions?.isAdmin || permissions?.isQualityReviewer || false },
         { href: `/${locale}/staff/contributors/economy`, label: locale === "ar" ? "موازن الاقتصاد" : "Economy Stabilizer", visible: permissions?.isAdmin || permissions?.canManageAI || false },
@@ -145,18 +146,7 @@ export default async function StaffLayout({
         { href: `/${locale}/staff/settings/specializations`, label: locale === "ar" ? "التخصصات" : "Specializations", visible: permissions?.isAdmin || false },
       ]
     },
-    {
-      id: "website",
-      label: locale === "ar" ? "🌐 الموقع" : "🌐 Website",
-      href: `/${locale}`,
-      visible: true,
-      subLinks: [
-        { href: `/${locale}`, label: locale === "ar" ? "الصفحة الرئيسية" : "Home Page", visible: true },
-        { href: `/${locale}/deals`, label: locale === "ar" ? "عروض المنتجات" : "Products Deals", visible: true },
-        { href: `/${locale}/pricing`, label: locale === "ar" ? "أسعار الخدمات" : "Services Pricing", visible: true },
-        { href: `/${locale}/staff/contributors`, label: locale === "ar" ? "صفحة المناديب" : "Scouts Page", visible: true },
-      ]
-    }
+
   ];
 
   const navCategories = categories

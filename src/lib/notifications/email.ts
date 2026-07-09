@@ -142,3 +142,93 @@ export async function sendPushToUser(customerId: string, title: string, body: st
     log.info('[DEV] Push would be sent', { customerId, title })
   }
 }
+
+export async function sendClarificationEmail({
+  customerId,
+  requestCode,
+  messageText,
+  locale,
+  requestId
+}: {
+  customerId: string
+  requestCode: string
+  messageText: string
+  locale: string
+  requestId: string
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  const isAr = locale === 'ar'
+
+  // Fetch customer email from DB
+  const { createAdminClient } = await import('@/lib/dal/customers')
+  const admin = await createAdminClient()
+  const { data: customer } = await (admin as any)
+    .from('customers')
+    .select('email:auth_user_id')
+    .eq('id', customerId)
+    .maybeSingle()
+
+  if (!customer?.email) {
+    log.info('No email found for customer', { customerId })
+    return
+  }
+
+  if (!apiKey) {
+    log.info('[DEV] Clarification email would be sent', {
+      customerId,
+      email: customer.email,
+      requestCode,
+      messageText,
+    })
+    return
+  }
+
+  const subject = isAr 
+    ? `🔔 استفسار جديد بخصوص طلبك على فيندورا - ${requestCode}`
+    : `🔔 New clarification query for your request - ${requestCode}`
+
+  const viewLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://findora.app'}/${locale}/requests/${requestId}`
+
+  const html = isAr ? `
+    <div style="font-family: Arial, sans-serif; direction: rtl; padding: 20px; background: #0f172a; color: white; border-radius: 12px;">
+      <h2 style="color: #d4a63c;">مرحباً بك في فيندورا 👋</h2>
+      <p>لدينا استفسار جديد من مراجع الطلبات بخصوص طلبك رقم <strong>${requestCode}</strong>:</p>
+      <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 4px solid #d4a63c; margin: 15px 0; color: #e2e8f0;">
+        ${messageText.replace(/\n/g, '<br/>')}
+      </div>
+      <p>يرجى الضغط على الزر أدناه لمشاهدة التفاصيل والرد مباشرة على الموظف لمتابعة طلبك:</p>
+      <a href="${viewLink}" style="display: inline-block; background: #d4a63c; color: #000; font-weight: bold; text-decoration: none; padding: 12px 24px; border-radius: 8px; margin-top: 15px;">عرض الطلب والرد الآن</a>
+    </div>
+  ` : `
+    <div style="font-family: Arial, sans-serif; padding: 20px; background: #0f172a; color: white; border-radius: 12px;">
+      <h2 style="color: #d4a63c;">Hello from Findora 👋</h2>
+      <p>We have a new clarification query regarding your request <strong>${requestCode}</strong>:</p>
+      <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 4px solid #d4a63c; margin: 15px 0; color: #e2e8f0;">
+        ${messageText.replace(/\n/g, '<br/>')}
+      </div>
+      <p>Please click the button below to view the details and reply directly to the staff to proceed with your request:</p>
+      <a href="${viewLink}" style="display: inline-block; background: #d4a63c; color: #000; font-weight: bold; text-decoration: none; padding: 12px 24px; border-radius: 8px; margin-top: 15px;">View Request & Reply</a>
+    </div>
+  `
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: 'Findora Alerts <alerts@findora.com>',
+      to: customer.email,
+      subject,
+      html,
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    log.error(`Resend API error: ${res.status} — ${err}`)
+  } else {
+    log.info('Clarification email sent', { customerId, requestCode })
+  }
+}

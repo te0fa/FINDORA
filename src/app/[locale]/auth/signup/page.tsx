@@ -12,11 +12,12 @@ export default async function SignupPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; ref?: string }>;
 }) {
   const { locale } = await params;
   const sp = await searchParams;
   const dict = await getDictionary(locale as Locale);
+  const referralCode = sp.ref || '';
 
   return (
     <div className="auth-page premium-gradient">
@@ -32,7 +33,12 @@ export default async function SignupPage({
         <div className="auth-card-container">
           <div className="auth-glow" />
 
-          <SignupClient locale={locale} dict={dict} errorMsg={sp.error} />
+          <SignupClient 
+            locale={locale} 
+            dict={dict} 
+            errorMsg={sp.error} 
+            initialReferralCode={referralCode} 
+          />
         </div>
       </main>
 
@@ -202,17 +208,27 @@ export default async function SignupPage({
 
         @media (max-width: 768px) {
           .auth-header {
-            padding: 1rem 1rem 0.5rem;
+            padding: 1rem 1.25rem 0.5rem;
           }
 
           .auth-header-inner {
-            flex-wrap: wrap;
-            justify-content: center;
+            flex-wrap: nowrap;
+            justify-content: space-between;
           }
 
+          .auth-main {
+            padding: 1rem;
+          }
+
+          .auth-card-container {
+            transform: none;
+            margin-top: 1rem;
+            margin-left: auto;
+            margin-right: auto;
+          }
 
           .auth-card {
-            padding: 2rem 1.25rem;
+            padding: 1.85rem 1.25rem;
           }
 
           .auth-form-header h1 {

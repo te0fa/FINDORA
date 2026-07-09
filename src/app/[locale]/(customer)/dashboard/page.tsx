@@ -94,6 +94,24 @@ export default async function CustomerDashboard({
 
   const requests: PortalRequest[] = await getCustomerRequests((customer as any).id)
 
+  const requestIds = requests.map((r: any) => r.request_id)
+  const staffMessageCounts: Record<string, number> = {}
+  if (requestIds.length > 0) {
+    const { createAdminClient } = await import('@/lib/dal/customers')
+    const adminClient = await createAdminClient()
+    const { data: messages } = await adminClient
+      .from('request_messages')
+      .select('request_id')
+      .in('request_id', requestIds)
+      .eq('sender_type', 'staff')
+    
+    if (messages) {
+      messages.forEach((m: any) => {
+        staffMessageCounts[m.request_id] = (staffMessageCounts[m.request_id] || 0) + 1
+      })
+    }
+  }
+
   return (
     <div style={{ direction: isRTL ? 'rtl' : 'ltr' }}>
       {/* Page Header */}
@@ -202,6 +220,12 @@ export default async function CustomerDashboard({
                         <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '20px', background: `${urgencyColor}18`, color: urgencyColor, display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span style={{ width: 6, height: 6, borderRadius: '50%', background: urgencyColor, display: 'inline-block' }} />
                           {locale === 'ar' ? `أولوية: ${req.urgency_level}` : `${req.urgency_level} priority`}
+                        </span>
+                      )}
+                      {staffMessageCounts[req.request_id] > 0 && (
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '20px', background: 'rgba(212,166,60,0.15)', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span>💬</span>
+                          {locale === 'ar' ? 'استفسار من مراجع الطلبات' : 'Clarification Query'}
                         </span>
                       )}
                       <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>

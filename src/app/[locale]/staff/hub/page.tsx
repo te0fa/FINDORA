@@ -1123,7 +1123,7 @@ export default async function StaffHubPage({
             return permissions?.isAdmin || permissions?.canManageFinancials;
           }
           if (section.id === 'contributors') {
-            return permissions?.isAdmin || permissions?.isSourcingResearcher || permissions?.isQualityReviewer || permissions?.canAccessQueue;
+            return permissions?.isAdmin || permissions?.isQualityReviewer || permissions?.canManageFinancials;
           }
           if (section.id === 'marketplace') {
             return permissions?.isAdmin || permissions?.canManageDeals || permissions?.canManageVendors;

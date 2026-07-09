@@ -1143,10 +1143,14 @@ export default async function StaffQueuePage({ params, searchParams }: PageProps
                   <div className="stat-help-icon">ⓘ</div>
                 </div>
 
-                <div className="stat-card" title={isRTL ? "الطلبات التي أنجزها الموظفون اليوم" : "Requests handled by staff members today"}>
+                <div className="stat-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} title={isRTL ? "الطلبات التي أنجزها الموظفون اليوم (قبول، رفض، طلب توضيح)" : "Requests resolved by staff today (approved, rejected, clarification requested)"}>
                   <div className="stat-label">{dict.staff_queue.staff_completed_today}</div>
-                  <div className="stat-value" style={{ color: '#d4a63c' }}>{globalStats.staffCompletedToday}</div>
-                  <span className="stat-help-icon">ⓘ</span>
+                  <div className="stat-value" style={{ color: '#d4a63c', marginBlockEnd: '4px' }}>{globalStats.staffCompletedToday}</div>
+                  <div style={{ fontSize: '0.65rem', opacity: 0.8, display: 'flex', gap: '8px', fontWeight: 600, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ color: '#10b981' }}>{isRTL ? 'قبول: ' : 'Approve: '}{globalStats.staffApprovedToday}</span>
+                    <span style={{ color: '#ef4444' }}>{isRTL ? 'رفض: ' : 'Reject: '}{globalStats.staffRejectedToday}</span>
+                    <span style={{ color: '#eab308' }}>{isRTL ? 'توضيح: ' : 'Clarify: '}{globalStats.staffPendingToday}</span>
+                  </div>
                 </div>
 
                 <Link href={`/${locale}/staff/queue?view=ready`} className="stat-card" title={isRTL ? "طلبات جاهزة للنشر للعميل" : "Requests finalized and ready for customer release"}>

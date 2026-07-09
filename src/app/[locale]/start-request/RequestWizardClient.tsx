@@ -481,7 +481,7 @@ const GENERAL_ADVANCED_QUESTIONS: AdvancedQuestionDefinition[] = [
   }
 ]
 
-export default function RequestWizardClient({ locale }: { locale: string }) {
+export default function RequestWizardClient({ locale, initialCustomer }: { locale: string; initialCustomer?: any }) {
   const isAr = locale === 'ar'
   const router = useRouter()
 
@@ -518,11 +518,13 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
     customSpecs:   {} as Record<string, string>,
     advancedSpecs: {} as Record<string, string>,
     productName:   '',
-    targetLocation: '',
+    targetLocation: initialCustomer?.governorate 
+      ? `${initialCustomer.governorate}${initialCustomer.area ? `، ${initialCustomer.area}` : ''}`
+      : '',
     maxPrice:      '',
     notes:         '',
-    customerName:  '',
-    customerPhone: '',
+    customerName:  initialCustomer?.full_name || '',
+    customerPhone: initialCustomer?.phone_number_raw || '',
     isBusiness:    false,
     companyName:   '',
     crNumber:      '',
@@ -542,9 +544,14 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
     aiMetadata:    {} as Record<string, unknown>,
   })
 
-  const [currentCustomer, setCurrentCustomer] = useState<any>(null)
+  const [loadingAuth, setLoadingAuth] = useState(!initialCustomer)
+  const [currentCustomer, setCurrentCustomer] = useState<any>(initialCustomer || null)
 
   useEffect(() => {
+    if (initialCustomer) {
+      setStep(STEP_CATEGORY)
+      return
+    }
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
@@ -565,10 +572,25 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
               ? `${customer.governorate}${customer.area ? `، ${customer.area}` : ''}`
               : prev.targetLocation
           }))
+          // Automatically skip returning lookup step for authenticated users
+          setStep(STEP_CATEGORY)
         }
       }
+      setLoadingAuth(false)
     })
-  }, [])
+  }, [initialCustomer])
+
+  // Ref for subcategories container
+  const subcategoryRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to subcategories when a category is selected
+  useEffect(() => {
+    if (formData.category && subcategoryRef.current) {
+      setTimeout(() => {
+        subcategoryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 150)
+    }
+  }, [formData.category])
 
   function getCurrentSpecsFields() {
     if (formData.subcategory && SUBCATEGORY_FIELDS[formData.subcategory]) {
@@ -650,13 +672,13 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
       console.warn('Failed to load wizard state from sessionStorage:', e)
     }
 
-    if (!historyFlag.loading) {
-      if (!savedStepExists && historyFlag.enabled) {
+    if (!historyFlag.loading && !loadingAuth) {
+      if (!savedStepExists && historyFlag.enabled && !currentCustomer) {
         setStep(STEP_RETURNING)
       }
       setIsRestored(true)
     }
-  }, [historyFlag.loading, historyFlag.enabled, isRestored])
+  }, [historyFlag.loading, historyFlag.enabled, isRestored, loadingAuth, currentCustomer])
 
   // ── Save state to sessionStorage on change ───────────────────────────────────
   useEffect(() => {
@@ -680,6 +702,17 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   const [imageFile, setImageFile]         = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Crop image utility states
+  const [cropModalOpen, setCropModalOpen] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState('')
+  const [cropZoom, setCropZoom] = useState(1)
+  const [cropPan, setCropPan] = useState({ x: 0, y: 0 })
+  const [imageDimensions, setImageDimensions] = useState({ w: 0, h: 0 })
+  const [rawFile, setRawFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [dragStartPan, setDragStartPan] = useState({ x: 0, y: 0 })
 
   // ── Voice input ──────────────────────────────────────────────────────────────
   const [isListening, setIsListening]     = useState(false)
@@ -758,11 +791,12 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   }
 
   // ── Image: client-side pre-validation ────────────────────────────────────────
+  // ── Image: client-side pre-validation & cropping trigger ─────────────────────
   function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Client-side pre-validation using flag config (server also validates)
+    // Client-side pre-validation using flag config
     const maxMb = typeof imageFlag.config?.max_size_mb === 'number' ? imageFlag.config.max_size_mb : 8
     const allowed = Array.isArray(imageFlag.config?.allowed_types)
       ? (imageFlag.config.allowed_types as string[])
@@ -778,8 +812,98 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
     }
 
     setAiError('')
-    setImageFile(file)
-    setImagePreviewUrl(URL.createObjectURL(file))
+    setRawFile(file)
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setCropImageSrc(event.target.result as string)
+        setCropZoom(1)
+        setCropPan({ x: 0, y: 0 })
+        setCropModalOpen(true)
+      }
+    }
+    reader.readAsDataURL(file)
+
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // Interactive Drag & Pan Handlers
+  const handleDragStart = (clientX: number, clientY: number) => {
+    setIsDragging(true)
+    setDragStart({ x: clientX, y: clientY })
+    setDragStartPan({ x: cropPan.x, y: cropPan.y })
+  }
+
+  const handleDragMove = (clientX: number, clientY: number) => {
+    if (!isDragging) return
+    const dx = clientX - dragStart.x
+    const dy = clientY - dragStart.y
+    setCropPan({
+      x: dragStartPan.x + dx,
+      y: dragStartPan.y + dy
+    })
+  }
+
+  const handleDragEnd = () => {
+    setIsDragging(false)
+  }
+
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget
+    const containerSize = 300
+    const imgRatio = img.naturalWidth / img.naturalHeight
+    let w = containerSize
+    let h = containerSize
+
+    if (imgRatio > 1) {
+      // Landscape: fit width, scale height down (completely visible / contain)
+      w = containerSize
+      h = containerSize / imgRatio
+    } else {
+      // Portrait/Square: fit height, scale width down (completely visible / contain)
+      h = containerSize
+      w = containerSize * imgRatio
+    }
+    setImageDimensions({ w, h })
+  }
+
+  const handleConfirmCrop = () => {
+    if (!cropImageSrc) return
+
+    const canvas = document.createElement('canvas')
+    canvas.width = 300
+    canvas.height = 300
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const img = new Image()
+    img.onload = () => {
+      ctx.fillStyle = '#090d16'
+      ctx.fillRect(0, 0, 300, 300)
+
+      ctx.translate(150, 150)
+      ctx.scale(cropZoom, cropZoom)
+
+      const w = imageDimensions.w
+      const h = imageDimensions.h
+      const drawX = (cropPan.x / cropZoom) - w / 2
+      const drawY = (cropPan.y / cropZoom) - h / 2
+
+      ctx.drawImage(img, drawX, drawY, w, h)
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const croppedFile = new File([blob], rawFile?.name || 'cropped-image.jpg', {
+            type: blob.type || 'image/jpeg'
+          })
+          setImageFile(croppedFile)
+          setImagePreviewUrl(URL.createObjectURL(croppedFile))
+          setCropModalOpen(false)
+        }
+      }, rawFile?.type || 'image/jpeg', 0.92)
+    }
+    img.src = cropImageSrc
   }
 
   function removeImage() {
@@ -913,6 +1037,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
         // Product-link specific traceability fields
         ...(edited.sourceUrl ? { sourceUrl: edited.sourceUrl }     : {}),
         ...(edited.imageUrl  ? { productImageUrl: edited.imageUrl } : {}),
+        ...(edited.imagePath ? { reference_image_path: edited.imagePath } : {}),
       },
     }))
 
@@ -1038,7 +1163,8 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
   }
 
   return (
-    <div className="wizard-container" dir={isAr ? 'rtl' : 'ltr'} data-testid="start-request-page">
+    <>
+      <div className="wizard-container" dir={isAr ? 'rtl' : 'ltr'} data-testid="start-request-page">
       {/* Decorative Glow */}
       <div className="wizard-glow-top" />
       <div className="wizard-glow-bottom" />
@@ -1236,68 +1362,98 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
           {/* Category Grid */}
           <h2 className="wizard-step-title">{isAr ? 'ماذا تبحث عنه؟' : 'What are you looking for?'}</h2>
           <div className="wizard-categories-grid">
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  setFormData({ 
-                    ...formData, 
-                    category: cat.id,
-                    subcategory: '',
-                    customSpecs: {},
-                    advancedSpecs: {}
-                  })
-                }}
-                className={`wizard-category-btn ${formData.category === cat.id ? 'is-selected' : ''}`}
-                data-testid={`wizard-category-${cat.id}`}
-              >
-                <div className="wizard-category-icon">{cat.icon}</div>
-                <div className="wizard-category-label">{cat.label}</div>
-              </button>
-            ))}
-          </div>
-
-          {/* Subcategory Selector */}
-          {formData.category && SUBCATEGORIES_MAP[formData.category] && (
-            <div className="wizard-subcategory-section mt-8 animate-fade-in text-start">
-              <h3 className="wizard-step-subtitle text-sm font-bold mb-4 text-center text-[hsl(258,89%,76%)]">
-                {isAr ? 'اختر التصنيف الفرعي الأكثر دقة:' : 'Choose the most accurate subcategory:'}
-              </h3>
-              <div className="wizard-subcategories-grid">
-                {SUBCATEGORIES_MAP[formData.category].map(sub => (
+            {categories.map(cat => {
+              const isSelected = formData.category === cat.id
+              return (
+                <React.Fragment key={cat.id}>
                   <button
-                    key={sub.id}
                     type="button"
                     onClick={() => {
-                      setFormData({ 
-                        ...formData, 
-                        subcategory: sub.id,
-                        customSpecs: {}
-                      })
+                      if (isSelected) {
+                        // Clicked same category -> Toggle close (clear selection)
+                        setFormData({ 
+                          ...formData, 
+                          category: '',
+                          subcategory: '',
+                          customSpecs: {},
+                          advancedSpecs: {}
+                        })
+                      } else {
+                        // Clicked different category -> Open subcategory box
+                        setFormData({ 
+                          ...formData, 
+                          category: cat.id,
+                          subcategory: '',
+                          customSpecs: {},
+                          advancedSpecs: {}
+                        })
+                      }
                     }}
-                    className={`wizard-subcategory-btn ${formData.subcategory === sub.id ? 'is-selected' : ''}`}
+                    className={`wizard-category-btn ${isSelected ? 'is-selected' : ''}`}
+                    data-testid={`wizard-category-${cat.id}`}
                   >
-                    <span className="wizard-sub-icon">{sub.icon}</span>
-                    <span>{isAr ? sub.labelAr : sub.labelEn}</span>
+                    <div className="wizard-category-icon">{cat.icon}</div>
+                    <div className="wizard-category-label">{cat.label}</div>
                   </button>
-                ))}
-              </div>
 
-              {formData.subcategory && (
-                <div style={{ display: 'block', width: '100%', marginTop: '32px', textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={() => setStep(STEP_DETAILS)}
-                    className="wizard-btn-primary"
-                    data-testid="wizard-continue-details"
-                  >
-                    {isAr ? 'متابعة تفاصيل المنتج ←' : 'Continue to Product Details ←'}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                  {/* Render the subcategory selector directly below the selected button, spanning full grid width */}
+                  {isSelected && SUBCATEGORIES_MAP[cat.id] && (
+                    <div 
+                      ref={subcategoryRef} 
+                      className="wizard-subcategory-section animate-fade-in text-start"
+                      style={{
+                        gridColumn: '1 / -1',
+                        width: '100%',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderRadius: '16px',
+                        padding: '24px',
+                        marginTop: '10px',
+                        marginBottom: '10px',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <h3 className="wizard-step-subtitle text-sm font-bold mb-4 text-center text-[hsl(258,89%,76%)]">
+                        {isAr ? 'اختر التصنيف الفرعي الأكثر دقة:' : 'Choose the most accurate subcategory:'}
+                      </h3>
+                      <div className="wizard-subcategories-grid">
+                        {SUBCATEGORIES_MAP[cat.id].map(sub => (
+                          <button
+                            key={sub.id}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ 
+                                ...formData, 
+                                subcategory: sub.id,
+                                customSpecs: {}
+                              })
+                            }}
+                            className={`wizard-subcategory-btn ${formData.subcategory === sub.id ? 'is-selected' : ''}`}
+                          >
+                            <span className="wizard-sub-icon">{sub.icon}</span>
+                            <span>{isAr ? sub.labelAr : sub.labelEn}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {formData.subcategory && (
+                        <div style={{ display: 'block', width: '100%', marginTop: '32px', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => setStep(STEP_DETAILS)}
+                            className="wizard-btn-primary"
+                            data-testid="wizard-continue-details"
+                          >
+                            {isAr ? 'متابعة تفاصيل المنتج ←' : 'Continue to Product Details ←'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </React.Fragment>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -1355,7 +1511,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
             confidence={aiData.confidence}
             isAr={isAr}
             onConfirm={handleReviewConfirm}
-            onBack={() => setStep(step === STEP_REVIEW && lookupPhone ? STEP_RETURNING : STEP_CATEGORY)}
+            onBack={() => setStep((step === STEP_REVIEW && lookupPhone && !currentCustomer) ? STEP_RETURNING : STEP_CATEGORY)}
           />
         </div>
       )}
@@ -1560,7 +1716,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
       {/* ── STEP 3: Location & Budget ─────────────────────────────────────────── */}
       {step === STEP_LOCATION && (
-        <form onSubmit={e => { e.preventDefault(); setStep(STEP_INTAKE) }} className="relative z-10">
+        <form onSubmit={e => { e.preventDefault(); if (currentCustomer) { handleSubmit(e); } else { setStep(STEP_INTAKE); } }} className="relative z-10">
           <div className="wizard-step-panel space-y-6">
             <h2 className="wizard-step-title">{isAr ? 'المكان والميزانية' : 'Location & Budget'}</h2>
 
@@ -1579,7 +1735,12 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
 
             <div className="wizard-actions">
               <button type="button" onClick={() => setStep(STEP_DETAILS)} className="wizard-btn-secondary">{isAr ? 'رجوع' : 'Back'}</button>
-              <button type="submit" disabled={!formData.targetLocation} className="wizard-btn-primary" data-testid="wizard-next-location">{isAr ? 'التالي' : 'Next'}</button>
+              <button type="submit" disabled={!formData.targetLocation || isSubmitting} className="wizard-btn-primary" data-testid="wizard-next-location">
+                {currentCustomer 
+                  ? (isSubmitting ? (isAr ? 'جاري الإرسال...' : 'Sending...') : (isAr ? 'إرسال الطلب 🚀' : 'Submit Request 🚀'))
+                  : (isAr ? 'التالي' : 'Next')
+                }
+              </button>
             </div>
           </div>
         </form>
@@ -1637,15 +1798,7 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
               </div>
             )}
 
-            {/* Target Location input — required for database request creation */}
-            <div className="wizard-form-group" style={{ marginTop: '16px' }}>
-              <label className="wizard-label">{isAr ? 'المدينة / المنطقة (لتوصيل العروض) *' : 'City / Region (for delivering offers) *'}</label>
-              <input required
-                value={formData.targetLocation}
-                onChange={e => setFormData({ ...formData, targetLocation: e.target.value })}
-                className="wizard-input"
-                placeholder={isAr ? 'مثال: القاهرة، المعادي' : 'e.g. Cairo, Maadi'} />
-            </div>
+            {/* No duplicate targetLocation field requested on STEP_INTAKE anymore since it is already fully answered on STEP_LOCATION */}
 
             <div className="wizard-actions wizard-footer-actions">
               <button type="button" onClick={prevStep} disabled={isSubmitting} className="wizard-btn-secondary">{isAr ? 'رجوع' : 'Back'}</button>
@@ -1656,6 +1809,124 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
           </div>
         </form>
       )}
+
+      </div>
+
+      <Modal
+        isOpen={cropModalOpen}
+        onClose={() => setCropModalOpen(false)}
+        title={isAr ? 'قص وتعديل الصورة ✂️' : 'Crop Image ✂️'}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0, textAlign: 'start' }}>
+            {isAr 
+              ? 'قم بسحب الصورة داخل الإطار لتحديد الجزء المراد، واستخدم الشريط للتكبير والتصغير.'
+              : 'Drag the image inside the frame to adjust, use slider to zoom in and out.'}
+          </p>
+
+          <div 
+            style={{ 
+              position: 'relative', 
+              width: '300px', 
+              height: '300px', 
+              overflow: 'hidden', 
+              borderRadius: '16px', 
+              background: '#090d16', 
+              border: '2px solid rgba(255,255,255,0.08)',
+              cursor: isDragging ? 'grabbing' : 'grab',
+              margin: '0 auto',
+              touchAction: 'none' // Prevent screen scrolling while dragging
+            }}
+            onMouseDown={(e) => handleDragStart(e.clientX, e.clientY)}
+            onMouseMove={(e) => handleDragMove(e.clientX, e.clientY)}
+            onMouseUp={handleDragEnd}
+            onMouseLeave={handleDragEnd}
+            onTouchStart={(e) => {
+              if (e.touches[0]) {
+                handleDragStart(e.touches[0].clientX, e.touches[0].clientY)
+              }
+            }}
+            onTouchMove={(e) => {
+              if (e.touches[0]) {
+                handleDragMove(e.touches[0].clientX, e.touches[0].clientY)
+              }
+            }}
+            onTouchEnd={handleDragEnd}
+          >
+            {cropImageSrc && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={cropImageSrc}
+                alt="Crop Target"
+                onLoad={handleImageLoad}
+                style={{
+                  position: 'absolute',
+                  width: `${imageDimensions.w}px`,
+                  height: `${imageDimensions.h}px`,
+                  left: `calc(50% + ${cropPan.x}px)`,
+                  top: `calc(50% + ${cropPan.y}px)`,
+                  transform: `translate(-50%, -50%) scale(${cropZoom})`,
+                  transformOrigin: 'center',
+                  pointerEvents: 'none',
+                  userSelect: 'none'
+                }}
+              />
+            )}
+            {/* Crop Frame Overlay */}
+            <div 
+              style={{ 
+                position: 'absolute', 
+                inset: 0, 
+                pointerEvents: 'none', 
+                border: '2px dashed rgba(255, 255, 255, 0.4)', 
+                borderRadius: '16px',
+                boxShadow: '0 0 0 9999px rgba(9, 13, 22, 0.65)' 
+              }}
+            />
+          </div>
+
+          {/* Zoom Slider */}
+          <div dir="ltr" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>
+              <span>{isAr ? 'تصغير' : 'Zoom Out'}</span>
+              <span>{isAr ? 'تكبير' : 'Zoom In'}</span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="3"
+              step="0.01"
+              value={cropZoom}
+              onChange={(e) => setCropZoom(parseFloat(e.target.value))}
+              style={{
+                width: '100%',
+                accentColor: 'hsl(258,89%,66%)',
+                cursor: 'pointer'
+              }}
+            />
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
+            <button 
+              type="button" 
+              onClick={() => setCropModalOpen(false)} 
+              className="wizard-btn-secondary"
+              style={{ padding: '10px 20px', fontSize: '12px' }}
+            >
+              {isAr ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button 
+              type="button" 
+              onClick={handleConfirmCrop} 
+              className="wizard-btn-primary"
+              style={{ padding: '10px 20px', fontSize: '12px', background: 'linear-gradient(90deg, hsl(258,89%,66%) 0%, hsl(258,89%,76%) 100%)' }}
+            >
+              {isAr ? 'قص وحفظ ✂️' : 'Crop & Save ✂️'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={showMicPermissionModal}
@@ -2267,6 +2538,6 @@ export default function RequestWizardClient({ locale }: { locale: string }) {
         /* Select options dark background */
         .wizard-select option, select.wizard-input-sm option { background: #0b0f19; color: white; }
       ` }} />
-    </div>
+    </>
   )
 }

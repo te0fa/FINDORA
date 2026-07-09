@@ -327,6 +327,17 @@ export async function confirmPaymentIntentSystem(params: {
   const { unlockAllSnapshotsForRequest } = await import('./reports');
   await unlockAllSnapshotsForRequest(intent.request_id);
 
+  // 7. Update referral log to first_transaction status
+  try {
+    const { data: customer } = await db.from('customers').select('email').eq('id', intent.customer_id).single();
+    if (customer?.email) {
+      const { updateReferralStatus } = await import('./points');
+      await updateReferralStatus(customer.email, 'first_transaction');
+    }
+  } catch (err) {
+    log.warn('[PAYMENTS] Referral status update failed:', err);
+  }
+
   return updated;
 }
 

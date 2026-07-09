@@ -9,9 +9,10 @@ interface SignupClientProps {
   locale: string
   dict: any
   errorMsg?: string
+  initialReferralCode?: string
 }
 
-export default function SignupClient({ locale, dict, errorMsg }: SignupClientProps) {
+export default function SignupClient({ locale, dict, errorMsg, initialReferralCode }: SignupClientProps) {
   const router = useRouter()
   const [step, setStep] = useState<1 | 2>(1)
   const [loading, setLoading] = useState(false)
@@ -22,6 +23,7 @@ export default function SignupClient({ locale, dict, errorMsg }: SignupClientPro
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
+  const [referralCode, setReferralCode] = useState(initialReferralCode || '')
   const [otp, setOtp] = useState('')
 
   const isRTL = locale === 'ar'
@@ -67,6 +69,7 @@ export default function SignupClient({ locale, dict, errorMsg }: SignupClientPro
       formData.append('email', email)
       formData.append('phone', phone)
       formData.append('password', password)
+      formData.append('referralCode', referralCode)
 
       // The server action handles redirect on success or error on failure
       const resSignup = await signup(formData)
@@ -154,6 +157,20 @@ export default function SignupClient({ locale, dict, errorMsg }: SignupClientPro
               minLength={6}
               className="premium-input"
               data-testid="signup-password-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="referralCode">{isRTL ? 'كود الإحالة / الدعوة (اختياري)' : 'Referral / Invite Code (Optional)'}</label>
+            <input
+              type="text"
+              id="referralCode"
+              name="referralCode"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              placeholder="FIND-8E72B3D8"
+              className="premium-input"
+              dir="ltr"
             />
           </div>
 

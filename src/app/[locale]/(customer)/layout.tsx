@@ -3,8 +3,7 @@ import Image from 'next/image'
 import { signOut } from '../auth/actions'
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { Locale } from "@/lib/i18n/config"
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-import HeaderLogo from "@/components/HeaderLogo";
+import CustomerNavClient from './CustomerNavClient'
 
 export default async function CustomerLayout({
   children,
@@ -15,57 +14,11 @@ export default async function CustomerLayout({
 }) {
   const { locale } = await params;
   const dict = await getDictionary(locale as Locale)
-  const isRTL = locale === 'ar'
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#020617', color: '#f8fafc' }}>
-      <header style={{ 
-        background: 'rgba(2, 6, 23, 0.8)', 
-        backdropFilter: 'blur(12px)', 
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)' 
-      }}>
-        <div className="container header-flex-container flex justify-between items-center py-4" dir="ltr">
-          <HeaderLogo locale={locale} href={`/${locale}/dashboard`} />
-          <nav className="flex gap-4 items-center header-nav-container" dir="ltr">
-            <Link href={`/${locale}/dashboard`} className="link">{dict.navigation.dashboard}</Link>
-            <Link href={`/${locale}/savings`} className="link">{isRTL ? 'سجل التوفير & VIP' : 'Savings & VIP'}</Link>
-            <Link href={`/${locale}/settings`} className="link">{dict.navigation.settings || 'Settings'}</Link>
-            <Link href={`/${locale}/start-request`} className="link">{dict.customer_dashboard.new_request}</Link>
-            <LanguageSwitcher currentLocale={locale as Locale} />
-            <form action={signOut}>
-              <button type="submit" className="btn-secondary" style={{ marginTop: 0, padding: '0.5rem 1rem', width: 'auto' }}>
-                {dict.navigation.logout}
-              </button>
-            </form>
-          </nav>
-        </div>
-        <style>{`
-          @media (max-width: 768px) {
-            .header-flex-container {
-              flex-direction: column !important;
-              gap: 0.75rem !important;
-              padding-top: 1rem !important;
-              padding-bottom: 1rem !important;
-              align-items: center !important;
-            }
-            .header-nav-container {
-              flex-wrap: wrap !important;
-              justify-content: center !important;
-              gap: 0.5rem 0.75rem !important;
-              font-size: 0.85rem !important;
-              width: 100% !important;
-            }
-            .header-nav-container .link {
-              padding: 0.2rem 0.4rem !important;
-            }
-            .header-nav-container button {
-              padding: 0.4rem 0.8rem !important;
-              font-size: 0.8rem !important;
-            }
-          }
-        `}</style>
-      </header>
-      <main className="flex-1 container py-8">
+    <div className="min-h-screen flex flex-col" style={{ background: '#020617', color: '#f8fafc', display: 'flex', flexDirection: 'column', minHeight: '100vh', overflowY: 'visible' }}>
+      <CustomerNavClient locale={locale} dict={dict} signOutAction={signOut} />
+      <main className="flex-1 container py-8" style={{ flex: '1 0 auto', display: 'block', overflowY: 'visible' }}>
         {children}
       </main>
     </div>

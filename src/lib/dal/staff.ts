@@ -890,7 +890,7 @@ export async function getReviewerPerformanceByStaffId(staffId: string) {
   const [decisionsRes, aiRunsRes, reqsRes, historyRes] = await Promise.all([
     adminClient
       .from('requests')
-      .select('reviewer_decision, id')
+      .select('reviewer_decision, id, reviewer_decided_at')
       .eq('reviewer_decided_by_staff_id', staffId)
       .not('reviewer_decision', 'is', null),
     adminClient
@@ -919,7 +919,12 @@ export async function getReviewerPerformanceByStaffId(staffId: string) {
   const ai_assists_used = aiRunsRes.data?.length || 0
   const assigned_total = reqsRes.data?.length || 0
   const reports_ready = reqsRes.data?.filter((r: any) => r.current_status === 'ready' || r.current_status === 'closed').length || 0
-  const myStaffCompletedToday = historyRes.data?.length || 0
+  
+  const myStaffCompletedToday = decisions.filter((r: any) => {
+    if (!r.reviewer_decided_at) return false
+    const actionDate = new Date(r.reviewer_decided_at).toISOString().split('T')[0]
+    return actionDate === today
+  }).length
 
   return {
     total_reviewed,
@@ -940,7 +945,7 @@ export async function getAdminGlobalStats(staffId?: string, authUserId?: string)
 
   // Fetch base fields for state resolution + client_released_at from view + running jobs
   const [reqsRes, uiStatusRes, jobsRes, slaRes, historyRes, aiRunsRes, staffHistoryRes] = await Promise.all([
-    adminClient.from('requests').select('id, current_status, reviewer_decision, assigned_reviewer_staff_id, is_archived'),
+    adminClient.from('requests').select('id, current_status, reviewer_decision, assigned_reviewer_staff_id, is_archived, reviewer_decided_at, reviewer_decided_by_staff_id'),
     adminClient.from('v_request_ui_status').select('request_id, client_released_at'),
     adminClient.from('v_staff_job_queue').select('request_id, assigned_to_user_id, status').eq('status', 'running'),
     adminClient.from('v_request_sla_monitoring').select('request_id, sla_status'),
@@ -1042,17 +1047,32 @@ export async function getAdminGlobalStats(staffId?: string, authUserId?: string)
   const aiFailed = Array.from(aiFailedIds).filter(reqId => activeRequestIds.has(reqId)).length
 
   // STAFF COMPLETED METRICS
-  const staffActions = staffHistoryRes.data || []
-  const staffCompletedTotal = staffActions.length
-  
-  const staffCompletedTodayCount = staffActions.filter((a: any) => {
-    const actionDate = new Date(a.created_at).toISOString().split('T')[0]
-    return actionDate === today && (staffId ? a.changed_by_staff_id === staffId : true)
-  }).length
+  const todayDecidedRows = resolvedRows.filter(r => {
+    if (!r.reviewer_decided_at) return false
+    const actionDate = new Date(r.reviewer_decided_at).toISOString().split('T')[0]
+    return actionDate === today && (staffId ? r.reviewer_decided_by_staff_id === staffId : true)
+  })
 
-  const slaBreached = resolvedRows.filter(r => slaMap.get(r.id) === 'breached').length
-  const slaAtRisk = resolvedRows.filter(r => slaMap.get(r.id) === 'at_risk').length
+  const staffApprovedToday = todayDecidedRows.filter(r => r.reviewer_decision === 'approve').length
+  const staffRejectedToday = todayDecidedRows.filter(r => r.reviewer_decision === 'reject').length
+  const staffPendingToday = todayDecidedRows.filter(r => r.reviewer_decision === 'needs_clarification').length
+  const staffCompletedTodayCount = todayDecidedRows.length
+
+  const staffCompletedTotal = resolvedRows.filter(r => 
+    r.reviewer_decided_at && (staffId ? r.reviewer_decided_by_staff_id === staffId : true)
+  ).length
+
+  const breachedRequests = resolvedRows.filter(r => slaMap.get(r.id) === 'breached')
+  const atRiskRequests = resolvedRows.filter(r => slaMap.get(r.id) === 'at_risk')
+  const failedAiIdsFiltered = Array.from(aiFailedIds).filter(reqId => activeRequestIds.has(reqId))
+
+  const slaBreached = breachedRequests.length
+  const slaAtRisk = atRiskRequests.length
   const slaOnTrack = resolvedRows.filter(r => slaMap.get(r.id) === 'on_track').length
+
+  const slaBreachedRequestIds = breachedRequests.map(r => r.id)
+  const slaAtRiskRequestIds = atRiskRequests.map(r => r.id)
+  const aiFailedRequestIds = failedAiIdsFiltered
 
   return {
     totalRequests,
@@ -1074,10 +1094,16 @@ export async function getAdminGlobalStats(staffId?: string, authUserId?: string)
     aiFailed,
     staffCompletedTotal,
     staffCompletedToday: staffCompletedTodayCount,
+    staffApprovedToday,
+    staffRejectedToday,
+    staffPendingToday,
     slaBreached,
     slaAtRisk,
     slaOnTrack,
-    reassignedCount: reassignmentData.length
+    reassignedCount: reassignmentData.length,
+    slaBreachedRequestIds,
+    slaAtRiskRequestIds,
+    aiFailedRequestIds
   }
 }
 

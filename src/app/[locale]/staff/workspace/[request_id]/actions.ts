@@ -698,3 +698,66 @@ export async function handleGenerateFinalSynthesisProposal(formData: FormData) {
   await generateFinalProposalSynthesisAction(requestId, locale)
   revalidatePath(`/${locale}/staff/workspace/${requestId}`)
 }
+
+export async function handleSendClarificationMessage(formData: FormData) {
+  const requestId = formData.get('requestId') as string
+  const messageText = (formData.get('messageText') as string) || ''
+  const locale = (formData.get('locale') as string) || 'en'
+
+  if (!requestId || !messageText.trim()) {
+    throw new Error('Missing requestId or messageText')
+  }
+
+  const { staffMember } = await getActionPermissions(requestId, locale)
+
+  const { createAdminClient } = await import('@/lib/dal/customers')
+  const adminClient = await createAdminClient()
+
+  // 1. Fetch request details to get customer ID and code
+  const { data: request, error: fetchErr } = await adminClient
+    .from('requests')
+    .select('id, request_code, customer_id')
+    .eq('id', requestId)
+    .single()
+
+  if (fetchErr || !request) {
+    throw new Error('Request not found')
+  }
+
+  // 2. Insert message into request_messages table
+  const { error: insertErr } = await adminClient
+    .from('request_messages')
+    .insert({
+      request_id: requestId,
+      sender_type: 'staff',
+      sender_id: staffMember.auth_user_id || staffMember.id,
+      message: messageText.trim()
+    })
+
+  if (insertErr) {
+    throw new Error(`Failed to save message to chat table: ${insertErr.message}`)
+  }
+
+  // 3. Send email notification to customer
+  const { sendClarificationEmail } = await import('@/lib/notifications/email')
+  if (request.customer_id) {
+    await sendClarificationEmail({
+      customerId: request.customer_id,
+      requestCode: request.request_code,
+      messageText: messageText.trim(),
+      locale,
+      requestId: request.id
+    })
+  }
+
+  // 4. Log Timeline event
+  const { logTimelineEvent } = await import('@/lib/dal/timeline')
+  await logTimelineEvent({
+    requestId,
+    transitionName: 'CLARIFICATION_REQUESTED',
+    notes: `Staff query sent to customer: "${messageText.trim().substring(0, 60)}..."`,
+    changedByStaffId: staffMember.id
+  })
+
+  revalidatePath(`/${locale}/staff/workspace/${requestId}`)
+}

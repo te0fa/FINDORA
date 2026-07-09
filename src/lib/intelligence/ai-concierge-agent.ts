@@ -72,6 +72,7 @@ export interface AIExtractedData {
   imageUrl?: string | null
   /** Present only for product_link source — the original submitted URL */
   sourceUrl?: string | null
+  imagePath?: string | null
 }
 
 export type ConciergeResult =

@@ -19,9 +19,9 @@ import { DashboardQuickActions } from './DashboardQuickActions'
 // -------------------------------------------------------------
 // UI COMPONENTS
 // -------------------------------------------------------------
-function KpiCard({ label, value, trend, isPositive, icon, color = "#fff", subtitle }: { label: string; value: string | number; trend?: string; isPositive?: boolean; icon?: string; color?: string; subtitle?: string }) {
-  return (
-    <div className="kpi-card" style={{ '--accent': color } as React.CSSProperties}>
+function KpiCard({ label, value, trend, isPositive, icon, color = "#fff", subtitle, href }: { label: string; value: string | number; trend?: string; isPositive?: boolean; icon?: string; color?: string; subtitle?: string; href?: string }) {
+  const cardContent = (
+    <>
       <div className="kpi-icon">{icon}</div>
       <div className="kpi-content">
         <h3 className="kpi-label">{label}</h3>
@@ -35,6 +35,20 @@ function KpiCard({ label, value, trend, isPositive, icon, color = "#fff", subtit
         </div>
         {subtitle && <div className="kpi-subtitle">{subtitle}</div>}
       </div>
+    </>
+  )
+
+  if (href) {
+    return (
+      <Link href={href} className="kpi-card" style={{ '--accent': color, textDecoration: 'none', cursor: 'pointer' } as React.CSSProperties}>
+        {cardContent}
+      </Link>
+    )
+  }
+
+  return (
+    <div className="kpi-card" style={{ '--accent': color } as React.CSSProperties}>
+      {cardContent}
     </div>
   )
 }
@@ -260,34 +274,70 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
 
       {/* TOP LEVEL KPIs (Investor Ready) */}
       <section className="kpi-grid">
-        <KpiCard 
-          label={locale === 'ar' ? 'إجمالي الإيرادات (Gross Revenue)' : 'Gross Revenue'}
-          value={`${grossRevenue.toLocaleString(isRTL ? 'ar-EG' : 'en-US')} EGP`}
-          trend={grossRevenue > 0 ? "12.5%" : undefined} isPositive={true}
-          icon="💰" color="#10b981"
-          subtitle={locale === 'ar' ? 'حقيقية من دفتر الخزينة' : 'Real-time from Financial Ledger'}
-        />
-        <KpiCard 
-          label={locale === 'ar' ? 'صافي الربح (Net Profit)' : 'Net Profit'}
-          value={`${netProfit.toLocaleString(isRTL ? 'ar-EG' : 'en-US')} EGP`}
-          trend={netProfit > 0 ? "8.2%" : undefined} isPositive={true}
-          icon="📈" color="#3b82f6"
-          subtitle={locale === 'ar' ? 'بعد خصم جميع المصروفات المسجلة' : 'After deducting all recorded expenses'}
-        />
-        <KpiCard 
-          label={locale === 'ar' ? 'العملاء النشطين (Active Customers)' : 'Active Customers'}
-          value={activeCustomers.toLocaleString()}
-          trend={activeCustomers > 0 ? "5.1%" : undefined} isPositive={true}
-          icon="👥" color="#8b5cf6"
-          subtitle={locale === 'ar' ? 'العملاء الذين قاموا بعمليات مؤخراً' : 'Customers with recent successful orders'}
-        />
-        <KpiCard 
-          label={locale === 'ar' ? 'إجمالي الطلبات (Total Requests)' : 'Total Requests'}
-          value={displayStats.totalRequests.toLocaleString()}
-          trend={displayStats.totalRequests > 0 ? "2.4%" : undefined} isPositive={true}
-          icon="📦" color="#f59e0b"
-          subtitle={locale === 'ar' ? 'حجم العمليات الكلي على المنصة' : 'Total operational volume on the platform'}
-        />
+        {permissions.isAdmin || permissions.canManageFinancials ? (
+          <>
+            <KpiCard 
+              label={locale === 'ar' ? 'إجمالي الإيرادات (Gross Revenue)' : 'Gross Revenue'}
+              value={`${grossRevenue.toLocaleString(isRTL ? 'ar-EG' : 'en-US')} EGP`}
+              trend={grossRevenue > 0 ? "12.5%" : undefined} isPositive={true}
+              icon="💰" color="#10b981"
+              subtitle={locale === 'ar' ? 'حقيقية من دفتر الخزينة' : 'Real-time from Financial Ledger'}
+            />
+            <KpiCard 
+              label={locale === 'ar' ? 'صافي الربح (Net Profit)' : 'Net Profit'}
+              value={`${netProfit.toLocaleString(isRTL ? 'ar-EG' : 'en-US')} EGP`}
+              trend={netProfit > 0 ? "8.2%" : undefined} isPositive={true}
+              icon="📈" color="#3b82f6"
+              subtitle={locale === 'ar' ? 'بعد خصم جميع المصروفات المسجلة' : 'After deducting all recorded expenses'}
+            />
+            <KpiCard 
+              label={locale === 'ar' ? 'العملاء النشطين (Active Customers)' : 'Active Customers'}
+              value={activeCustomers.toLocaleString()}
+              trend={activeCustomers > 0 ? "5.1%" : undefined} isPositive={true}
+              icon="👥" color="#8b5cf6"
+              subtitle={locale === 'ar' ? 'العملاء الذين قاموا بعمليات مؤخراً' : 'Customers with recent successful orders'}
+            />
+            <KpiCard 
+              label={locale === 'ar' ? 'إجمالي الطلبات (Total Requests)' : 'Total Requests'}
+              value={displayStats.totalRequests.toLocaleString()}
+              trend={displayStats.totalRequests > 0 ? "2.4%" : undefined} isPositive={true}
+              icon="📦" color="#f59e0b"
+              subtitle={locale === 'ar' ? 'حجم العمليات الكلي على المنصة' : 'Total operational volume on the platform'}
+              href={`/${locale}/staff/queue`}
+            />
+          </>
+        ) : (
+          <>
+            <KpiCard 
+              label={locale === 'ar' ? 'المهام المعينة لي (My Tasks)' : 'My Assigned Tasks'}
+              value={assignedLoad}
+              icon="📋" color="#3b82f6"
+              subtitle={locale === 'ar' ? 'الطلب قيد المراجعة والمعالجة الخاصة بك' : 'Requests assigned to you currently'}
+              href={`/${locale}/staff/queue?view=intake&decision=no_decision_yet`}
+            />
+            <KpiCard 
+              label={locale === 'ar' ? 'الطلبات المراجعة (Reviewed Requests)' : 'Reviewed Requests'}
+              value={performance.total_reviewed}
+              icon="✅" color="#10b981"
+              subtitle={locale === 'ar' ? 'إجمالي القرارات التي اتخذتها' : 'Total decisions made by you'}
+              href={`/${locale}/staff/queue?view=intake&decision=all`}
+            />
+            <KpiCard 
+              label={locale === 'ar' ? 'معدل القبول (Approval Rate)' : 'Approval Rate'}
+              value={`${performance.approval_rate}%`}
+              icon="📈" color="#8b5cf6"
+              subtitle={locale === 'ar' ? 'نسبة قبول الطلبات إلى إجمالي المراجعات' : 'Ratio of approved requests'}
+              href={`/${locale}/staff/queue?view=intake&decision=approve`}
+            />
+            <KpiCard 
+              label={locale === 'ar' ? 'أعمالي المنجزة اليوم (Done Today)' : 'Completed Today'}
+              value={performance.myStaffCompletedToday}
+              icon="📅" color="#f59e0b"
+              subtitle={locale === 'ar' ? 'العمليات المكتملة خلال اليوم' : 'Tasks processed today'}
+              href={`/${locale}/staff/queue?view=intake&decision=all`}
+            />
+          </>
+        )}
       </section>
 
       <div className="bento-grid">
@@ -358,7 +408,9 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
                   type="danger"
                   message={locale === 'ar' ? `يوجد ${displayStats.slaBreached} طلبات متأخرة عن الوقت المحدد (SLA Breached).` : `${displayStats.slaBreached} requests have breached their SLA timeframe.`}
                   actionText={locale === 'ar' ? 'مراجعة التأخيرات' : 'Review Breaches'}
-                  actionHref={`/${locale}/staff/queue`}
+                  actionHref={displayStats.slaBreached === 1 && displayStats.slaBreachedRequestIds?.[0]
+                    ? `/${locale}/staff/workspace/${displayStats.slaBreachedRequestIds[0]}`
+                    : `/${locale}/staff/queue?view=operations&sla_status=breached`}
                 />
               )}
               
@@ -367,7 +419,9 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
                   type="warning"
                   message={locale === 'ar' ? `يوجد ${displayStats.slaAtRisk} طلبات معرضة للتأخير قريباً.` : `${displayStats.slaAtRisk} requests are at risk of missing SLA.`}
                   actionText={locale === 'ar' ? 'تسريع العمليات' : 'Expedite Operations'}
-                  actionHref={`/${locale}/staff/queue`}
+                  actionHref={displayStats.slaAtRisk === 1 && displayStats.slaAtRiskRequestIds?.[0]
+                    ? `/${locale}/staff/workspace/${displayStats.slaAtRiskRequestIds[0]}`
+                    : `/${locale}/staff/queue?view=operations&sla_status=at_risk`}
                 />
               )}
 
@@ -376,7 +430,9 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
                   type="danger"
                   message={locale === 'ar' ? `فشلت ${displayStats.aiFailed} مهام للذكاء الاصطناعي وتحتاج تدخل بشري.` : `${displayStats.aiFailed} AI tasks failed and require human intervention.`}
                   actionText={locale === 'ar' ? 'مراجعة الأخطاء' : 'Review Errors'}
-                  actionHref={`/${locale}/staff/queue`}
+                  actionHref={displayStats.aiFailed === 1 && displayStats.aiFailedRequestIds?.[0]
+                    ? `/${locale}/staff/workspace/${displayStats.aiFailedRequestIds[0]}`
+                    : `/${locale}/staff/queue?view=issues`}
                 />
               )}
 
@@ -416,7 +472,7 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
         </div>
       </div>
 
-      <DashboardQuickActions locale={locale} isRTL={isRTL} />
+      <DashboardQuickActions locale={locale} isRTL={isRTL} permissions={permissions} />
     </div>
   )
 }

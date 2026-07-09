@@ -41,6 +41,21 @@ export default async function SimulatedCheckoutPage({
           .update({ status: 'completed' })
           .eq('id', offer.product_id)
 
+        // Trigger referral update
+        try {
+          const { data: customer } = await supabase
+            .from('customers')
+            .select('email')
+            .eq('id', offer.customer_id)
+            .single()
+          if (customer?.email) {
+            const { updateReferralStatus } = require('@/lib/dal/points')
+            await updateReferralStatus(customer.email, 'first_transaction')
+          }
+        } catch (err) {
+          console.error('Referral status update failed:', err)
+        }
+
         // 3. Mark the Offer as accepted
         await supabase
           .from('contributor_submissions')

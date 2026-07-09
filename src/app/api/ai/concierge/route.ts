@@ -66,6 +66,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // ── 3. Image Pre-AI Guards ────────────────────────────────────────────────
     let imageUrl: string | null = null
     let imageMimeType: string | null = null
+    let imagePath: string | null = null
 
     if (imageFile) {
       // Guard 1: size + MIME type (no buffer needed)
@@ -100,11 +101,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const fileName = `temp/${crypto.randomUUID()}.${ext}`
 
       const { error: uploadError } = await admin.storage
-        .from(BUCKET)
-        .upload(fileName, buffer, {
-          contentType: imageFile.type,
-          upsert: false,
-        })
+         .from(BUCKET)
+         .upload(fileName, buffer, {
+           contentType: imageFile.type,
+           upsert: false,
+         })
 
       if (uploadError) {
         log.error('[concierge] Storage upload failed:', uploadError.message)
@@ -135,6 +136,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       imageUrl = signedUrlData.signedUrl
       imageMimeType = imageFile.type
+      imagePath = fileName
       log.info(`[concierge] Image uploaded → signed URL created (expiry: ${SIGNED_URL_EXPIRY_SECONDS}s)`)
     }
 
@@ -160,7 +162,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({
       rejected: false,
-      data: aiResult.data,
+      data: {
+        ...aiResult.data,
+        imageUrl: imageUrl || undefined,
+        imagePath: imagePath || undefined,
+      },
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)

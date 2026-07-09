@@ -1,5 +1,6 @@
 import React from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCustomerByAuthId } from '@/lib/dal/customers'
 import { getCustomerRequests } from '@/lib/dal/requests'
 import { getCustomerPointsBalance, getCustomerPointsLedger, getCustomerWaitlist } from '@/lib/dal/points'
@@ -12,12 +13,17 @@ export const metadata = {
   title: 'Savings & VIP Hub — FINDORA',
 }
 
-export default async function SavingsPage({
-  params
-}: {
+interface PageProps {
   params: Promise<{ locale: string }>
-}) {
+  searchParams: Promise<{ tab?: string }>
+}
+
+export default async function SavingsPage({
+  params,
+  searchParams
+}: PageProps) {
   const { locale } = await params;
+  const { tab } = await searchParams;
   const isAr = locale === 'ar'
   const dict = await getDictionary(locale as Locale)
   
@@ -37,8 +43,18 @@ export default async function SavingsPage({
   const waitlist = await getCustomerWaitlist(customer.id)
   const requests = await getCustomerRequests(customer.id)
 
+  // Fetch global requests and bids to compute genuine price trends
+  const adminClient = await createAdminClient()
+  const { data: globalRequests = [] } = await adminClient
+    .from('customer_requests')
+    .select('id, category, max_price')
+
+  const { data: globalBids = [] } = await adminClient
+    .from('vendor_bids')
+    .select('request_id, price_amount')
+
   return (
-    <div dir={isAr ? 'rtl' : 'ltr'} className="min-h-screen text-slate-100 p-2 md:p-6">
+    <div dir={isAr ? 'rtl' : 'ltr'} className="text-slate-100 p-2 md:p-6" style={{ overflowY: 'visible', display: 'block', width: '100%' }}>
       <SavingsClient 
         locale={locale}
         pointBalance={pointBalance}
@@ -46,6 +62,9 @@ export default async function SavingsPage({
         ledger={ledger}
         waitlist={waitlist}
         customerId={customer.id}
+        initialTab={tab}
+        globalRequests={globalRequests || []}
+        globalBids={globalBids || []}
       />
     </div>
   )

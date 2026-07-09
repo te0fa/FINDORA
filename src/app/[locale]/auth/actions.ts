@@ -152,6 +152,7 @@ export async function signup(formData: FormData) {
   const password = formData.get('password') as string
   const fullName = formData.get('fullName') as string
   const phone = formData.get('phone') as string
+  const referralCode = (formData.get('referralCode') as string || '').trim()
 
   try {
     const { data, error } = await supabase.auth.signUp({
@@ -220,6 +221,36 @@ export async function signup(formData: FormData) {
         const customerProfile = await ensureCustomerProfile(data.user.id, fullName, locale)
         if (!customerProfile) {
           return { error: 'Failed to create customer profile' }
+        }
+      }
+
+      // Process referral code if provided
+      if (referralCode) {
+        try {
+          const adminClient = await createAdminClient()
+          let refPrefix = ''
+          if (referralCode.toUpperCase().startsWith('FIND-')) {
+            refPrefix = referralCode.split('-')[1].toLowerCase()
+          } else {
+            refPrefix = referralCode.toLowerCase()
+          }
+
+          if (refPrefix && refPrefix.length >= 8) {
+            const { data: referrer } = await adminClient
+              .from('customers')
+              .select('id')
+              .like('id', `${refPrefix}%`)
+              .maybeSingle()
+
+            if (referrer) {
+              const { addReferralLog, updateReferralStatus } = await import('@/lib/dal/points')
+              await addReferralLog(referrer.id, 'customer', email)
+              await updateReferralStatus(email, 'signed_up')
+              console.log(`[REFERRAL] Successfully logged referral from customer ${referrer.id} to new signup ${email}`)
+            }
+          }
+        } catch (refErr) {
+          console.error('[REFERRAL ERROR] Failed to log referral code:', refErr)
         }
       }
     }

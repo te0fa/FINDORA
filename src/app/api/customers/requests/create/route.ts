@@ -163,6 +163,12 @@ export async function POST(request: Request) {
       finalRequestKind = 'project_supply'
     }
 
+    let finalReferenceImagePath: string | null = null
+    const tempImgPath = body.reference_image_path || body.metadata?.reference_image_path
+    if (tempImgPath && customerId) {
+      finalReferenceImagePath = await copyTempImageToPermanent(tempImgPath, customerId)
+    }
+
     const requestPayload: any = {
       id: newRequest.id as string, // Keep the same UUID!
       request_code: requestCode,
@@ -176,6 +182,7 @@ export async function POST(request: Request) {
       source_type: body.source_type || 'manual',
       ai_confidence: body.ai_confidence ? Number(body.ai_confidence) : null,
       metadata: body.metadata || {},
+      reference_image_path: finalReferenceImagePath,
     }
 
     if (isBusiness) {
@@ -219,5 +226,45 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ success: true, requestId: newRequest.id, requestCode, isExistingRegisteredAccount })
+}
+
+async function copyTempImageToPermanent(tempPath: string, customerId: string): Promise<string | null> {
+  try {
+    const { createAdminClient } = await import('@/lib/dal/customers')
+    const adminClient = await createAdminClient()
+    
+    // 1. Download from 'ai-concierge-uploads'
+    const { data: fileData, error: downloadError } = await adminClient.storage
+      .from('ai-concierge-uploads')
+      .download(tempPath)
+
+    if (downloadError) {
+      console.error('[IMAGE_MOVE] Download failed from temp path:', tempPath, downloadError)
+      return null
+    }
+
+    // 2. Determine new path in 'request-reference-images'
+    const filename = tempPath.split('/').pop() || 'image.jpg'
+    const newPath = `${customerId}/${Date.now()}-${filename}`
+
+    // 3. Upload to 'request-reference-images'
+    const { error: uploadError } = await adminClient.storage
+      .from('request-reference-images')
+      .upload(newPath, fileData, {
+        contentType: 'image/jpeg',
+        upsert: false
+      })
+
+    if (uploadError) {
+      console.error('[IMAGE_MOVE] Upload failed to permanent path:', newPath, uploadError)
+      return null
+    }
+
+    console.log(`[IMAGE_MOVE] Successfully copied image from temp bucket to permanent bucket: "${newPath}"`)
+    return newPath
+  } catch (err: any) {
+    console.error('[IMAGE_MOVE] Unexpected error:', err.message)
+    return null
+  }
 }
 

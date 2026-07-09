@@ -3,19 +3,21 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-export function DashboardQuickActions({ locale, isRTL }: { locale: string; isRTL: boolean }) {
+export function DashboardQuickActions({ locale, isRTL, permissions }: { locale: string; isRTL: boolean; permissions: any }) {
   const [isOpen, setIsOpen] = useState(false)
 
-  const actions = [
-    { href: `/${locale}/staff/queue`, label: isRTL ? 'إدارة الطلبات' : 'Review Intake Queue', color: '#f59e0b' },
-    { href: `/${locale}/staff/operations`, label: isRTL ? 'العمليات والبحث' : 'Operations & Research', color: '#3b82f6' },
-    { href: `/${locale}/staff/workspace`, label: isRTL ? 'مساحة التسليم' : 'Release Workspace', color: '#10b981' },
-    { href: `/${locale}/staff/users`, label: isRTL ? 'إدارة الموظفين' : 'Staff Management Center', color: '#8b5cf6' },
-    { href: `/${locale}/staff/archive`, label: isRTL ? 'الأرشيف' : 'Archive & Cleanup', color: '#ef4444' },
-    { href: `/${locale}/staff/marketing/pricing`, label: isRTL ? 'إدارة الأسعار' : 'Pricing Management', color: '#6366f1' },
-    { href: `/${locale}/staff/marketing/news`, label: isRTL ? 'الأخبار والإعلانات' : 'News / Announcements', color: '#14b8a6' },
-    { href: `/${locale}/staff/marketing/deals`, label: isRTL ? 'عروض المنتجات' : 'Findora Deals', color: '#f43f5e' },
+  const allActions = [
+    { href: `/${locale}/staff/queue`, label: isRTL ? 'إدارة الطلبات' : 'Review Intake Queue', color: '#f59e0b', visible: permissions?.isAdmin || permissions?.canReviewIntake },
+    { href: `/${locale}/staff/operations`, label: isRTL ? 'العمليات والبحث' : 'Operations & Research', color: '#3b82f6', visible: permissions?.isAdmin || permissions?.canResearch },
+    { href: `/${locale}/staff/workspace`, label: isRTL ? 'مساحة التسليم' : 'Release Workspace', color: '#10b981', visible: permissions?.isAdmin || permissions?.canReport },
+    { href: `/${locale}/staff/users`, label: isRTL ? 'إدارة الموظفين' : 'Staff Management Center', color: '#8b5cf6', visible: permissions?.isAdmin },
+    { href: `/${locale}/staff/archive`, label: isRTL ? 'الأرشيف' : 'Archive & Cleanup', color: '#ef4444', visible: permissions?.isAdmin || permissions?.canManageArchive },
+    { href: `/${locale}/staff/marketing/pricing`, label: isRTL ? 'إدارة الأسعار' : 'Pricing Management', color: '#6366f1', visible: permissions?.isAdmin || permissions?.canManagePricing },
+    { href: `/${locale}/staff/marketing/news`, label: isRTL ? 'الأخبار والإعلانات' : 'News / Announcements', color: '#14b8a6', visible: permissions?.isAdmin || permissions?.canManageNews },
+    { href: `/${locale}/staff/marketing/deals`, label: isRTL ? 'عروض المنتجات' : 'Findora Deals', color: '#f43f5e', visible: permissions?.isAdmin || permissions?.canManageDeals },
   ]
+
+  const actions = allActions.filter(action => action.visible)
 
   return (
     <>

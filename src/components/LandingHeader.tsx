@@ -196,7 +196,6 @@ export default function LandingHeader({ locale, isRTL, labels, isRecruitmentActi
         <div className="nav-shell">
 
           <nav
-
             className="section-nav"
 
             dir={isRTL ? "rtl" : "ltr"}
@@ -204,7 +203,7 @@ export default function LandingHeader({ locale, isRTL, labels, isRecruitmentActi
             aria-label={isRTL ? "أقسام الصفحة" : "Landing sections"}
 
             data-testid="landing-section-nav"
-
+            suppressHydrationWarning
           >
 
             {/* Top 4 Items */}
@@ -405,7 +404,7 @@ export default function LandingHeader({ locale, isRTL, labels, isRecruitmentActi
 
 
 
-          <div className="mobile-links-grid">
+          <div className="mobile-links-grid" suppressHydrationWarning>
 
             {sectionLinks.map((item) => (
               <Link

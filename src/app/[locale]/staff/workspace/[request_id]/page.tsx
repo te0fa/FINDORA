@@ -22,7 +22,8 @@ import {
   handlePromoteOnlineQuote,
   handleGenerateOfflineAIReport,
   handleGenerateFinalSynthesisProposal,
-  handleTriggerOnlineSourcing
+  handleTriggerOnlineSourcing,
+  handleSendClarificationMessage
 } from './actions'
 import { handleManualResearchTrigger } from './research-actions'
 import { getStaffActionPermissions } from '@/lib/workflow/action-permissions'
@@ -134,12 +135,14 @@ export default async function RequestWorkspacePage({
   const isAssigned = request.assigned_reviewer_staff_id === staffMember.id
 
   const adminClient = await createAdminClient()
-  const [messagesRes, jobsRes] = await Promise.all([
+  const [messagesRes, jobsRes, chatMessagesRes] = await Promise.all([
     adminClient.from('outbound_messages').select('*').eq('request_id', requestId).order('created_at', { ascending: false }),
-    adminClient.from('agent_jobs').select('*').eq('request_id', requestId).order('created_at', { ascending: false })
+    adminClient.from('agent_jobs').select('*').eq('request_id', requestId).order('created_at', { ascending: false }),
+    adminClient.from('request_messages').select('*').eq('request_id', requestId).order('created_at', { ascending: true })
   ])
   const emailLogs = messagesRes.data || []
   const jobsList = jobsRes.data || []
+  const chatMessages = chatMessagesRes.data || []
 
   const actionPermissions = getStaffActionPermissions({
     staff: staffMember,
@@ -595,7 +598,14 @@ export default async function RequestWorkspacePage({
                   <div className="field-value">{request.customer_name}</div>
                 </div>
                 <div className="field-box" style={{ gridColumn: '1 / -1' }}>
-                  <div className="field-label">{dict.staff_workspace.desc}</div>
+                  <div className="field-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {dict.staff_workspace.desc}
+                    {request.source_type === 'ai_voice' && (
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--accent)', background: 'rgba(212,166,60,0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(212,166,60,0.2)' }}>
+                        🎙️ {isRTL ? 'تسجيل صوتي' : 'Voice Message'}
+                      </span>
+                    )}
+                  </div>
                   <div className="field-value" style={{ fontWeight: 500, opacity: 0.8 }}>{request.raw_description}</div>
                 </div>
               </div>
@@ -825,7 +835,6 @@ export default async function RequestWorkspacePage({
               preferences={preferences}
             />
 
-            {/* AI Copilot Panel */}
             <AICopilotPanel 
               requestId={requestId}
               requestData={request}
@@ -836,6 +845,8 @@ export default async function RequestWorkspacePage({
               actionPermissions={actionPermissions}
               isAdmin={isAdmin}
               canReviewIntake={permissions.canReviewIntake}
+              canResearch={permissions.canResearch}
+              canReport={permissions.canReport}
             />
             
 
@@ -1753,6 +1764,113 @@ export default async function RequestWorkspacePage({
                   </div>
                 </div>
               </div>
+            </section>
+
+            {/* Customer Chat / التواصل مع العميل */}
+            <section className="section-card glass-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h2 className="card-title-text" style={{ fontSize: '1rem', margin: 0, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>💬</span>
+                {isRTL ? 'التواصل مع العميل' : 'Customer Communication'}
+              </h2>
+              
+              <div style={{ 
+                maxHeight: '260px', 
+                overflowY: 'auto', 
+                background: 'rgba(0,0,0,0.2)', 
+                borderRadius: '12px', 
+                padding: '0.75rem', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '0.75rem',
+                border: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                {chatMessages.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem 0', opacity: 0.5, fontSize: '0.8rem' }}>
+                    {isRTL ? 'لا توجد رسائل متبادلة بعد.' : 'No messages exchanged yet.'}
+                  </div>
+                ) : (
+                  chatMessages.map((msg: any) => {
+                    const isCust = msg.sender_type === 'customer'
+                    const isSys = msg.sender_type === 'system'
+                    const isClientEdit = msg.message?.startsWith('[CLIENT EDIT REQUEST]')
+                    const cleanMsg = msg.message?.replace(/^\[(SYSTEM|CLIENT EDIT REQUEST)\]\s*/g, '').trim()
+
+                    if (isSys) {
+                      return (
+                        <div key={msg.id} style={{ 
+                          alignSelf: 'center', 
+                          background: 'rgba(255,255,255,0.03)', 
+                          borderRadius: '12px', 
+                          padding: '4px 10px', 
+                          fontSize: '0.7rem', 
+                          opacity: 0.6, 
+                          textAlign: 'center',
+                          maxWidth: '90%'
+                        }}>
+                          {cleanMsg}
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <div key={msg.id} style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignSelf: isCust ? 'flex-start' : 'flex-end', 
+                        maxWidth: '85%',
+                        alignItems: isCust ? 'flex-start' : 'flex-end'
+                      }}>
+                        <span style={{ fontSize: '0.65rem', opacity: 0.5, marginBottom: '2px' }}>
+                          {isCust ? (isRTL ? 'العميل' : 'Customer') : (isRTL ? 'الموظف' : 'Staff')} · {new Date(msg.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <div style={{ 
+                          padding: '8px 12px', 
+                          borderRadius: '12px', 
+                          fontSize: '0.8rem', 
+                          lineHeight: 1.4,
+                          whiteSpace: 'pre-wrap',
+                          background: isCust ? 'rgba(255,255,255,0.08)' : 'var(--accent)',
+                          color: isCust ? '#fff' : '#000',
+                          fontWeight: isCust ? 'normal' : 600,
+                          border: isCust ? '1px solid rgba(255,255,255,0.08)' : 'none'
+                        }}>
+                          {isClientEdit && (
+                            <strong style={{ display: 'block', color: '#fbbf24', fontSize: '0.7rem', marginBottom: '2px' }}>
+                              ⚠️ {isRTL ? 'طلب تعديل:' : 'Edit Request:'}
+                            </strong>
+                          )}
+                          {cleanMsg}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              <form action={handleSendClarificationMessage} className="stack" style={{ gap: '0.5rem', display: 'flex', flexDirection: 'column' }}>
+                <input type="hidden" name="requestId" value={requestId} />
+                <input type="hidden" name="locale" value={locale} />
+                <textarea 
+                  name="messageText" 
+                  placeholder={isRTL ? 'اكتب استفساراً للعميل (سيصله تنبيه فوري بالبريد)...' : 'Ask the customer a question (they will receive an email alert)...'}
+                  required
+                  rows={3}
+                  style={{ 
+                    width: '100%', 
+                    background: 'rgba(0,0,0,0.3)', 
+                    border: '1px solid rgba(255,255,255,0.1)', 
+                    borderRadius: '10px', 
+                    padding: '0.5rem 0.75rem', 
+                    color: '#fff', 
+                    fontSize: '0.85rem', 
+                    outline: 'none', 
+                    resize: 'none' 
+                  }}
+                />
+                <button type="submit" className="btn-accent" style={{ background: 'var(--accent)', color: '#000', fontWeight: 900, fontSize: '0.8rem', width: '100%', margin: 0 }}>
+                  {isRTL ? 'إرسال الاستفسار وتنبيه العميل ✉️' : 'Send Clarification & Notify Customer ✉️'}
+                </button>
+              </form>
             </section>
 
             {/* Action History */}
