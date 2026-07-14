@@ -10,7 +10,7 @@
   overflow: visible;
   text-decoration: none !important;
   position: relative;
-  top: 0.48cm;
+  top: 0.08cm;
 }
 
 .logo-img {
@@ -27,7 +27,7 @@
     min-width: 170px;
     max-width: 170px;
     height: 54px;
-    top: 0.38cm;
+    top: -0.02cm;
   }
   .logo-img {
     width: 100% !important;
@@ -42,7 +42,7 @@
     min-width: 150px;
     max-width: 150px;
     height: 48px;
-    top: 0.29cm;
+    top: -0.11cm;
   }
   .logo-img {
     width: 180px !important;
@@ -57,7 +57,7 @@
     min-width: 160px;
     max-width: 160px;
     height: 48px;
-    top: 0.19cm;
+    top: -0.21cm;
   }
   .logo-img {
     width: 180px !important;
@@ -72,7 +72,7 @@
     min-width: 140px;
     max-width: 140px;
     height: 42px;
-    top: 0.14cm;
+    top: -0.26cm;
   }
   .logo-img {
     width: 155px !important;

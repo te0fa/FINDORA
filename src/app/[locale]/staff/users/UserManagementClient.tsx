@@ -207,27 +207,212 @@ export default function UserManagementClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="user-mgmt-container space-y-6">
+      <style dangerouslySetInnerHTML={{ __html: `
+        .user-mgmt-container button {
+          width: auto !important;
+          background: transparent !important;
+          color: inherit !important;
+          border: none !important;
+          border-radius: 0 !important;
+          padding: 0 !important;
+          font-size: inherit !important;
+          font-weight: inherit !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 0 !important;
+          transition: all 0.2s ease !important;
+          transform: none !important;
+          box-shadow: none !important;
+        }
+        .user-mgmt-container button:hover {
+          transform: translateY(-1px) !important;
+          opacity: 0.95 !important;
+        }
+        
+        /* Premium Tabs */
+        .user-mgmt-container button.mgmt-tab-btn {
+          padding: 10px 24px !important;
+          border-radius: 12px !important;
+          font-size: 0.85rem !important;
+          font-weight: 700 !important;
+          cursor: pointer !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+          background: rgba(255, 255, 255, 0.03) !important;
+          color: rgba(255, 255, 255, 0.6) !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 8px !important;
+        }
+        .user-mgmt-container button.mgmt-tab-btn:hover {
+          background: rgba(255, 255, 255, 0.07) !important;
+          color: #fff !important;
+          border-color: rgba(255, 255, 255, 0.15) !important;
+        }
+        .user-mgmt-container button.mgmt-tab-btn.active {
+          background: linear-gradient(135deg, #d4a63c 0%, #b28526 100%) !important;
+          color: #000 !important;
+          border-color: #d4a63c !important;
+          box-shadow: 0 4px 20px rgba(212, 166, 60, 0.25) !important;
+        }
+
+        /* Sorting control buttons */
+        .user-mgmt-container button.sort-btn {
+          background: rgba(255, 255, 255, 0.02) !important;
+          border: 1px solid rgba(255, 255, 255, 0.06) !important;
+          color: rgba(255, 255, 255, 0.5) !important;
+          font-size: 0.75rem !important;
+          font-weight: 700 !important;
+          cursor: pointer !important;
+          padding: 6px 14px !important;
+          border-radius: 8px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 6px !important;
+        }
+        .user-mgmt-container button.sort-btn:hover {
+          color: #fff !important;
+          background: rgba(255, 255, 255, 0.06) !important;
+          border-color: rgba(255, 255, 255, 0.12) !important;
+        }
+        .user-mgmt-container button.sort-btn.active {
+          color: #d4a63c !important;
+          border-color: rgba(212, 166, 60, 0.3) !important;
+          background: rgba(212, 166, 60, 0.05) !important;
+          font-weight: 800 !important;
+        }
+
+        /* Bulk Actions Panel Styling */
+        .bulk-actions-panel {
+          background: rgba(212, 166, 60, 0.04) !important;
+          border: 1px solid rgba(212, 166, 60, 0.18) !important;
+          padding: 16px 24px !important;
+          border-radius: 20px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          gap: 16px !important;
+          flex-wrap: wrap !important;
+          margin-bottom: 24px !important;
+          backdrop-filter: blur(10px) !important;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+        }
+        .bulk-selected-label {
+          font-size: 0.85rem !important;
+          font-weight: 800 !important;
+          color: #fff !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 8px !important;
+        }
+        .selected-count-badge {
+          background: #d4a63c !important;
+          color: #000 !important;
+          width: 24px !important;
+          height: 24px !important;
+          border-radius: 50% !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          font-weight: 900 !important;
+          font-size: 0.75rem !important;
+        }
+        .bulk-buttons-group {
+          display: flex !important;
+          gap: 10px !important;
+          flex-wrap: wrap !important;
+        }
+
+        /* Bulk action buttons */
+        .user-mgmt-container button.bulk-btn {
+          padding: 8px 16px !important;
+          border-radius: 8px !important;
+          font-size: 0.75rem !important;
+          font-weight: 800 !important;
+          cursor: pointer !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 6px !important;
+          color: #fff !important;
+        }
+        .user-mgmt-container button.bulk-btn-block {
+          background: #d4a63c !important;
+          color: #000 !important;
+        }
+        .user-mgmt-container button.bulk-btn-block:hover {
+          background: #e5b74c !important;
+        }
+        .user-mgmt-container button.bulk-btn-secondary {
+          background: rgba(255, 255, 255, 0.05) !important;
+          color: #fff !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+        .user-mgmt-container button.bulk-btn-secondary:hover {
+          background: rgba(255, 255, 255, 0.1) !important;
+        }
+        .user-mgmt-container button.bulk-btn-danger {
+          background: #ef4444 !important;
+          color: #fff !important;
+        }
+        .user-mgmt-container button.bulk-btn-danger:hover {
+          background: #f87171 !important;
+        }
+
+        /* Table Checkbox */
+        .mgmt-checkbox {
+          width: 18px !important;
+          height: 18px !important;
+          accent-color: #d4a63c !important;
+          cursor: pointer !important;
+        }
+
+        /* Chic Table Action Buttons */
+        .table-action-btn {
+          display: inline-flex !important;
+          align-items: center !important;
+          padding: 6px 14px !important;
+          border-radius: 8px !important;
+          font-size: 0.72rem !important;
+          font-weight: 700 !important;
+          text-decoration: none !important;
+          border: 1px solid rgba(212, 166, 60, 0.25) !important;
+          background: rgba(212, 166, 60, 0.04) !important;
+          color: #d4a63c !important;
+          transition: all 0.2s ease !important;
+          cursor: pointer !important;
+          white-space: nowrap !important;
+        }
+        .table-action-btn:hover {
+          background: #d4a63c !important;
+          color: #000 !important;
+          border-color: #d4a63c !important;
+          box-shadow: 0 4px 12px rgba(212, 166, 60, 0.15) !important;
+        }
+      `}} />
       
       {/* Search and Tabs Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-3xl">
         {/* Tabs */}
         <div className="flex gap-2">
           <button 
+            type="button"
             onClick={() => { setActiveTab('staff'); setSelectedIds([]) }}
-            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${activeTab === 'staff' ? 'bg-amber-500 text-black shadow-lg' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+            className={`mgmt-tab-btn ${activeTab === 'staff' ? 'active' : ''}`}
           >
             👥 {isRTL ? 'فريق العمل' : 'Staff Members'}
           </button>
           <button 
+            type="button"
             onClick={() => { setActiveTab('customers'); setSelectedIds([]) }}
-            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${activeTab === 'customers' ? 'bg-amber-500 text-black shadow-lg' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+            className={`mgmt-tab-btn ${activeTab === 'customers' ? 'active' : ''}`}
           >
             🛍️ {isRTL ? 'دليل العملاء' : 'Customer List'}
           </button>
           <button 
+            type="button"
             onClick={() => { setActiveTab('blocked_list'); setSelectedIds([]) }}
-            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${activeTab === 'blocked_list' ? 'bg-amber-500 text-black shadow-lg' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+            className={`mgmt-tab-btn ${activeTab === 'blocked_list' ? 'active' : ''}`}
           >
             🚫 {isRTL ? 'المحظورين' : 'Blocked Users'}
           </button>
@@ -243,40 +428,51 @@ export default function UserManagementClient({
             className="w-full bg-black border border-white/10 rounded-xl p-3 text-sm text-white focus:border-amber-500 focus:outline-none"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-3.5 text-xs text-slate-400 hover:text-white">✕</button>
+            <button 
+              type="button"
+              onClick={() => setSearchQuery('')} 
+              className="absolute right-3 top-3.5 text-xs text-slate-400 hover:text-white"
+              style={{ width: 'auto !important', background: 'transparent !important' }}
+            >
+              ✕
+            </button>
           )}
         </div>
       </div>
 
-      {/* Floating Bulk Actions Bar */}
+      {/* Bulk Actions Panel */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-black/90 border border-amber-500/30 px-6 py-4 rounded-2xl shadow-[0_0_30px_rgba(245,158,11,0.15)] flex items-center gap-6 animate-in fade-in slide-in-from-bottom-5 duration-300">
-          <span className="text-sm font-bold text-white flex items-center gap-2">
-            <span className="bg-amber-500 text-black w-6 h-6 rounded-full flex items-center justify-center font-black text-xs">{selectedIds.length}</span>
+        <div className="bulk-actions-panel">
+          <span className="bulk-selected-label">
+            <span className="selected-count-badge">{selectedIds.length}</span>
             {isRTL ? 'مستخدمين محددين' : 'selected users'}
           </span>
-          <div className="flex gap-2.5 border-l border-white/10 pl-4 rtl:border-l-0 rtl:border-r rtl:pl-0 rtl:pr-4">
+          <div className="bulk-buttons-group">
             <button 
+              type="button"
               onClick={() => handleBulkBlock(activeTab !== 'blocked_list')}
-              className="bg-amber-600 hover:bg-amber-500 text-white rounded-lg px-4 py-2 text-xs font-black"
+              className="bulk-btn bulk-btn-block"
             >
               🚫 {activeTab === 'blocked_list' ? (isRTL ? 'إلغاء حظر جماعي' : 'Bulk Unblock') : (isRTL ? 'حظر جماعي' : 'Bulk Block')}
             </button>
             <button 
+              type="button"
               onClick={() => handleBulkArchive(true)}
-              className="bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-xs font-black"
+              className="bulk-btn bulk-btn-secondary"
             >
               🗄️ {isRTL ? 'أرشفة جماعية' : 'Bulk Archive'}
             </button>
             <button 
+              type="button"
               onClick={() => handleBulkArchive(false)}
-              className="bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-xs font-black"
+              className="bulk-btn bulk-btn-secondary"
             >
               ↩ {isRTL ? 'استعادة جماعية' : 'Bulk Restore'}
             </button>
             <button 
+              type="button"
               onClick={handleBulkDelete}
-              className="bg-red-600 hover:bg-red-500 text-white rounded-lg px-4 py-2 text-xs font-black"
+              className="bulk-btn bulk-btn-danger"
             >
               🗑️ {isRTL ? 'حذف نهائي' : 'Bulk Delete'}
             </button>
@@ -285,12 +481,20 @@ export default function UserManagementClient({
       )}
 
       {/* Sorting Control Header Grid */}
-      <div className="flex gap-4 text-xs font-bold text-slate-500">
+      <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
         <span>{isRTL ? 'ترتيب حسب:' : 'Sort By:'}</span>
-        <button onClick={() => toggleSort('name')} className={`hover:text-white ${sortBy === 'name' ? 'text-amber-500 font-black' : ''}`}>
+        <button 
+          type="button"
+          onClick={() => toggleSort('name')} 
+          className={`sort-btn ${sortBy === 'name' ? 'active' : ''}`}
+        >
           {isRTL ? 'الاسم' : 'Name'} {getSortArrow('name')}
         </button>
-        <button onClick={() => toggleSort('date')} className={`hover:text-white ${sortBy === 'date' ? 'text-amber-500 font-black' : ''}`}>
+        <button 
+          type="button"
+          onClick={() => toggleSort('date')} 
+          className={`sort-btn ${sortBy === 'date' ? 'active' : ''}`}
+        >
           {isRTL ? 'تاريخ التسجيل' : 'Registration Date'} {getSortArrow('date')}
         </button>
       </div>
@@ -325,8 +529,8 @@ export default function UserManagementClient({
                     </span>
                   </td>
                   <td className="p-4">
-                    <Link href={`/${locale}/staff/users?tab=staff&editStaff=${s.id}`} className="text-amber-500 hover:text-amber-400 font-bold underline text-xs">
-                      {isRTL ? 'تعديل الصلاحيات' : 'Edit Roles'}
+                    <Link href={`/${locale}/staff/users?tab=staff&editStaff=${s.id}`} className="table-action-btn">
+                      ⚙️ {isRTL ? 'تعديل الصلاحيات' : 'Edit Roles'}
                     </Link>
                   </td>
                 </tr>
@@ -349,7 +553,7 @@ export default function UserManagementClient({
                     type="checkbox" 
                     checked={sortedCustomers.length > 0 && sortedCustomers.every(c => selectedIds.includes(c.id))}
                     onChange={e => toggleSelectAll(e.target.checked)}
-                    className="w-4 h-4 accent-amber-500 cursor-pointer"
+                    className="mgmt-checkbox"
                   />
                 </th>
                 <th className="p-4">{isRTL ? 'العميل والكود' : 'Customer & Code'}</th>
@@ -369,7 +573,7 @@ export default function UserManagementClient({
                         type="checkbox" 
                         checked={isSelected}
                         onChange={e => toggleSelect(c.id, e.target.checked)}
-                        className="w-4 h-4 accent-amber-500 cursor-pointer"
+                        className="mgmt-checkbox"
                       />
                     </td>
                     <td className="p-4">
@@ -390,8 +594,8 @@ export default function UserManagementClient({
                       </span>
                     </td>
                     <td className="p-4">
-                      <Link href={`/${locale}/staff/users?tab=customers&editCustomer=${c.id}`} className="text-amber-500 hover:text-amber-400 font-bold underline text-xs">
-                        {isRTL ? 'إدارة الحساب' : 'Manage Profile'}
+                      <Link href={`/${locale}/staff/users?tab=customers&editCustomer=${c.id}`} className="table-action-btn">
+                        👤 {isRTL ? 'إدارة الحساب' : 'Manage Profile'}
                       </Link>
                     </td>
                   </tr>
@@ -432,7 +636,7 @@ export default function UserManagementClient({
               <button 
                 type="button" 
                 onClick={() => { setShowBlockModal(false); setBlockReason('') }}
-                className="bg-white/5 hover:bg-white/10 text-white rounded-lg px-4 py-2 text-xs font-bold"
+                className="bulk-btn bulk-btn-secondary"
               >
                 {isRTL ? 'إلغاء' : 'Cancel'}
               </button>
@@ -440,7 +644,7 @@ export default function UserManagementClient({
                 type="button" 
                 onClick={submitBulkBlock}
                 disabled={!blockReason.trim()}
-                className="bg-red-600 hover:bg-red-500 text-white rounded-lg px-4 py-2 text-xs font-black"
+                className="bulk-btn bulk-btn-danger"
               >
                 {isRTL ? 'تطبيق الحظر الجماعي' : 'Confirm Bulk Block'}
               </button>

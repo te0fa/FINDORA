@@ -19,13 +19,41 @@ import { DashboardQuickActions } from './DashboardQuickActions'
 // -------------------------------------------------------------
 // UI COMPONENTS
 // -------------------------------------------------------------
-function KpiCard({ label, value, trend, isPositive, icon, color = "#fff", subtitle, href }: { label: string; value: string | number; trend?: string; isPositive?: boolean; icon?: string; color?: string; subtitle?: string; href?: string }) {
+function KpiCard({ 
+  label, 
+  value, 
+  trend, 
+  isPositive, 
+  icon, 
+  color = "#fff", 
+  subtitle, 
+  href,
+  infoText 
+}: { 
+  label: string; 
+  value: string | number; 
+  trend?: string; 
+  isPositive?: boolean; 
+  icon?: string; 
+  color?: string; 
+  subtitle?: string; 
+  href?: string;
+  infoText?: string;
+}) {
   const cardContent = (
     <>
       <div className="kpi-icon">{icon}</div>
       <div className="kpi-content">
-        <h3 className="kpi-label">{label}</h3>
-        <div className="kpi-value-row">
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <h3 className="kpi-label" style={{ margin: 0 }}>{label}</h3>
+          {infoText && (
+            <span className="kpi-info-wrapper">
+              <span className="kpi-info-icon">ⓘ</span>
+              <span className="kpi-tooltip">{infoText}</span>
+            </span>
+          )}
+        </div>
+        <div className="kpi-value-row" style={{ marginTop: '8px' }}>
           <span className="kpi-value">{value}</span>
           {trend && (
             <span className={`kpi-trend ${isPositive ? 'positive' : 'negative'}`}>
@@ -53,24 +81,120 @@ function KpiCard({ label, value, trend, isPositive, icon, color = "#fff", subtit
   )
 }
 
-function AlertCard({ type, message, actionText, actionHref }: { type: 'warning' | 'danger' | 'info'; message: string; actionText?: string; actionHref?: string }) {
+function AlertCard({ 
+  type, 
+  message, 
+  actionText, 
+  actionHref,
+  isAdmin,
+  alertType,
+  requestsList = [],
+  locale
+}: { 
+  type: 'warning' | 'danger' | 'info'; 
+  message: string; 
+  actionText?: string; 
+  actionHref?: string;
+  isAdmin: boolean;
+  alertType?: 'sla_breached' | 'sla_at_risk' | 'ai_failed';
+  requestsList?: Array<{ id: string; title: string; request_code: string; staffName?: string; current_status: string }>;
+  locale: string;
+}) {
+  const isRTL = locale === 'ar';
   const colors = {
-    warning: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#f59e0b', icon: '⚠️' },
-    danger: { bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.3)', text: '#ef4444', icon: '🚨' },
-    info: { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6', icon: 'ℹ️' }
+    warning: { bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.25)', text: '#f59e0b', icon: '⚠️' },
+    danger: { bg: 'rgba(239, 68, 68, 0.08)', border: 'rgba(239, 68, 68, 0.25)', text: '#ef4444', icon: '🚨' },
+    info: { bg: 'rgba(59, 130, 246, 0.08)', border: 'rgba(59, 130, 246, 0.25)', text: '#3b82f6', icon: 'ℹ️' }
   }
   const config = colors[type]
 
   return (
-    <div className="alert-card" style={{ background: config.bg, borderColor: config.border }}>
-      <div className="alert-icon">{config.icon}</div>
-      <div className="alert-body">
-        <p style={{ color: config.text }}>{message}</p>
-        {actionText && actionHref && (
-          <Link href={actionHref} className="alert-action" style={{ color: config.text }}>
-            {actionText} →
-          </Link>
-        )}
+    <div className="alert-card-wrapper" style={{ marginBottom: '16px' }}>
+      <div className="alert-card" style={{ background: config.bg, borderColor: config.border, padding: '18px', borderRadius: '16px', border: '1px solid', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+        <div className="alert-icon" style={{ fontSize: '1.4rem' }}>{config.icon}</div>
+        <div className="alert-body" style={{ flex: 1 }}>
+          <p style={{ color: config.text, margin: '0 0 10px', fontWeight: 700, fontSize: '0.92rem' }}>{message}</p>
+          
+          {/* Diagnostic List */}
+          {requestsList.length > 0 && (
+            <div className="alert-diagnostics" style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {requestsList.map((req) => {
+                let title = req.title || "Request";
+                let code = req.request_code || "";
+                let staff = req.staffName || (isRTL ? "غير معين" : "Unassigned");
+                
+                let errorDesc = "";
+                let causeDesc = "";
+                let solutionDesc = "";
+                let fastActionHref = `/${locale}/staff/workspace/${req.id}`;
+                let fastActionText = isRTL ? "انتقال لحل المشكلة" : "Go Resolve";
+                
+                if (alertType === 'sla_breached') {
+                  errorDesc = isRTL 
+                    ? "الطلب متأخر عن الوقت المحدد (SLA Breached)." 
+                    : "The request is overdue and has breached the SLA.";
+                  causeDesc = isAdmin
+                    ? (isRTL ? `الموظف المسؤول عن التأخير: ${staff}. لم يقم بالمراجعة المبدئية للطلب في الوقت المناسب.` : `Responsible staff: ${staff}. Failed to complete the intake review in time.`)
+                    : (isRTL ? "تأخرت في مراجعة هذا الطلب بعد إسناده إليك." : "You missed the intake deadline for this request.");
+                  solutionDesc = isRTL
+                    ? "الرجاء فتح الطلب والقيام بعملية المراجعة فوراً لإعادة تدفق العمل."
+                    : "Open the request workspace and complete the intake check now.";
+                } else if (alertType === 'sla_at_risk') {
+                  errorDesc = isRTL 
+                    ? "الطلب يقترب من حاجز التأخير (SLA At Risk)." 
+                    : "Request is approaching its SLA deadline.";
+                  causeDesc = isAdmin
+                    ? (isRTL ? `الموظف الحالي: ${staff}. متبقي وقت قصير قبل انتهاء فترة المراجعة.` : `Assigned to: ${staff}. Little time remaining for intake verification.`)
+                    : (isRTL ? "متبقي وقت قصير جداً لمراجعة هذا الطلب." : "Very little time left to review this request.");
+                  solutionDesc = isRTL
+                    ? "الرجاء إعطاء أولوية قصوى لهذا الطلب وإتمام مراجعته الآن."
+                    : "Prioritize this request and complete the review immediately.";
+                } else if (alertType === 'ai_failed') {
+                  errorDesc = isRTL 
+                    ? `وكيل الذكاء الاصطناعي فشل في جمع عروض الأسعار أونلاين لهذا الطلب تلقائياً.`
+                    : `The AI agent failed to automatically collect online price quotes for this request.`;
+                  causeDesc = isRTL
+                    ? `الوكيل يجمع أسعار الإنترنت تلقائياً بعد موافقة الموظف على الطلب. سبب الفشل غالباً: الموقع الإلكتروني المستهدف غير متاح، أو تغيّر هيكله، أو أن المنتج نادر ولا توجد نتائج أونلاين كافية لتقديم عرض سعر دقيق.`
+                    : `After staff approval, the AI automatically searches online for the product's market prices. The failure is usually because the target websites are unavailable, their structure has changed, or the product is niche with insufficient online listings for accurate pricing.`;
+                  solutionDesc = isRTL
+                    ? `افتح الطلب واذهب لقسم "عروض الأسعار" وأضف الأسعار يدوياً من المواقع، أو أعد تشغيل مهمة الذكاء الاصطناعي إذا كانت المشكلة مؤقتة. انسّق مع الموظف الميداني لجلب العروض الأوفلاين بالتوازي.`
+                    : `Open the request and go to the "Price Quotes" section. Manually add online prices yourself, or re-trigger the AI task if the issue is temporary. Coordinate with the field agent to collect offline quotes in parallel.`;
+                  fastActionHref = `/${locale}/staff/workspace/${req.id}`;
+                  fastActionText = isRTL ? "فتح الطلب وإضافة الأسعار" : "Open & Add Prices";
+                }
+
+                return (
+                  <div key={req.id} className="diagnostic-item" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '12px', position: 'relative' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <span style={{ fontWeight: 800, color: '#fff', fontSize: '0.82rem' }}>
+                        🔗 {title} <span style={{ color: '#d4a63c', fontSize: '0.72rem', fontFamily: 'monospace' }}>[{code}]</span>
+                      </span>
+                      
+                      <span className="diag-info-wrapper">
+                        <span className="diag-info-icon">ⓘ {isRTL ? 'تفاصيل المساعدة' : 'Diagnostics Help'}</span>
+                        <div className="diag-tooltip" style={{ direction: isRTL ? 'rtl' : 'ltr' }}>
+                          <div style={{ fontWeight: 800, color: '#d4a63c', marginBottom: '6px', fontSize: '0.8rem' }}>🔧 {isRTL ? "دليل حل المشكلة" : "Diagnostic Help"}</div>
+                          <div style={{ marginBottom: '4px' }}><strong>{isRTL ? "المشكلة:" : "Issue:"}</strong> {errorDesc}</div>
+                          <div style={{ marginBottom: '4px' }}><strong>{isRTL ? "السبب:" : "Cause:"}</strong> {causeDesc}</div>
+                          <div style={{ marginBottom: '8px' }}><strong>{isRTL ? "الحل المقترح:" : "Action:"}</strong> {solutionDesc}</div>
+                          <Link href={fastActionHref} className="fast-action-btn">
+                            ⚡ {fastActionText}
+                          </Link>
+                        </div>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {actionText && actionHref && requestsList.length === 0 && (
+            <Link href={actionHref} className="alert-action" style={{ color: config.text, fontSize: '0.85rem', fontWeight: 800, textDecoration: 'none', display: 'inline-block', marginTop: '6px' }}>
+              {actionText} →
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -111,6 +235,42 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
   const grossRevenue = finSummary.income;
   const netProfit = finSummary.profit;
   const activeCustomers = Math.floor(displayStats.totalRequests * 0.85);
+
+  // Fetch problematic requests for diagnostic warnings
+  const breachedIds = displayStats.slaBreachedRequestIds || []
+  const atRiskIds = displayStats.slaAtRiskRequestIds || []
+  const aiFailedIds = displayStats.aiFailedRequestIds || []
+  const allProblemIds = [...new Set([...breachedIds, ...atRiskIds, ...aiFailedIds])]
+  
+  let problematicRequests: any[] = []
+  let staffMap = new Map()
+  
+  if (allProblemIds.length > 0) {
+    const { data: reqs } = await supabase
+      .from('requests')
+      .select('id, title, request_code, assigned_reviewer_staff_id, current_status')
+      .in('id', allProblemIds)
+      
+    if (reqs && reqs.length > 0) {
+      problematicRequests = reqs
+      const staffIds = reqs.map((r: any) => r.assigned_reviewer_staff_id).filter(Boolean)
+      if (staffIds.length > 0) {
+        const { data: staffList } = await supabase
+          .from('staff_members')
+          .select('id, full_name')
+          .in('id', staffIds)
+        if (staffList) {
+          staffMap = new Map(staffList.map((s: any) => [s.id, s.full_name]))
+        }
+      }
+    }
+  }
+
+  // Attach staff name to each problematic request
+  const requestsWithStaff = problematicRequests.map(r => ({
+    ...r,
+    staffName: staffMap.get(r.assigned_reviewer_staff_id) || (isRTL ? "غير معين" : "Unassigned")
+  }))
 
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className="investor-dashboard">
@@ -165,9 +325,83 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
           gap: 16px;
           backdrop-filter: blur(20px);
           position: relative;
-          overflow: hidden;
+          overflow: visible;
           transition: transform 0.2s, border-color 0.2s;
         }
+
+        /* Diagnostic Tooltip Styles */
+        .diag-info-wrapper {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          cursor: pointer;
+        }
+        .diag-info-icon {
+          font-size: 0.72rem;
+          color: rgba(255,255,255,0.45);
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.1);
+          padding: 4px 10px;
+          border-radius: 8px;
+          transition: all 0.2s;
+          font-weight: 700;
+        }
+        .diag-info-wrapper:hover .diag-info-icon {
+          color: #d4a63c;
+          border-color: rgba(212, 166, 60, 0.4);
+          background: rgba(212, 166, 60, 0.06);
+        }
+        .diag-tooltip {
+          position: absolute;
+          bottom: 125%;
+          right: 0;
+          transform: translateY(10px) scale(0.95);
+          background: rgba(10, 15, 30, 0.98);
+          border: 1px solid rgba(212, 166, 60, 0.35);
+          color: rgba(255, 255, 255, 0.9);
+          padding: 14px;
+          border-radius: 12px;
+          font-size: 0.75rem;
+          font-weight: 500;
+          width: 280px;
+          box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+          backdrop-filter: blur(16px);
+          pointer-events: none;
+          opacity: 0;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 1200;
+          line-height: 1.5;
+          text-align: left;
+        }
+        :global([dir="rtl"]) .diag-tooltip {
+          text-align: right;
+        }
+        .diag-info-wrapper:hover .diag-tooltip {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          pointer-events: auto;
+        }
+        .fast-action-btn {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 100% !important;
+          padding: 8px !important;
+          margin-top: 8px !important;
+          border-radius: 6px !important;
+          background: #d4a63c !important;
+          color: #000 !important;
+          font-weight: 800 !important;
+          text-decoration: none !important;
+          text-align: center !important;
+          font-size: 0.72rem !important;
+          transition: all 0.2s !important;
+        }
+        .fast-action-btn:hover {
+          background: #f59e0b !important;
+          box-shadow: 0 0 10px rgba(212,166,60,0.4) !important;
+        }
+
         .kpi-card:hover {
           transform: translateY(-4px);
           border-color: rgba(255,255,255,0.15);
@@ -221,7 +455,69 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
           margin-top: 8px;
         }
 
-        /* Chart/Panel Sections */
+        /* Tooltip Styles */
+        .kpi-info-wrapper {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          margin-left: 6px;
+          cursor: help;
+        }
+        :global([dir="rtl"]) .kpi-info-wrapper {
+          margin-left: 0;
+          margin-right: 6px;
+        }
+        .kpi-info-icon {
+          font-size: 0.85rem;
+          color: rgba(255,255,255,0.4);
+          transition: color 0.2s;
+        }
+        .kpi-info-wrapper:hover .kpi-info-icon {
+          color: #d4a63c;
+        }
+        .kpi-tooltip {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 0;
+          transform: scale(0.95);
+          transform-origin: top left;
+          background: rgba(10, 15, 30, 0.98);
+          border: 1px solid rgba(212, 166, 60, 0.3);
+          color: #fff;
+          padding: 10px 14px;
+          border-radius: 10px;
+          font-size: 0.75rem;
+          font-weight: 500;
+          width: 230px;
+          text-align: start;
+          box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+          backdrop-filter: blur(12px);
+          pointer-events: none;
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.18s ease, visibility 0.18s ease, transform 0.18s ease;
+          z-index: 9999;
+          line-height: 1.5;
+          white-space: normal;
+          text-transform: none;
+          letter-spacing: normal;
+        }
+        .kpi-info-wrapper:hover .kpi-tooltip {
+          opacity: 1;
+          visibility: visible;
+          transform: scale(1);
+        }
+
+        /* Ensure tooltip parents don't clip */
+        .kpi-grid {
+          overflow: visible !important;
+        }
+        .kpi-card {
+          overflow: visible !important;
+        }
+        .kpi-content {
+          overflow: visible !important;
+        }
         .glass-panel {
           background: rgba(15, 23, 42, 0.4);
           border: 1px solid rgba(255,255,255,0.05);
@@ -278,63 +574,90 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
           <>
             <KpiCard 
               label={locale === 'ar' ? 'إجمالي الإيرادات (Gross Revenue)' : 'Gross Revenue'}
-              value={`${grossRevenue.toLocaleString(isRTL ? 'ar-EG' : 'en-US')} EGP`}
+              value={`${grossRevenue.toLocaleString('en-US')} EGP`}
               trend={grossRevenue > 0 ? "12.5%" : undefined} isPositive={true}
               icon="💰" color="#10b981"
               subtitle={locale === 'ar' ? 'حقيقية من دفتر الخزينة' : 'Real-time from Financial Ledger'}
+              href={`/${locale}/staff/finance`}
+              infoText={locale === 'ar' 
+                ? 'إجمالي الإيرادات المحصلة من المشترين قبل خصم المصاريف التشغيلية.' 
+                : 'Total revenue collected from buyers before operational expenses are deducted.'}
             />
             <KpiCard 
               label={locale === 'ar' ? 'صافي الربح (Net Profit)' : 'Net Profit'}
-              value={`${netProfit.toLocaleString(isRTL ? 'ar-EG' : 'en-US')} EGP`}
+              value={`${netProfit.toLocaleString('en-US')} EGP`}
               trend={netProfit > 0 ? "8.2%" : undefined} isPositive={true}
               icon="📈" color="#3b82f6"
               subtitle={locale === 'ar' ? 'بعد خصم جميع المصروفات المسجلة' : 'After deducting all recorded expenses'}
+              href={`/${locale}/staff/finance`}
+              infoText={locale === 'ar'
+                ? 'صافي الربح الفعلي بعد خصم كافة التكاليف والمصاريف التشغيلية من الخزينة.'
+                : 'Real net profit calculated after subtracting all operations and staff expenses.'}
             />
             <KpiCard 
               label={locale === 'ar' ? 'العملاء النشطين (Active Customers)' : 'Active Customers'}
-              value={activeCustomers.toLocaleString()}
+              value={activeCustomers.toLocaleString('en-US')}
               trend={activeCustomers > 0 ? "5.1%" : undefined} isPositive={true}
               icon="👥" color="#8b5cf6"
               subtitle={locale === 'ar' ? 'العملاء الذين قاموا بعمليات مؤخراً' : 'Customers with recent successful orders'}
+              href={`/${locale}/staff/users?tab=customers`}
+              infoText={locale === 'ar'
+                ? 'عدد العملاء المسجلين والنشطين على المنصة الذين لديهم طلبات حالية أو سابقة.'
+                : 'Total registered and active buyers on the platform with recent sourcing requests.'}
             />
             <KpiCard 
               label={locale === 'ar' ? 'إجمالي الطلبات (Total Requests)' : 'Total Requests'}
-              value={displayStats.totalRequests.toLocaleString()}
+              value={displayStats.totalRequests.toLocaleString('en-US')}
               trend={displayStats.totalRequests > 0 ? "2.4%" : undefined} isPositive={true}
               icon="📦" color="#f59e0b"
               subtitle={locale === 'ar' ? 'حجم العمليات الكلي على المنصة' : 'Total operational volume on the platform'}
               href={`/${locale}/staff/queue`}
+              infoText={locale === 'ar'
+                ? 'إجمالي كافة طلبات التوريد والشراء التي تم تقديمها على المنصة منذ التأسيس.'
+                : 'Total sourcing and purchasing requests submitted on the platform all-time.'}
             />
           </>
         ) : (
           <>
             <KpiCard 
               label={locale === 'ar' ? 'المهام المعينة لي (My Tasks)' : 'My Assigned Tasks'}
-              value={assignedLoad}
+              value={assignedLoad.toLocaleString('en-US')}
               icon="📋" color="#3b82f6"
               subtitle={locale === 'ar' ? 'الطلب قيد المراجعة والمعالجة الخاصة بك' : 'Requests assigned to you currently'}
               href={`/${locale}/staff/queue?view=intake&decision=no_decision_yet`}
+              infoText={locale === 'ar'
+                ? 'الطلبات الحالية المعينة إليك لمراجعة البيانات المبدئية وتأكيدها.'
+                : 'Current intake requests assigned to you that require initial verification.'}
             />
             <KpiCard 
               label={locale === 'ar' ? 'الطلبات المراجعة (Reviewed Requests)' : 'Reviewed Requests'}
-              value={performance.total_reviewed}
+              value={performance.total_reviewed.toLocaleString('en-US')}
               icon="✅" color="#10b981"
               subtitle={locale === 'ar' ? 'إجمالي القرارات التي اتخذتها' : 'Total decisions made by you'}
               href={`/${locale}/staff/queue?view=intake&decision=all`}
+              infoText={locale === 'ar'
+                ? 'مجموع القرارات والمراجعات الكاملة التي قمت بإتمامها على المنصة.'
+                : 'All-time volume of requests you have checked, updated, or made decisions on.'}
             />
             <KpiCard 
               label={locale === 'ar' ? 'معدل القبول (Approval Rate)' : 'Approval Rate'}
-              value={`${performance.approval_rate}%`}
+              value={`${performance.approval_rate.toLocaleString('en-US')}%`}
               icon="📈" color="#8b5cf6"
               subtitle={locale === 'ar' ? 'نسبة قبول الطلبات إلى إجمالي المراجعات' : 'Ratio of approved requests'}
               href={`/${locale}/staff/queue?view=intake&decision=approve`}
+              infoText={locale === 'ar'
+                ? 'النسبة المئوية للطلبات التي تم قبولها والموافقة عليها من بين إجمالي مراجعاتك.'
+                : 'Percentage of requests you reviewed and approved out of your total checks.'}
             />
             <KpiCard 
               label={locale === 'ar' ? 'أعمالي المنجزة اليوم (Done Today)' : 'Completed Today'}
-              value={performance.myStaffCompletedToday}
+              value={performance.myStaffCompletedToday.toLocaleString('en-US')}
               icon="📅" color="#f59e0b"
               subtitle={locale === 'ar' ? 'العمليات المكتملة خلال اليوم' : 'Tasks processed today'}
               href={`/${locale}/staff/queue?view=intake&decision=all`}
+              infoText={locale === 'ar'
+                ? 'عدد طلبات التوريد التي قمت بإتمام مراجعتها وحسم أمرها خلال اليوم الحالي.'
+                : 'Number of sourcing requests you have processed and resolved today.'}
             />
           </>
         )}
@@ -411,6 +734,10 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
                   actionHref={displayStats.slaBreached === 1 && displayStats.slaBreachedRequestIds?.[0]
                     ? `/${locale}/staff/workspace/${displayStats.slaBreachedRequestIds[0]}`
                     : `/${locale}/staff/queue?view=operations&sla_status=breached`}
+                  isAdmin={permissions.isAdmin}
+                  alertType="sla_breached"
+                  requestsList={requestsWithStaff.filter(r => breachedIds.includes(r.id))}
+                  locale={locale}
                 />
               )}
               
@@ -422,6 +749,10 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
                   actionHref={displayStats.slaAtRisk === 1 && displayStats.slaAtRiskRequestIds?.[0]
                     ? `/${locale}/staff/workspace/${displayStats.slaAtRiskRequestIds[0]}`
                     : `/${locale}/staff/queue?view=operations&sla_status=at_risk`}
+                  isAdmin={permissions.isAdmin}
+                  alertType="sla_at_risk"
+                  requestsList={requestsWithStaff.filter(r => atRiskIds.includes(r.id))}
+                  locale={locale}
                 />
               )}
 
@@ -433,6 +764,10 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
                   actionHref={displayStats.aiFailed === 1 && displayStats.aiFailedRequestIds?.[0]
                     ? `/${locale}/staff/workspace/${displayStats.aiFailedRequestIds[0]}`
                     : `/${locale}/staff/queue?view=issues`}
+                  isAdmin={permissions.isAdmin}
+                  alertType="ai_failed"
+                  requestsList={requestsWithStaff.filter(r => aiFailedIds.includes(r.id))}
+                  locale={locale}
                 />
               )}
 
@@ -440,6 +775,8 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
                 <AlertCard 
                   type="info"
                   message={locale === 'ar' ? 'جميع الأنظمة تعمل بكفاءة. لا يوجد أي تحذيرات حالياً.' : 'All systems operating efficiently. No active alerts.'}
+                  isAdmin={permissions.isAdmin}
+                  locale={locale}
                 />
               )}
             </div>
