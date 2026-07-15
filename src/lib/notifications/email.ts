@@ -164,7 +164,7 @@ export async function sendClarificationEmail({
   const admin = await createAdminClient()
   const { data: customer } = await (admin as any)
     .from('customers')
-    .select('email:auth_user_id')
+    .select('email')
     .eq('id', customerId)
     .maybeSingle()
 

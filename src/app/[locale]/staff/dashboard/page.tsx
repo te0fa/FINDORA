@@ -353,7 +353,7 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
         }
         .diag-tooltip {
           position: absolute;
-          bottom: 125%;
+          bottom: calc(100% + 8px);
           right: 0;
           transform: translateY(10px) scale(0.95);
           background: rgba(10, 15, 30, 0.98);
@@ -372,6 +372,15 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
           z-index: 1200;
           line-height: 1.5;
           text-align: left;
+        }
+        .diag-tooltip::after {
+          content: '';
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          height: 12px;
+          background: transparent;
         }
         :global([dir="rtl"]) .diag-tooltip {
           text-align: right;
@@ -405,6 +414,7 @@ export default async function StaffDashboardPage({ params }: { params: Promise<{
         .kpi-card:hover {
           transform: translateY(-4px);
           border-color: rgba(255,255,255,0.15);
+          z-index: 50;
         }
         .kpi-card::before {
           content: '';
