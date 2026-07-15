@@ -45,6 +45,7 @@ interface DALCard {
   featuresAr: string[]
   icon: string
   color: string
+  href?: string
 }
 
 interface AIAgent {
@@ -264,75 +265,87 @@ const PLATFORM_FEATURES: FeatureFlag[] = [
 const DAL_CARDS: DALCard[] = [
   { nameEn: 'Staff DAL', nameAr: 'بيانات الموظفين', path: 'src/lib/dal/staff.ts', icon: '👥', color: '#6366f1',
     descEn: 'Manages all staff data, permissions, roles, global KPI stats, and performance metrics. Used in every staff-facing page.',
-    descAr: 'يدير بيانات الموظفين والصلاحيات والأدوار وإحصاءات KPI العالمية ومقاييس الأداء. يُستخدم في كل صفحة للموظفين.',
+    descAr: 'يدير بيانات الموظفين والصلاحيات والأدوار وإحصاءات KPI العالمية ومقاييس الأداء. يُسخدم في كل صفحة للموظفين.',
     featuresEn: ['Staff members CRUD', 'Role & permission control', 'Global KPI aggregation', 'Performance review'],
     featuresAr: ['إنشاء/قراءة/تحديث/حذف الموظفين', 'التحكم في الأدوار والصلاحيات', 'تجميع KPI العالمية', 'تقييم الأداء'],
+    href: '/staff/users'
   },
   { nameEn: 'Contributors DAL', nameAr: 'بيانات المناديب', path: 'src/lib/dal/contributors.ts', icon: '🌍', color: '#22c55e',
     descEn: 'Scout profiles, applications, wallet operations, submission reviews, and economy stabilizer controls.',
     descAr: 'ملفات المناديب والطلبات وعمليات المحافظ ومراجعات التقديمات وضوابط موازن الاقتصاد.',
     featuresEn: ['Scout profiles & wallets', 'Application processing', 'Submission quality review', 'Economy levers'],
     featuresAr: ['ملفات المناديب والمحافظ', 'معالجة الطلبات', 'مراجعة جودة التقديمات', 'ضوابط الاقتصاد'],
+    href: '/staff/contributors'
   },
   { nameEn: 'Finance DAL', nameAr: 'بيانات المالية', path: 'src/lib/dal/finance.ts', icon: '💰', color: '#eab308',
     descEn: 'Full financial ledger — income/expense tracking, summaries, and ERP transaction records.',
     descAr: 'دفتر الأستاذ المالي الكامل — تتبع الدخل والمصروفات والملخصات وسجلات معاملات ERP.',
     featuresEn: ['Transaction ledger', 'Income/expense summary', 'Financial categories', 'ERP reporting'],
     featuresAr: ['دفتر المعاملات', 'ملخص الدخل والمصروفات', 'الفئات المالية', 'تقارير ERP'],
+    href: '/staff/finance/transactions'
   },
   { nameEn: 'Marketplace DAL', nameAr: 'بيانات السوق', path: 'src/lib/dal/marketplace.ts', icon: '🏪', color: '#ec4899',
     descEn: 'Vendor management, product listings, deals publishing, and dynamic commission calculation.',
     descAr: 'إدارة الموردين وقوائم المنتجات ونشر العروض وحساب العمولة الديناميكية.',
     featuresEn: ['Vendor CRUD', 'Product & deal management', 'Commission engine', 'Deal publishing'],
     featuresAr: ['إدارة الموردين', 'إدارة المنتجات والعروض', 'محرك العمولة', 'نشر العروض'],
+    href: '/staff/marketplace'
   },
   { nameEn: 'AI Control DAL', nameAr: 'التحكم في AI', path: 'src/lib/dal/ai-control.ts', icon: '🧠', color: '#a855f7',
     descEn: 'Enable/disable AI agents, set rate limits, manage prompt versions, and audit copilot run logs.',
     descAr: 'تفعيل/إيقاف وكلاء AI وضبط الحدود وإدارة إصدارات التعليمات ومراجعة سجلات التشغيل.',
     featuresEn: ['Agent enable/disable', 'Rate limiting', 'Prompt versioning', 'Usage audit log'],
     featuresAr: ['تفعيل/إيقاف الوكلاء', 'الحد اليومي', 'إصدار التعليمات', 'سجل الاستخدام'],
+    href: '/staff/ai-control'
   },
   { nameEn: 'Vendors DAL', nameAr: 'بيانات الموردين', path: 'src/lib/dal/vendors.ts', icon: '🏢', color: '#f97316',
     descEn: 'Full vendor lifecycle — registration, activation, trust scoring, suspension, messaging, and archive.',
     descAr: 'دورة حياة الموردين الكاملة — التسجيل والتفعيل والثقة والإيقاف والمراسلة والأرشفة.',
     featuresEn: ['Vendor registration & activation', 'Trust score management', 'Suspend/archive', 'Messaging'],
     featuresAr: ['تسجيل وتفعيل الموردين', 'إدارة نقاط الثقة', 'الإيقاف والأرشفة', 'المراسلة'],
+    href: '/staff/vendors'
   },
   { nameEn: 'Marketing DAL', nameAr: 'بيانات التسويق', path: 'src/lib/dal/marketing.ts', icon: '📢', color: '#ef4444',
     descEn: 'News, deals, pricing plans, and promotional content management for the public-facing platform.',
     descAr: 'إدارة الأخبار والعروض وخطط الأسعار والمحتوى الترويجي للمنصة العامة.',
     featuresEn: ['News/article CRUD', 'Deals management', 'Pricing plan control', 'Content publishing'],
     featuresAr: ['إدارة الأخبار', 'إدارة العروض', 'التحكم في خطط الأسعار', 'نشر المحتوى'],
+    href: '/staff/marketing/pricing'
   },
   { nameEn: 'Payments DAL', nameAr: 'بيانات المدفوعات', path: 'src/lib/dal/payments.ts', icon: '💳', color: '#06b6d4',
     descEn: 'Payment gateway integrations, transaction logging, payment status, and payout processing.',
     descAr: 'تكاملات بوابات الدفع وتسجيل المعاملات وحالة الدفع ومعالجة المدفوعات.',
     featuresEn: ['Payment gateway logs', 'Transaction tracking', 'Payout processing', 'Gateway config'],
     featuresAr: ['سجلات بوابة الدفع', 'تتبع المعاملات', 'معالجة المدفوعات', 'إعداد البوابة'],
+    href: '/staff/payments'
   },
   { nameEn: 'Requests DAL', nameAr: 'بيانات الطلبات', path: 'src/lib/dal/requests.ts', icon: '📋', color: '#8b5cf6',
     descEn: 'Request lifecycle — creation, state transitions, assignment, review decisions, and archival.',
     descAr: 'دورة حياة الطلبات — الإنشاء والانتقالات والتوزيع وقرارات المراجعة والأرشفة.',
     featuresEn: ['Request creation & state flow', 'Assignment engine', 'Reviewer decisions', 'Archive management'],
     featuresAr: ['إنشاء الطلبات وتدفق الحالة', 'محرك التوزيع', 'قرارات المراجع', 'إدارة الأرشيف'],
+    href: '/staff/queue'
   },
   { nameEn: 'Performance DAL', nameAr: 'بيانات الأداء', path: 'src/lib/dal/performance.ts', icon: '📊', color: '#10b981',
     descEn: 'Calculates staff throughput, SLA compliance, and queue performance metrics.',
     descAr: 'يحسب إنتاجية الموظفين والامتثال لـ SLA ومقاييس أداء الطابور.',
     featuresEn: ['Queue performance metrics', 'Staff throughput', 'SLA tracking', 'Pipeline analytics'],
     featuresAr: ['مقاييس أداء الطابور', 'إنتاجية الموظفين', 'تتبع SLA', 'تحليلات خط الأنابيب'],
+    href: '/staff/performance'
   },
   { nameEn: 'Reports DAL', nameAr: 'بيانات التقارير', path: 'src/lib/dal/reports.ts', icon: '📄', color: '#64748b',
     descEn: 'Client report lifecycle — snapshots, PDF generation, delivery status, and versioning.',
     descAr: 'دورة حياة تقارير العملاء — اللقطات وإنشاء PDF وحالة التسليم والإصدار.',
     featuresEn: ['Report snapshots', 'PDF generation', 'Delivery tracking', 'Report versioning'],
     featuresAr: ['لقطات التقارير', 'إنشاء PDF', 'تتبع التسليم', 'إصدار التقارير'],
+    href: '/staff/archive'
   },
   { nameEn: 'Intelligence DAL', nameAr: 'بيانات الذكاء', path: 'src/lib/dal/intelligence.ts', icon: '📡', color: '#14b8a6',
     descEn: 'Logs and retrieves intelligence events for merchants, customers, and the platform.',
     descAr: 'يسجل ويسترجع أحداث الذكاء للتجار والعملاء والمنصة.',
     featuresEn: ['Merchant event logging', 'Customer intel events', 'Platform event tracking'],
     featuresAr: ['تسجيل أحداث التجار', 'أحداث ذكاء العملاء', 'تتبع أحداث المنصة'],
+    href: '/staff/intelligence'
   },
 ]
 
@@ -576,8 +589,9 @@ export default function HubInteractiveClient({
       align-items: center;
       gap: 12px;
       transition: border-color 0.2s, background 0.2s, transform 0.15s;
-      cursor: default;
+      cursor: pointer;
       position: relative;
+      text-decoration: none;
     }
     .hic-card:hover {
       border-color: rgba(255,255,255,0.15);
@@ -1014,11 +1028,13 @@ export default function HubInteractiveClient({
       </div>
       <div className="hic-grid-4">
         {DAL_CARDS.map(dal => (
-          <div
+          <Link
             key={dal.path}
+            href={dal.href ? `/${locale}${dal.href}` : '#'}
             className="hic-card"
             onMouseEnter={e => show(dalTip(dal), e)}
             onMouseLeave={hide}
+            style={{ display: 'flex' }}
           >
             <span className="hic-card-icon">{dal.icon}</span>
             <div className="hic-card-body">
@@ -1026,9 +1042,9 @@ export default function HubInteractiveClient({
               <div className="hic-card-sub">{dal.path}</div>
             </div>
             <div className="hic-card-right">
-              <span className="hic-dot on" style={{ background: '#6366f1', boxShadow: '0 0 6px #6366f1' }} />
+              <span className="hic-dot on" style={{ background: dal.color || '#6366f1', boxShadow: `0 0 6px ${dal.color || '#6366f1'}` }} />
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
