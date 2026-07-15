@@ -19,9 +19,6 @@ export async function handleUpdateStaff(formData: FormData) {
   const staffId = formData.get('staffId') as string
   const role = formData.get('role') as string
   const team = formData.get('team') as string
-  const currentActive = formData.get('currentActive') === 'true'
-  const isToggle = formData.get('toggleActive') === 'true'
-  const active = isToggle ? !currentActive : currentActive
   const locale = formData.get('locale') as string
   
   // New details to update
@@ -36,6 +33,23 @@ export async function handleUpdateStaff(formData: FormData) {
   if (!staffId) return
 
   const adminClient = await createAdminClient()
+
+  // Resolve is_active status
+  let active = true
+  const currentActiveInput = formData.get('currentActive')
+  if (currentActiveInput === null) {
+    // Edit details form (not active status toggle) - fetch current is_active status from DB to preserve it
+    const { data: currentStaff } = await adminClient
+      .from('staff_members')
+      .select('is_active')
+      .eq('id', staffId)
+      .single()
+    active = currentStaff?.is_active ?? true
+  } else {
+    const currentActive = currentActiveInput === 'true'
+    const isToggle = formData.get('toggleActive') === 'true'
+    active = isToggle ? !currentActive : currentActive
+  }
 
   // 1. Update DB profile first
   await updateStaffMemberStatus(staffId, {
