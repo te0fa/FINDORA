@@ -1,4 +1,15 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { getAIFeatureStatus, logAIFeatureUsage } from '@/lib/dal/ai-control'
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  const timeout = new Promise<never>((_, reject) => {
+    const id = setTimeout(() => {
+      clearTimeout(id)
+      reject(new Error(`[TIMEOUT] ${label} exceeded ${ms}ms`))
+    }, ms)
+  })
+  return Promise.race([promise, timeout])
+}
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
@@ -27,36 +38,44 @@ export interface ResearchResult {
 export async function runGroundedResearch(prompt: string): Promise<ResearchResult> {
   const model = await getGeminiModel()
   
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'object',
-        properties: {
-          summary: { type: 'string' },
-          findings: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                title: { type: 'string' },
-                url: { type: 'string' },
-                snippet: { type: 'string' },
-                relevance_score: { type: 'number' }
-              },
-              required: ['title', 'url', 'snippet']
+  const result = await withTimeout(
+    model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: {
+            summary: { type: 'string' },
+            findings: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  title: { type: 'string' },
+                  url: { type: 'string' },
+                  snippet: { type: 'string' },
+                  relevance_score: { type: 'number' }
+                },
+                required: ['title', 'url', 'snippet']
+              }
             }
-          }
-        },
-        required: ['summary', 'findings']
-      } as any
-    }
-  })
+          },
+          required: ['summary', 'findings']
+        } as any
+      }
+    }),
+    45000,
+    'runGroundedResearch'
+  )
 
   const response = await result.response
   const text = response.text()
-  return JSON.parse(text)
+  try {
+    return JSON.parse(text)
+  } catch (parseErr: any) {
+    throw new Error(`[GEMINI] runGroundedResearch: invalid JSON response — ${parseErr.message}`)
+  }
 }
 
 export interface AnalyzedQuote {
@@ -93,40 +112,48 @@ ${JSON.stringify(quotes.map(q => ({ id: q.id, store_name: q.store_name, title: q
 Provide the output in JSON format matching the schema rules.
   `
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'object',
-        properties: {
-          analysis_summary: { type: 'string' },
-          analyzed_quotes: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                quote_id: { type: 'string' },
-                match_score: { type: 'number' },
-                rating_stars: { type: 'number' },
-                advantages_en: { type: 'string' },
-                advantages_ar: { type: 'string' },
-                verdict_en: { type: 'string' },
-                verdict_ar: { type: 'string' },
-                rank: { type: 'number' }
-              },
-              required: ['quote_id', 'match_score', 'rating_stars', 'advantages_en', 'advantages_ar', 'verdict_en', 'verdict_ar', 'rank']
+  const result = await withTimeout(
+    model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: {
+            analysis_summary: { type: 'string' },
+            analyzed_quotes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  quote_id: { type: 'string' },
+                  match_score: { type: 'number' },
+                  rating_stars: { type: 'number' },
+                  advantages_en: { type: 'string' },
+                  advantages_ar: { type: 'string' },
+                  verdict_en: { type: 'string' },
+                  verdict_ar: { type: 'string' },
+                  rank: { type: 'number' }
+                },
+                required: ['quote_id', 'match_score', 'rating_stars', 'advantages_en', 'advantages_ar', 'verdict_en', 'verdict_ar', 'rank']
+              }
             }
-          }
-        },
-        required: ['analysis_summary', 'analyzed_quotes']
-      } as any
-    }
-  })
+          },
+          required: ['analysis_summary', 'analyzed_quotes']
+        } as any
+      }
+    }),
+    30000,
+    'analyzeQuotesWithGemini'
+  )
 
   const response = await result.response
   const text = response.text()
-  return JSON.parse(text)
+  try {
+    return JSON.parse(text)
+  } catch (parseErr: any) {
+    throw new Error(`[GEMINI] analyzeQuotesWithGemini: invalid JSON response — ${parseErr.message}`)
+  }
 }
 
 export async function analyzeOfflineQuotesWithGemini(
@@ -147,40 +174,48 @@ ${JSON.stringify(quotes.map(q => ({ id: q.id, merchant_name: q.merchant_name, ti
 Provide the output in JSON format matching the schema rules.
   `
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'object',
-        properties: {
-          analysis_summary: { type: 'string' },
-          analyzed_quotes: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                quote_id: { type: 'string' },
-                match_score: { type: 'number' },
-                rating_stars: { type: 'number' },
-                advantages_en: { type: 'string' },
-                advantages_ar: { type: 'string' },
-                verdict_en: { type: 'string' },
-                verdict_ar: { type: 'string' },
-                rank: { type: 'number' }
-              },
-              required: ['quote_id', 'match_score', 'rating_stars', 'advantages_en', 'advantages_ar', 'verdict_en', 'verdict_ar', 'rank']
+  const result = await withTimeout(
+    model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: {
+            analysis_summary: { type: 'string' },
+            analyzed_quotes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  quote_id: { type: 'string' },
+                  match_score: { type: 'number' },
+                  rating_stars: { type: 'number' },
+                  advantages_en: { type: 'string' },
+                  advantages_ar: { type: 'string' },
+                  verdict_en: { type: 'string' },
+                  verdict_ar: { type: 'string' },
+                  rank: { type: 'number' }
+                },
+                required: ['quote_id', 'match_score', 'rating_stars', 'advantages_en', 'advantages_ar', 'verdict_en', 'verdict_ar', 'rank']
+              }
             }
-          }
-        },
-        required: ['analysis_summary', 'analyzed_quotes']
-      } as any
-    }
-  })
+          },
+          required: ['analysis_summary', 'analyzed_quotes']
+        } as any
+      }
+    }),
+    30000,
+    'analyzeOfflineQuotesWithGemini'
+  )
 
   const response = await result.response
   const text = response.text()
-  return JSON.parse(text)
+  try {
+    return JSON.parse(text)
+  } catch (parseErr: any) {
+    throw new Error(`[GEMINI] analyzeOfflineQuotesWithGemini: invalid JSON response — ${parseErr.message}`)
+  }
 }
 
 export interface SynthesizedDeal {
@@ -233,45 +268,53 @@ ${JSON.stringify(offlineQuotes.map(q => ({ id: q.id, merchant_name: q.merchant_n
 Provide the output in JSON format matching the schema rules.
   `
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'object',
-        properties: {
-          synthesis_summary: { type: 'string' },
-          top_deals: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                source_type: { type: 'string', enum: ['online', 'offline'] },
-                quote_id: { type: 'string' },
-                deal_title: { type: 'string' },
-                merchant_name: { type: 'string' },
-                price: { type: 'number' },
-                product_url: { type: 'string' },
-                match_score: { type: 'number' },
-                rating_stars: { type: 'number' },
-                advantages_en: { type: 'string' },
-                advantages_ar: { type: 'string' },
-                disadvantages_en: { type: 'string' },
-                disadvantages_ar: { type: 'string' },
-                rank: { type: 'number' }
-              },
-              required: ['source_type', 'quote_id', 'deal_title', 'merchant_name', 'price', 'match_score', 'rating_stars', 'advantages_en', 'advantages_ar', 'disadvantages_en', 'disadvantages_ar', 'rank']
+  const result = await withTimeout(
+    model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: {
+            synthesis_summary: { type: 'string' },
+            top_deals: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  source_type: { type: 'string', enum: ['online', 'offline'] },
+                  quote_id: { type: 'string' },
+                  deal_title: { type: 'string' },
+                  merchant_name: { type: 'string' },
+                  price: { type: 'number' },
+                  product_url: { type: 'string' },
+                  match_score: { type: 'number' },
+                  rating_stars: { type: 'number' },
+                  advantages_en: { type: 'string' },
+                  advantages_ar: { type: 'string' },
+                  disadvantages_en: { type: 'string' },
+                  disadvantages_ar: { type: 'string' },
+                  rank: { type: 'number' }
+                },
+                required: ['source_type', 'quote_id', 'deal_title', 'merchant_name', 'price', 'match_score', 'rating_stars', 'advantages_en', 'advantages_ar', 'disadvantages_en', 'disadvantages_ar', 'rank']
+              }
             }
-          }
-        },
-        required: ['synthesis_summary', 'top_deals']
-      } as any
-    }
-  })
+          },
+          required: ['synthesis_summary', 'top_deals']
+        } as any
+      }
+    }),
+    30000,
+    'synthesizeFinalProposalWithGemini'
+  )
 
   const response = await result.response
   const text = response.text()
-  return JSON.parse(text)
+  try {
+    return JSON.parse(text)
+  } catch (parseErr: any) {
+    throw new Error(`[GEMINI] synthesizeFinalProposalWithGemini: invalid JSON response — ${parseErr.message}`)
+  }
 }
 
 export async function runParallelQuoteAnalysis(
@@ -304,8 +347,6 @@ export async function runParallelQuoteAnalysis(
 
   return { online, offline, finalProposal };
 }
-
-import { getAIFeatureStatus, logAIFeatureUsage } from '@/lib/dal/ai-control'
 
 export async function generateRfqDocument(
   productName: string,
@@ -356,9 +397,13 @@ The document should be bilingual (Arabic & English), clean, and well-structured.
 
 Make it read like a premium, professional corporate RFQ. Do not output anything other than the Markdown document content itself.
 `
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }]
-    })
+    const result = await withTimeout(
+      model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      }),
+      30000,
+      'generateRfqDocument'
+    )
     const response = await result.response
     const text = response.text()
 
@@ -379,4 +424,3 @@ Make it read like a premium, professional corporate RFQ. Do not output anything 
     return fallbackText
   }
 }
-
