@@ -177,6 +177,23 @@ async function runWorkflowSteps(requestId: string, adminClient: any): Promise<vo
           throw new Error(aiRes.error || 'Generative model returned no result.');
         }
 
+        // Log AI call (fire-and-forget — never blocks main flow)
+        import('@/lib/dal/ai-control').then(({ logAICopilotRun }) => {
+          logAICopilotRun({
+            requestId,
+            staffId: null,
+            agentCode: 'orchestrator_summary',
+            provider: 'gemini',
+            model: process.env.AI_MODEL || 'gemini-2.5-flash',
+            inputSummary: { titleLength: fullRequest.title?.length, hasDescription: !!fullRequest.raw_description },
+            outputSummary: { success: !aiRes.error, hasSummary: !!aiRes.data },
+            status: aiRes.error ? 'failed' : 'completed',
+            errorMessage: aiRes.error || null,
+            tokenEstimate: 1500,
+            costEstimate: 0.01
+          })
+        }).catch(() => {})
+
         const data = aiRes.data;
         summaryEn = `
 ### What We Understood

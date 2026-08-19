@@ -12,6 +12,7 @@
 import { callAI } from '@/lib/ai/provider'
 import { getStageSettings } from '@/lib/intelligence/ai-stage-config'
 import { createLogger } from '@/lib/utils/logger'
+import { logAICopilotRun } from '@/lib/dal/ai-control'
 
 const log = createLogger('intelligence/ai-concierge-agent')
 
@@ -129,6 +130,21 @@ export async function parseAIRequest(params: {
     },
   })
   // ─────────────────────────────────────────────────────────────────────────
+
+  // Log AI call (fire-and-forget)
+  logAICopilotRun({
+    requestId: null,      // concierge runs before request is created
+    staffId: null,
+    agentCode: 'concierge_parse',
+    provider: 'gemini',
+    model: process.env.AI_MODEL || 'gemini-2.5-flash',
+    inputSummary: { hasText: !!text, hasImage: !!imageUrl, textLength: text?.length ?? 0 },
+    outputSummary: { valid: !result.error && (result.data as any)?.valid !== false, confidence: (result.data as any)?.confidence ?? 0 },
+    status: result.error ? 'failed' : 'completed',
+    errorMessage: result.error || null,
+    tokenEstimate: 800,
+    costEstimate: 0.005
+  }).catch(() => {})
 
   if (result.error || !result.data) {
     log.error('[ai-concierge] AI call failed:', result.error)
@@ -275,6 +291,21 @@ export async function parseProductLinkGaps(extracted: {
     },
   })
   // ─────────────────────────────────────────────────────────────────────────
+
+  // Log AI call (fire-and-forget)
+  logAICopilotRun({
+    requestId: null,
+    staffId: null,
+    agentCode: 'product_link_gap_fill',
+    provider: 'gemini',
+    model: stage.model || process.env.AI_MODEL || 'gemini-2.5-flash',
+    inputSummary: { hasName: !!extracted.productName, hasBrand: !!extracted.brand },
+    outputSummary: { success: !result.error && !!result.data },
+    status: result.error ? 'failed' : 'completed',
+    errorMessage: result.error || null,
+    tokenEstimate: 600,
+    costEstimate: 0.004
+  }).catch(() => {})
 
   if (result.error || !result.data) {
     log.warn('[ai-concierge] parseProductLinkGaps AI call failed — using safe defaults')
