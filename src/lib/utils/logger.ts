@@ -45,9 +45,10 @@ function formatEntry(entry: LogEntry): string {
   const ts = entry.timestamp.slice(11, 23) // HH:MM:SS.mmm
   const color = COLORS[entry.level]
   const lvl = entry.level.toUpperCase().padEnd(5)
+  const req = entry.requestId ? `[req:${entry.requestId}] ` : ''
   const src = entry.source ? `[${entry.source}] ` : ''
   const ctx = entry.context ? ` ${JSON.stringify(entry.context)}` : ''
-  return `${color}${ts} ${lvl}${COLORS.reset} ${src}${entry.message}${ctx}`
+  return `${color}${ts} ${lvl}${COLORS.reset} ${req}${src}${entry.message}${ctx}`
 }
 
 function sendToMonitoring(entry: LogEntry): void {

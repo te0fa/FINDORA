@@ -3,6 +3,8 @@ import { updateSession } from '@/lib/supabase/proxy'
 import { i18nConfig } from '@/lib/i18n/config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerClient } from '@supabase/ssr'
+import { setRequestId } from '@/lib/utils/logger'
+import crypto from 'node:crypto'
 
 const PUBLIC_FILE_PATH_REGEX = /\.(.*)$/
 
@@ -174,6 +176,10 @@ function requiresAuth(pathname: string, method: string): boolean {
 }
 
 export async function proxy(request: NextRequest) {
+  // 0. Correlation ID
+  const requestId = request.headers.get('x-request-id') || crypto.randomUUID()
+  setRequestId(requestId)
+
   const { pathname } = request.nextUrl
   const method = request.method
 
@@ -191,7 +197,7 @@ export async function proxy(request: NextRequest) {
 
     if (!allowed) {
       const retryAfter = Math.max(1, resetTime - Math.ceil(Date.now() / 1000))
-      return NextResponse.json(
+      const res = NextResponse.json(
         { error: 'Too many requests. Please wait and try again later.' },
         {
           status: 429,
@@ -199,10 +205,12 @@ export async function proxy(request: NextRequest) {
             'Retry-After': String(retryAfter),
             'X-RateLimit-Limit': String(rateLimitConfig.limit),
             'X-RateLimit-Remaining': String(remaining),
-            'X-RateLimit-Reset': String(resetTime)
+            'X-RateLimit-Reset': String(resetTime),
+            'x-request-id': requestId,
           }
         }
       )
+      return res
     }
   }
 
@@ -255,7 +263,9 @@ export async function proxy(request: NextRequest) {
 
     // 3. Centralized API Auth Guard
     if (needsAuth && !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      const res = NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      res.headers.set('x-request-id', requestId)
+      return res
     }
 
     // 3.5. Role-Level Authorization Guard
@@ -269,7 +279,9 @@ export async function proxy(request: NextRequest) {
         .maybeSingle()
 
       if (staffError || !staff) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        const res = NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        res.headers.set('x-request-id', requestId)
+        return res
       }
     }
   }
@@ -301,12 +313,18 @@ export async function proxy(request: NextRequest) {
       }
 
       const redirectUrl = new URL(`/${detectedLocale}${pathname}`, request.url)
-      return NextResponse.redirect(redirectUrl)
+      const res = NextResponse.redirect(redirectUrl)
+      res.headers.set('x-request-id', requestId)
+      return res
     }
   }
 
   // 6. Maintain Supabase session & handle page redirects
-  return await updateSession(request, user)
+  const sessionResponse = await updateSession(request, user)
+  if (sessionResponse) {
+    sessionResponse.headers.set('x-request-id', requestId)
+  }
+  return sessionResponse
 }
 
 export const config = {
