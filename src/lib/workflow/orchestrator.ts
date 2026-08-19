@@ -3,33 +3,50 @@ import { createAdminClient } from '@/lib/dal/customers';
 import { callAI } from '@/lib/ai/provider';
 import { sendApprovalEmail } from './notifications';
 import { dispatchResearchAgents } from './agents';
-import { createLogger } from '@/lib/utils/logger'
+import { createLogger, setRequestId } from '@/lib/utils/logger'
+import * as Sentry from '@sentry/nextjs'
 const log = createLogger('workflow/orchestrator')
 
-export async function onRequestApproved(requestId: string): Promise<void> {
+export async function onRequestApproved(requestId: string, requestPayload?: any): Promise<void> {
+  // 1️⃣ إعداد الـ requestId للـ logger و Sentry
+  setRequestId(requestId);
+  Sentry.setTag('request_id', requestId);
+
   log.info("[WORKFLOW_INITIATED]", requestId);
+
+  const adminClient = await createAdminClient();
+
+  // 2️⃣ قفل التنفيذ – تحقق ما إذا كان هناك تشغيل حالياً لنفس requestId
+  const { data: existing } = await adminClient
+    .from('workflow_runs')
+    .select('dispatch_status, ai_summary_status, email_status')
+    .eq('request_id', requestId)
+    .maybeSingle();
+
+  if (existing?.dispatch_status === 'running' || existing?.ai_summary_status === 'running') {
+    log.warn(`[ORCHESTRATOR] Workflow already running for request ${requestId}`);
+    return; // ❌ منع double‑approval
+  }
+
+  // 3️⃣ تهيئة وقفل الحالة إلى running قبل البدء
+  try {
+    await adminClient
+      .from('workflow_runs')
+      .upsert({
+        request_id: requestId,
+        ai_summary_status: existing?.ai_summary_status || 'pending',
+        email_status: existing?.email_status || 'pending',
+        dispatch_status: 'running',
+        attempts: 1,
+        last_error: null
+      }, { onConflict: 'request_id' });
+    log.info(`[ORCHESTRATOR] Initialised tracking & lock for request ${requestId}`);
+  } catch (err: any) {
+    log.error(`[ORCHESTRATOR_TRACKING_FAIL] Failed to initialise workflow_runs tracking:`, err.message);
+  }
 
   // Run in background non-blocking context (guaranteed by Vercel lambda lifecycle using Next.js after)
   after(async () => {
-    const adminClient = await createAdminClient();
-
-    // 1. Initialise tracking row in workflow_runs
-    try {
-      await adminClient
-        .from('workflow_runs')
-        .upsert({
-          request_id: requestId,
-          ai_summary_status: 'pending',
-          email_status: 'pending',
-          dispatch_status: 'pending',
-          attempts: 1,
-          last_error: null
-        }, { onConflict: 'request_id' });
-      log.info(`[ORCHESTRATOR] Initialised tracking for request ${requestId}`);
-    } catch (err: any) {
-      log.error(`[ORCHESTRATOR_TRACKING_FAIL] Failed to initialise workflow_runs tracking:`, err.message);
-    }
-
     await runWorkflowSteps(requestId, adminClient);
   });
 }

@@ -16,6 +16,17 @@ interface LogEntry {
   context?: LogContext
   timestamp: string
   source?: string
+  requestId?: string
+}
+
+let currentRequestId: string | null = null
+
+export function setRequestId(id: string): void {
+  currentRequestId = id
+}
+
+export function getRequestId(): string | null {
+  return currentRequestId
 }
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production'
