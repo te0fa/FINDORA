@@ -23,7 +23,7 @@ export interface ReceiptOcrResult {
   isValidReceipt: boolean;
   transactionReference: string;
   amount: number;
-  date: string;
+  date?: string;
   confidence: number;
   reason: string;
 }
@@ -54,21 +54,20 @@ export async function verifyInstapayReceiptWithGemini(imageUrl: string): Promise
 
   // Graceful simulation fallback if API key absent
   if (!genAI) {
-    log.info('[OCR] Gemini API key missing. Running simulated receipt OCR fallback.');
-    const mockRef = `IPN-SIM-${Math.floor(100000 + Math.random() * 900000)}`;
+    log.warn('[OCR] GEMINI_API_KEY not configured. Payment verification unavailable. Failing closed for safety.');
     await logAIFeatureUsage({
       featureKey: 'flag_ai_receipt_ocr',
-      success: true,
+      success: false,
       estimatedCost: 0,
-      metadata: { simulated: true }
-    })
+      metadata: { simulated: false, reason: 'api_key_absent' }
+    });
     return {
-      isValidReceipt: true,
-      transactionReference: mockRef,
-      amount: 75.00,
-      date: new Date().toISOString(),
-      confidence: 0.95,
-      reason: 'Simulated verification success (API Key absent)'
+      isValidReceipt: false,
+      transactionReference: '',
+      amount: 0,
+      confidence: 0,
+      reason:
+        'OCR service unavailable. GEMINI_API_KEY not configured. Manual staff review required.'
     };
   }
 
