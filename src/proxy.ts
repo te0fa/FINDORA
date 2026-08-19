@@ -45,13 +45,73 @@ function getRateLimitConfig(pathname: string): { limit: number; windowSeconds: n
   return null
 }
 
-async function checkRateLimit(
+export async function checkRateLimit(
   ip: string,
   path: string,
   limit: number,
   windowSeconds: number
 ) {
-  return { allowed: true, remaining: limit, resetTime: Math.floor(Date.now() / 1000) + windowSeconds }
+  try {
+    const admin = (await createAdminClient()) as any;
+    const windowKey = `${ip}:${path}`;
+    const now = Date.now();
+    const windowStart = now - windowSeconds * 1000;
+
+    // ابحث عن نافذة سابقة في قاعدة البيانات
+    const { data, error } = await admin
+      .from('rate_limit_windows')
+      .select('request_count, window_start')
+      .eq('window_key', windowKey)
+      .gte('window_start', new Date(windowStart).toISOString())
+      .single();
+
+    // إذا لم توجد نافذة (أو حدث خطأ) – أنشئ نافذة جديدة
+    if (error || !data) {
+      await admin.from('rate_limit_windows').upsert({
+        window_key: windowKey,
+        request_count: 1,
+        window_start: new Date().toISOString(),
+        expires_at: new Date(now + windowSeconds * 1000).toISOString(),
+      });
+      return {
+        allowed: true,
+        remaining: limit - 1,
+        resetTime: Math.floor((now + windowSeconds * 1000) / 1000),
+      };
+    }
+
+    // إذا تجاوز الحدّ
+    if (data.request_count >= limit) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: Math.floor(
+          new Date(data.window_start).getTime() + windowSeconds * 1000
+        ) / 1000,
+      };
+    }
+
+    // حدّ لم يُستنفذ بعد → حدّث العداد
+    await admin
+      .from('rate_limit_windows')
+      .update({ request_count: data.request_count + 1 })
+      .eq('window_key', windowKey);
+
+    return {
+      allowed: true,
+      remaining: limit - data.request_count - 1,
+      resetTime: Math.floor(
+        new Date(data.window_start).getTime() + windowSeconds * 1000
+      ) / 1000,
+    };
+  } catch {
+    // Fail-open for safety if database is unreachable
+    return {
+      allowed: true,
+      remaining: limit - 1,
+      resetTime: Math.floor(Date.now() / 1000) + windowSeconds,
+    };
+  }
 }
 
 function getClientIP(request: NextRequest): string {
