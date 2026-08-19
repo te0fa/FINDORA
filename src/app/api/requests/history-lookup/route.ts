@@ -23,8 +23,15 @@ import { guardLookupRate, normalizePhoneForLookup } from '@/lib/intelligence/loo
 import { verifyOtp } from '@/lib/otp/verify'
 
 export async function POST(request: Request) {
+  try {
   // ── 1. Feature flag gate ─────────────────────────────────────────────────
-  const enabled = await isFeatureEnabled('request_history_lookup')
+  let enabled = true
+  try {
+    enabled = await isFeatureEnabled('request_history_lookup')
+  } catch {
+    // Feature flag DB unavailable — default to enabled (fail open for lookups)
+    enabled = true
+  }
   if (!enabled) {
     return NextResponse.json({ error: 'FEATURE_DISABLED' }, { status: 403 })
   }
@@ -132,4 +139,9 @@ export async function POST(request: Request) {
   }))
 
   return NextResponse.json({ found: true, requests, history: data })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[history-lookup] Unhandled error:', msg)
+    return NextResponse.json({ error: 'SERVER_ERROR' }, { status: 500 })
+  }
 }
