@@ -16,6 +16,7 @@ export interface PricingSuggestionContext {
   complexity: 'simple' | 'medium' | 'complex'
   budget?: number
   exact_match: boolean
+  customer_id?: string
 }
 
 export interface PricingSuggestion {
@@ -74,8 +75,21 @@ export async function generatePricingSuggestion(
     }
   }
 
+  let customerId = context.customer_id ?? ''
+  if (!customerId) {
+    try {
+      const { createClient } = await import('@/lib/supabase/server')
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      customerId = user?.id ?? ''
+    } catch {
+      customerId = ''
+    }
+  }
+
   // Calculate hash of all inputs affecting the prompt to prevent false cache hits
   const cacheInput = {
+    customer_id: customerId,
     urgency,
     complexity,
     exact_match,
@@ -88,10 +102,12 @@ export async function generatePricingSuggestion(
     base_is_promo: basePricing.is_promo
   }
 
-  const cacheKey = crypto
+  const rawHash = crypto
     .createHash('sha256')
     .update(JSON.stringify(cacheInput))
     .digest('hex')
+
+  const cacheKey = customerId ? `${customerId}-${rawHash}` : `anon-${rawHash}`
 
   const db = (await createAdminClient()) as any
   const nowStr = new Date().toISOString()
@@ -184,7 +200,7 @@ Output strict JSON only, conforming to this schema:
     // Save cache entry (expires in 24 hours)
     try {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-      await db.from('ai_response_cache').insert({
+      await db.from('ai_response_cache').upsert({
         cache_key: cacheKey,
         feature_key: 'flag_ai_pricing_suggestions',
         response_value: suggestionResult as any,
