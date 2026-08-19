@@ -1,16 +1,11 @@
 /**
  * FINDORA — API Rate Limiter
- * In-memory rate limiting for API routes.
- * Production-ready: sliding window algorithm, per-IP tracking.
- * For high-scale: replace with Redis-backed solution.
+ * Supabase-backed persistent rate limiting for API routes.
+ * Uses rate_limit_windows table via proxy.ts.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-
-interface RateLimitEntry {
-  count: number
-  windowStart: number
-}
+import { checkRateLimit } from '@/proxy'
 
 interface RateLimitConfig {
   /** Maximum requests allowed per window */
@@ -19,21 +14,6 @@ interface RateLimitConfig {
   windowMs: number
   /** Human-readable message returned when limit exceeded */
   message?: string
-}
-
-// In-memory store: Map<IP, RateLimitEntry>
-const store = new Map<string, RateLimitEntry>()
-
-// Cleanup old entries every 5 minutes to prevent memory leaks
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now()
-    for (const [key, entry] of store.entries()) {
-      if (now - entry.windowStart > 60_000 * 10) {
-        store.delete(key)
-      }
-    }
-  }, 5 * 60 * 1000)
 }
 
 /**
@@ -45,33 +25,32 @@ function getClientIP(request: NextRequest): string {
     request.headers.get('x-real-ip') ||
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     request.headers.get('cf-connecting-ip') ||
-    'unknown'
+    '127.0.0.1'
   )
 }
 
 /**
- * Core rate limiter function.
+ * Core rate limiter function backed by Supabase rate_limit_windows table.
  * Returns null if within limit, or a 429 NextResponse if exceeded.
  */
-export function rateLimit(
+export async function rateLimit(
   request: NextRequest,
   config: RateLimitConfig
-): NextResponse | null {
+): Promise<NextResponse | null> {
   const { limit, windowMs, message = 'Too many requests. Please try again later.' } = config
   const ip = getClientIP(request)
-  const now = Date.now()
-  const key = `${ip}:${request.nextUrl.pathname}`
+  const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000))
+  const cleanPath = request.nextUrl.pathname.replace(/^\/(?:ar|en)/, '')
 
-  const entry = store.get(key)
+  const { allowed, remaining, resetTime } = await checkRateLimit(
+    ip,
+    cleanPath,
+    limit,
+    windowSeconds
+  )
 
-  if (!entry || now - entry.windowStart >= windowMs) {
-    // Start a new window
-    store.set(key, { count: 1, windowStart: now })
-    return null
-  }
-
-  if (entry.count >= limit) {
-    const retryAfter = Math.ceil((entry.windowStart + windowMs - now) / 1000)
+  if (!allowed) {
+    const retryAfter = Math.max(1, resetTime - Math.ceil(Date.now() / 1000))
     return NextResponse.json(
       { error: message, retryAfterSeconds: retryAfter },
       {
@@ -79,16 +58,13 @@ export function rateLimit(
         headers: {
           'Retry-After': String(retryAfter),
           'X-RateLimit-Limit': String(limit),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': String(Math.ceil((entry.windowStart + windowMs) / 1000)),
+          'X-RateLimit-Remaining': String(remaining),
+          'X-RateLimit-Reset': String(resetTime),
         },
       }
     )
   }
 
-  // Increment count
-  entry.count++
-  store.set(key, entry)
   return null
 }
 
@@ -151,7 +127,7 @@ export function withRateLimit(
   handler: (request: NextRequest, context?: any) => Promise<NextResponse>
 ) {
   return async (request: NextRequest, context?: any): Promise<NextResponse> => {
-    const limitResponse = rateLimit(request, config)
+    const limitResponse = await rateLimit(request, config)
     if (limitResponse) return limitResponse
     return handler(request, context)
   }
