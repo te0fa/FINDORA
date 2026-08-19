@@ -274,6 +274,37 @@ Provide the output in JSON format matching the schema rules.
   return JSON.parse(text)
 }
 
+export async function runParallelQuoteAnalysis(
+  searchTerm: string,
+  category: string,
+  budget: number,
+  onlineQuotes: any[],
+  offlineQuotes: any[]
+): Promise<{
+  online: SourcingAnalysisResult | null;
+  offline: SourcingAnalysisResult | null;
+  finalProposal: SynthesisProposalResult;
+}> {
+  const [online, offline] = await Promise.all([
+    onlineQuotes && onlineQuotes.length > 0
+      ? analyzeQuotesWithGemini(searchTerm, category, budget, onlineQuotes)
+      : Promise.resolve(null),
+    offlineQuotes && offlineQuotes.length > 0
+      ? analyzeOfflineQuotesWithGemini(searchTerm, category, budget, offlineQuotes)
+      : Promise.resolve(null)
+  ]);
+
+  const finalProposal = await synthesizeFinalProposalWithGemini(
+    searchTerm,
+    category,
+    budget,
+    onlineQuotes || [],
+    offlineQuotes || []
+  );
+
+  return { online, offline, finalProposal };
+}
+
 import { getAIFeatureStatus, logAIFeatureUsage } from '@/lib/dal/ai-control'
 
 export async function generateRfqDocument(
