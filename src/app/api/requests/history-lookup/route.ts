@@ -20,6 +20,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isFeatureEnabled, getFeatureConfig } from '@/lib/feature-flags/feature-service'
 import { guardLookupRate, normalizePhoneForLookup } from '@/lib/intelligence/lookup-guard'
+import { verifyOtp } from '@/lib/otp/verify'
 
 export async function POST(request: Request) {
   // ── 1. Feature flag gate ─────────────────────────────────────────────────
@@ -44,14 +45,33 @@ export async function POST(request: Request) {
   }
 
   // ── 4. Parse and validate body ───────────────────────────────────────────
-  let body: { phone?: string }
+  let body: { phone?: string; otpToken?: string }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 })
   }
 
-  const rawInputPhone = (body.phone ?? '').trim()
+  const { phone, otpToken } = body
+
+  // 1️⃣ إذا لم يُرسل الـ OTP → رفض فوري
+  if (!otpToken) {
+    return NextResponse.json(
+      { error: 'OTP verification required' },
+      { status: 401 }
+    )
+  }
+
+  // 2️⃣ التحقق من صحة الـ OTP
+  const isValid = await verifyOtp(phone || '', otpToken)
+  if (!isValid) {
+    return NextResponse.json(
+      { error: 'Invalid or expired OTP' },
+      { status: 401 }
+    )
+  }
+
+  const rawInputPhone = (phone ?? '').trim()
   const normalizedPhone = normalizePhoneForLookup(rawInputPhone)
   if (!normalizedPhone) {
     return NextResponse.json(
@@ -111,5 +131,5 @@ export async function POST(request: Request) {
     createdAt:   row.created_at  as string,
   }))
 
-  return NextResponse.json({ found: true, requests })
+  return NextResponse.json({ found: true, requests, history: data })
 }

@@ -9,7 +9,7 @@ import { createLogger } from '@/lib/utils/logger'
 const log = createLogger('notifications/otp')
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-export type OtpPurpose = 'contributor_registration' | 'merchant_registration' | 'withdrawal_verification' | 'vendor_auth';
+export type OtpPurpose = 'contributor_registration' | 'merchant_registration' | 'withdrawal_verification' | 'vendor_auth' | 'history_lookup';
 
 export interface SendOtpResult {
   success: boolean;

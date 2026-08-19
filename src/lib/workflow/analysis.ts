@@ -269,3 +269,20 @@ export async function triggerAIAnalysis(requestId: string, force = false): Promi
     return null;
   }
 }
+
+export async function analyzeQuotesParallelWorkflow(
+  searchTerm: string,
+  category: string,
+  budget: number,
+  onlineQuotes: any[],
+  offlineQuotes: any[]
+) {
+  const { runParallelQuoteAnalysis } = await import('@/lib/gemini/client');
+  return runParallelQuoteAnalysis(
+    searchTerm,
+    category,
+    budget,
+    onlineQuotes,
+    offlineQuotes
+  );
+}

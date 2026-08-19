@@ -3,15 +3,45 @@ import { parseNaturalLanguageRequest } from '@/lib/intelligence/ai-buying-agent'
 import { withRateLimit, STANDARD_RATE_LIMIT } from '@/lib/middleware/rate-limiter'
 import { getAIFeatureStatus, logAIFeatureUsage } from '@/lib/dal/ai-control'
 
+const MAX_QUERY_LENGTH = 50_000; // 50 k characters ≈ 75 KB
+
 // ─── POST — Parse Natural Language Sourcing Query ───────────────────────────
 
 async function parseRequestHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json()
-    const { query } = body
+    const { query, description, title, freeText } = body
 
     if (!query || !query.trim()) {
       return NextResponse.json({ error: 'query parameter is required' }, { status: 400 })
+    }
+
+    if (query && query.length > MAX_QUERY_LENGTH) {
+      return NextResponse.json(
+        { error: 'Query too long. Maximum 50,000 characters allowed.' },
+        { status: 400 }
+      );
+    }
+
+    if (description && description.length > MAX_QUERY_LENGTH) {
+      return NextResponse.json(
+        { error: 'Description too long. Maximum 50,000 characters allowed.' },
+        { status: 400 }
+      );
+    }
+
+    if (title && title.length > MAX_QUERY_LENGTH) {
+      return NextResponse.json(
+        { error: 'Title too long. Maximum 50,000 characters allowed.' },
+        { status: 400 }
+      );
+    }
+
+    if (freeText && freeText.length > MAX_QUERY_LENGTH) {
+      return NextResponse.json(
+        { error: 'Text too long. Maximum 50,000 characters allowed.' },
+        { status: 400 }
+      );
     }
 
     // 1. Check Feature Flag & Rate Caps
