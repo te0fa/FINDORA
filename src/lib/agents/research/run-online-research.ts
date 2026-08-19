@@ -7,6 +7,7 @@ import { runGroundedResearch } from '@/lib/gemini/client'
 import { getRequestWithPreferences, createResearchRun, createResearchItems } from '@/lib/dal/research'
 import { completeJob, failJob } from '@/lib/dal/staff'
 import { createLogger } from '@/lib/utils/logger'
+import { logAICopilotRun } from '@/lib/dal/ai-control'
 
 const log = createLogger('ResearchAgent')
 
@@ -45,6 +46,21 @@ export async function executeOnlineResearch(jobId: string, requestId: string) {
         relevance_score?: number
       }>
     }
+
+    // Log AI call (fire-and-forget)
+    logAICopilotRun({
+      requestId,
+      staffId: null,
+      agentCode: 'online_research_grounded',
+      provider: 'gemini',
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      inputSummary: { titleLength: request.title?.length },
+      outputSummary: { findingsCount: result.findings?.length ?? 0, hasSummary: !!result.summary },
+      status: 'completed',
+      errorMessage: null,
+      tokenEstimate: 3000,
+      costEstimate: 0.03
+    }).catch(() => {})
 
     // 4. Persistence
     const run = await createResearchRun({
