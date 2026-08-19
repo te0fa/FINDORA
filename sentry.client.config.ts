@@ -1,16 +1,18 @@
 import * as Sentry from "@sentry/nextjs";
 import { sanitizeEvent } from "./src/lib/utils/sentry-sanitize";
 
-Sentry.init({
+export const sentryClientConfig = {
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  tracesSampleRate: 0.05,
 
   // Setting this option to true will print useful information to the console when Sentry is initialized.
-  debug: true,
+  debug: false,
 
-  beforeSend(event) {
+  beforeSend(event: any) {
     return sanitizeEvent(event);
   },
-});
+};
+
+Sentry.init(sentryClientConfig);
