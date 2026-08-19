@@ -27,16 +27,42 @@ interface Deal {
   category?: string
 }
 
+const DEFAULT_OFFERS: Announcement[] = [
+  {
+    id: 'launch-offer-99',
+    title_en: '🔥 Exclusive Launch Offer: 99 EGP for Sourcing Any Product',
+    title_ar: '🔥 عرض الإطلاق الحصري: 99 جنيه للبحث عن أي منتج',
+    body_en: 'Submit your sourcing request now and get verified merchant quotes with zero hidden fees.',
+    body_ar: 'اطلب الآن واحصل على أفضل عروض الأسعار من المتاجر المعتمدة بسعر رمزي وبدون أي رسوم خفية.',
+    link_url: '/#pricing',
+    announcement_type: 'service'
+  }
+]
+
+const DEFAULT_DEALS: Deal[] = [
+  {
+    id: 'deal-featured-1',
+    title_en: 'Special Marketplace Deal',
+    title_ar: 'عرض خاص في المتجر',
+    description_en: 'Verified top tier product sourced at best market price.',
+    description_ar: 'منتج موثق بأفضل سعر في السوق.',
+    deal_price: 499,
+    original_price: 750,
+    currency_code: 'EGP',
+    category: 'electronics'
+  }
+]
+
 export default function FloatingHighlightsHub({ 
-  offers, 
-  deals, 
+  offers: initialOffers, 
+  deals: initialDeals, 
   locale,
   dict 
 }: { 
-  offers: Announcement[], 
-  deals: Deal[], 
+  offers?: Announcement[], 
+  deals?: Deal[], 
   locale: string,
-  dict: any
+  dict?: any
 }) {
   const [activeTab, setActiveTab] = useState<'service' | 'product'>('service')
   const [isVisible, setIsVisible] = useState(true)
@@ -45,8 +71,11 @@ export default function FloatingHighlightsHub({
   const [pulse, setPulse] = useState(false)
   const isRTL = locale.startsWith('ar')
 
+  const effectiveOffers = initialOffers && initialOffers.length > 0 ? initialOffers : DEFAULT_OFFERS
+  const effectiveDeals = initialDeals && initialDeals.length > 0 ? initialDeals : DEFAULT_DEALS
+
   // Total count for the red notification badge
-  const totalCount = (offers?.length || 0) + (deals?.length || 0)
+  const totalCount = effectiveOffers.length + effectiveDeals.length
 
   // Pulse animation on mount to draw attention
   useEffect(() => {
@@ -54,17 +83,10 @@ export default function FloatingHighlightsHub({
     return () => clearTimeout(t)
   }, [])
 
-  const hasOffers = offers && offers.length > 0
-  const hasDeals = deals && deals.length > 0
+  if (!isVisible) return null
 
-  useEffect(() => {
-    if (!hasOffers && hasDeals) setActiveTab('product')
-  }, [hasOffers, hasDeals])
-
-  if ((!hasOffers && !hasDeals) || !isVisible) return null
-
-  const items = activeTab === 'service' ? offers : deals
-  const current = items[currentIndex]
+  const items = activeTab === 'service' ? effectiveOffers : effectiveDeals
+  const current = items[currentIndex] || items[0]
 
   const next = () => setCurrentIndex((prev) => (prev + 1) % items.length)
   const prev = () => setCurrentIndex((prev) => (prev - 1 + items.length) % items.length)
@@ -100,7 +122,8 @@ export default function FloatingHighlightsHub({
         style={{
           position: 'fixed',
           bottom: '28px',
-          [isRTL ? 'left' : 'right']: '28px',
+          left: isRTL ? '28px' : 'auto',
+          right: isRTL ? 'auto' : '28px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -112,11 +135,12 @@ export default function FloatingHighlightsHub({
           boxShadow: pulse
             ? '0 0 0 4px rgba(212,166,60,0.12), 0 12px 32px rgba(0,0,0,0.6)'
             : '0 8px 28px rgba(0,0,0,0.6)',
-          zIndex: 1000,
+          zIndex: 99999,
           cursor: 'pointer',
           transition: 'all 0.3s cubic-bezier(0.175,0.885,0.32,1.275)',
           animation: pulse ? 'pillPulse 2s ease-in-out infinite' : 'none',
-          fontFamily: 'inherit'
+          fontFamily: 'inherit',
+          pointerEvents: 'auto'
         }}
       >
         <span style={{ fontSize: '24px' }}>🎁</span>
@@ -160,7 +184,8 @@ export default function FloatingHighlightsHub({
           @media (max-width: 640px) {
             [data-testid="floating-hub-trigger"] {
               bottom: 20px !important;
-              ${isRTL ? 'left: 16px !important;' : 'right: 16px !important;'}
+              left: ${isRTL ? '16px !important' : 'auto !important'};
+              right: ${isRTL ? 'auto !important' : '16px !important'};
             }
           }
         `}</style>
@@ -176,10 +201,11 @@ export default function FloatingHighlightsHub({
       style={{
         position: 'fixed',
         bottom: '32px',
-        [isRTL ? 'left' : 'right']: '32px',
+        left: isRTL ? '32px' : 'auto',
+        right: isRTL ? 'auto' : '32px',
         width: '380px',
         maxWidth: 'calc(100vw - 48px)',
-        zIndex: 1001,
+        zIndex: 99999,
         background: 'rgba(10, 14, 28, 0.97)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
@@ -188,7 +214,8 @@ export default function FloatingHighlightsHub({
         boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04) inset',
         animation: 'hubSlideUp 0.5s cubic-bezier(0.16,1,0.3,1)',
         overflow: 'hidden',
-        fontFamily: 'inherit'
+        fontFamily: 'inherit',
+        pointerEvents: 'auto'
       }}
     >
       {/* Gold top shimmer line */}
@@ -198,67 +225,64 @@ export default function FloatingHighlightsHub({
         {/* ── Header: tabs + close ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', gap: '6px', flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: '14px', padding: '4px' }}>
-            {hasOffers && (
-              <button
-                onClick={() => { setActiveTab('service'); setCurrentIndex(0) }}
-                data-testid="hub-tab-service"
-                className={activeTab === 'service' ? 'active' : ''}
-                style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  padding: '9px 6px', borderRadius: '10px', cursor: 'pointer',
-                  fontSize: '12px', fontWeight: 800, transition: 'all 0.25s', position: 'relative',
-                  ...(activeTab === 'service'
-                    ? { background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(239,68,68,0.05))', color: '#fca5a5', boxShadow: '0 2px 12px rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)' }
-                    : { background: 'transparent', color: 'rgba(255,255,255,0.4)', border: '1px solid transparent' })
-                }}
-              >
-                <span style={{ fontSize: '15px' }}>🎁</span>
-                <span>{isRTL ? 'الخصومات' : 'Offers'}</span>
-                {/* Tab badge */}
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  minWidth: '18px', height: '18px', borderRadius: '999px',
-                  background: activeTab === 'service' ? '#ef4444' : 'rgba(239,68,68,0.3)',
-                  color: '#fff', fontSize: '10px', fontWeight: 900, padding: '0 4px',
-                  boxShadow: activeTab === 'service' ? '0 0 10px rgba(239,68,68,0.5)' : 'none'
-                }}>
-                  {offers.length}
-                </span>
-              </button>
-            )}
-            {hasDeals && (
-              <button
-                onClick={() => { setActiveTab('product'); setCurrentIndex(0) }}
-                data-testid="hub-tab-product"
-                className={activeTab === 'product' ? 'active' : ''}
-                style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  padding: '9px 6px', borderRadius: '10px', cursor: 'pointer',
-                  fontSize: '12px', fontWeight: 800, transition: 'all 0.25s', position: 'relative',
-                  ...(activeTab === 'product'
-                    ? { background: 'linear-gradient(135deg, rgba(212,166,60,0.2), rgba(212,166,60,0.05))', color: '#d4a63c', boxShadow: '0 2px 12px rgba(212,166,60,0.2)', border: '1px solid rgba(212,166,60,0.4)' }
-                    : { background: 'transparent', color: 'rgba(255,255,255,0.4)', border: '1px solid transparent' })
-                }}
-              >
-                <span style={{ fontSize: '15px' }}>🛍️</span>
-                <span>{isRTL ? 'المتجر' : 'Store'}</span>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  minWidth: '18px', height: '18px', borderRadius: '999px',
-                  background: activeTab === 'product' ? '#d4a63c' : 'rgba(212,166,60,0.3)',
-                  color: '#000', fontSize: '10px', fontWeight: 900, padding: '0 4px',
-                  boxShadow: activeTab === 'product' ? '0 0 10px rgba(212,166,60,0.5)' : 'none'
-                }}>
-                  {deals.length}
-                </span>
-              </button>
-            )}
+            <button
+              onClick={() => { setActiveTab('service'); setCurrentIndex(0) }}
+              data-testid="hub-tab-service"
+              className={`hub-tab ${activeTab === 'service' ? 'active' : ''}`}
+              style={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                padding: '9px 6px', borderRadius: '10px', cursor: 'pointer',
+                fontSize: '12px', fontWeight: 800, transition: 'all 0.25s', position: 'relative',
+                ...(activeTab === 'service'
+                  ? { background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(239,68,68,0.05))', color: '#fca5a5', boxShadow: '0 2px 12px rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)' }
+                  : { background: 'transparent', color: 'rgba(255,255,255,0.4)', border: '1px solid transparent' })
+              }}
+            >
+              <span style={{ fontSize: '15px' }}>🎁</span>
+              <span>{isRTL ? 'الخصومات' : 'Offers'}</span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: '18px', height: '18px', borderRadius: '999px',
+                background: activeTab === 'service' ? '#ef4444' : 'rgba(239,68,68,0.3)',
+                color: '#fff', fontSize: '10px', fontWeight: 900, padding: '0 4px',
+                boxShadow: activeTab === 'service' ? '0 0 10px rgba(239,68,68,0.5)' : 'none'
+              }}>
+                {effectiveOffers.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('product'); setCurrentIndex(0) }}
+              data-testid="hub-tab-product"
+              className={`hub-tab ${activeTab === 'product' ? 'active' : ''}`}
+              style={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                padding: '9px 6px', borderRadius: '10px', cursor: 'pointer',
+                fontSize: '12px', fontWeight: 800, transition: 'all 0.25s', position: 'relative',
+                ...(activeTab === 'product'
+                  ? { background: 'linear-gradient(135deg, rgba(212,166,60,0.2), rgba(212,166,60,0.05))', color: '#d4a63c', boxShadow: '0 2px 12px rgba(212,166,60,0.2)', border: '1px solid rgba(212,166,60,0.4)' }
+                  : { background: 'transparent', color: 'rgba(255,255,255,0.4)', border: '1px solid transparent' })
+              }}
+            >
+              <span style={{ fontSize: '15px' }}>🛍️</span>
+              <span>{isRTL ? 'المتجر' : 'Store'}</span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: '18px', height: '18px', borderRadius: '999px',
+                background: activeTab === 'product' ? '#d4a63c' : 'rgba(212,166,60,0.3)',
+                color: '#000', fontSize: '10px', fontWeight: 900, padding: '0 4px',
+                boxShadow: activeTab === 'product' ? '0 0 10px rgba(212,166,60,0.5)' : 'none'
+              }}>
+                {effectiveDeals.length}
+              </span>
+            </button>
           </div>
 
-          {/* Close button */}
+          {/* Close / Minimize button */}
           <button
             onClick={() => setIsMinimized(true)}
             data-testid="hub-minimize"
+            aria-label="Close"
             style={{
               width: '30px', height: '30px', borderRadius: '50%',
               background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
@@ -335,7 +359,7 @@ export default function FloatingHighlightsHub({
                     transition: 'all 0.2s', boxShadow: '0 4px 16px rgba(212,166,60,0.3)'
                   }}
                 >
-                  {isRTL ? 'تفاصيل العرض' : dict.staff_dashboard.learn_more}
+                  {isRTL ? 'تفاصيل العرض' : (dict?.staff_dashboard?.learn_more || 'Learn More')}
                   <span>{isRTL ? '←' : '→'}</span>
                 </Link>
               )}
@@ -375,7 +399,7 @@ export default function FloatingHighlightsHub({
                     boxShadow: '0 4px 16px rgba(212,166,60,0.25)'
                   }}
                 >
-                  {isRTL ? 'عرض التفاصيل' : dict.staff_dashboard.view_deal}
+                  {isRTL ? 'عرض التفاصيل' : (dict?.staff_dashboard?.view_deal || 'View Deal')}
                   <span>{isRTL ? '←' : '→'}</span>
                 </Link>
               )}
