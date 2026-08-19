@@ -290,7 +290,7 @@ ${data.ar?.outcome || 'لم يتم تحديد النتيجة.'}
     if (!isDispatchDone) {
       try {
         await adminClient.from('workflow_runs').update({ dispatch_status: 'running' }).eq('request_id', requestId);
-        await dispatchResearchAgents(requestWithSummaries);
+        await dispatchResearchAgents(requestWithSummaries, requestId);
         await adminClient.from('workflow_runs').update({ dispatch_status: 'completed' }).eq('request_id', requestId);
       } catch (dispatchErr: any) {
         log.error("[ORCHESTRATOR_DISPATCH_FAIL] Agent dispatch failed:", dispatchErr.message);

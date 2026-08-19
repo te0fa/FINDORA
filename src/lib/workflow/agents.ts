@@ -2,10 +2,15 @@
 import { createAdminClient } from '@/lib/dal/customers';
 import { executeOnlineResearch } from '@/lib/agents/research/run-online-research';
 import crypto from 'node:crypto';
-import { createLogger } from '@/lib/utils/logger'
+import { createLogger, setRequestId } from '@/lib/utils/logger'
 const log = createLogger('workflow/agents')
 
-export async function dispatchResearchAgents(request: any): Promise<void> {
+export async function dispatchResearchAgents(request: any, requestId?: string): Promise<void> {
+  const reqId = requestId || request.id;
+  if (reqId) {
+    setRequestId(reqId);
+  }
+
   const adminClient = await createAdminClient();
 
   try {
