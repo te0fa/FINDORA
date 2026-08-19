@@ -25,6 +25,7 @@ const log = createLogger('api/ai/concierge')
 
 const BUCKET = 'ai-concierge-uploads'
 const SIGNED_URL_EXPIRY_SECONDS = 600
+const MAX_QUERY_LENGTH = 50_000 // 50 k characters ≈ 75 KB
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -42,6 +43,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!text && !imageFile) {
       return NextResponse.json(
         { error: 'NO_INPUT', messageAr: 'يرجى إدخال نص أو رفع صورة' },
+        { status: 400 }
+      )
+    }
+
+    if (text && text.length > MAX_QUERY_LENGTH) {
+      return NextResponse.json(
+        { 
+          error: 'Text too long. Maximum 50,000 characters allowed.', 
+          messageAr: 'النص المدخل طويل جداً (الحد الأقصى 50,000 حرف).' 
+        },
         { status: 400 }
       )
     }
