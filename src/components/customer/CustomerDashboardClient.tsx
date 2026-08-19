@@ -3,6 +3,34 @@
 import React from 'react'
 import Link from 'next/link'
 
+export function getStatusLabel(status: string) {
+  const map: Record<string, { ar: string; en: string }> = {
+    new:                 { ar: 'تم الاستلام',             en: 'Received' },
+    intake_review:       { ar: 'قيد المراجعة',          en: 'Under Review' },
+    needs_clarification: { ar: 'يحتاج تفاصيل إضافية', en: 'Needs More Details' },
+    approved:            { ar: 'تمت الموافقة',         en: 'Approved' },
+    operations_review:   { ar: 'قيد المعالجة',         en: 'In Progress' },
+    research_phase:      { ar: 'جاري البحث',           en: 'Researching' },
+    report_ready:        { ar: 'التقرير جاهز',         en: 'Report Ready' },
+    partially_revealed:  { ar: 'التقرير متاح جزئياً', en: 'Report Partially Available' },
+    completed:           { ar: 'مكتمل',                en: 'Completed' },
+    rejected:            { ar: 'مرفوض',                en: 'Not Accepted' },
+    archived:            { ar: 'مؤرشف',                en: 'Archived' },
+    cancelled:           { ar: 'ملغي',                 en: 'Cancelled' },
+    open:                { ar: 'تم الاستلام',             en: 'Received' },
+    submitted:           { ar: 'تم التقديم',            en: 'Submitted' },
+    in_progress:         { ar: 'قيد المعالجة',         en: 'In Progress' },
+    research:            { ar: 'جاري البحث',           en: 'Researching' },
+    reporting:           { ar: 'إعداد التقرير',         en: 'Reporting' },
+    client_ready:        { ar: 'جاهز للعرض',           en: 'Ready' },
+    closed:              { ar: 'مغلق',                 en: 'Closed' },
+  };
+  const entry = map[status];
+  if (entry) return `${entry.ar} / ${entry.en}`;
+  // حالة غير معروفة – رسالة عامة
+  return 'جاري المعالجة / Processing';
+}
+
 export default function CustomerDashboardClient({ locale, requests }: { locale: string, requests: any[] }) {
   const isAr = locale === 'ar'
 
@@ -21,21 +49,32 @@ export default function CustomerDashboardClient({ locale, requests }: { locale: 
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'open': return 'bg-[hsl(43,96%,56%,0.2)] text-[hsl(43,96%,56%)] border-[hsl(43,96%,56%,0.5)]'
-      case 'in_progress': return 'bg-[hsl(258,89%,66%,0.2)] text-[hsl(258,89%,66%)] border-[hsl(258,89%,66%,0.5)]'
-      case 'completed': return 'bg-[hsl(152,69%,51%,0.2)] text-[hsl(152,69%,51%)] border-[hsl(152,69%,51%,0.5)]'
+      case 'new':
+      case 'open':
+      case 'submitted':
+        return 'bg-[hsl(43,96%,56%,0.2)] text-[hsl(43,96%,56%)] border-[hsl(43,96%,56%,0.5)]'
+      case 'intake_review':
+      case 'operations_review':
+      case 'research_phase':
+      case 'research':
+      case 'in_progress':
+        return 'bg-[hsl(258,89%,66%,0.2)] text-[hsl(258,89%,66%)] border-[hsl(258,89%,66%,0.5)]'
+      case 'report_ready':
+      case 'partially_revealed':
+      case 'client_ready':
+      case 'completed':
+      case 'approved':
+        return 'bg-[hsl(152,69%,51%,0.2)] text-[hsl(152,69%,51%)] border-[hsl(152,69%,51%,0.5)]'
+      case 'rejected':
+      case 'cancelled':
+        return 'bg-[hsl(0,84%,60%,0.2)] text-[hsl(0,84%,60%)] border-[hsl(0,84%,60%,0.5)]'
+      case 'archived':
+        return 'bg-white/10 text-white/60 border-white/20'
       default: return 'bg-white/10 text-white border-white/20'
     }
   }
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'open': return isAr ? '🔍 جاري البحث' : '🔍 Searching...'
-      case 'in_progress': return isAr ? '🏃 مندوبين يعملون' : '🏃 Scouts Active'
-      case 'completed': return isAr ? '✅ عروض جاهزة' : '✅ Offers Ready'
-      default: return status
-    }
-  }
+
 
   return (
     <div className="grid gap-4">
