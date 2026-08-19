@@ -54,6 +54,7 @@ export default function CheckoutPage({
       <div className="max-w-md w-full bg-black/60 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-xl">
         <h1 className="text-2xl font-extrabold text-white mb-6 text-center">إتمام الشراء</h1>
         <button
+          data-testid="checkout-btn"
           disabled={isProcessing}
           onClick={onSubmit}
           className="btn-primary w-full py-3 bg-[hsl(152,69%,51%)] disabled:opacity-50 text-black font-bold rounded-xl hover:bg-[hsl(152,69%,61%)] transition"
