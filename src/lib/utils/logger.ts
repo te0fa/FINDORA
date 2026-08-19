@@ -1,7 +1,7 @@
 /**
  * FINDORA — Production Logger
  * Replaces all console.log/warn/error calls with structured, level-aware logging.
- * In production: suppresses debug/info logs, captures errors for monitoring.
+ * In production: suppresses debug logs, captures errors for monitoring.
  * In development: full verbose output with color and context.
  */
 
@@ -90,8 +90,8 @@ class Logger {
       source: this.source,
     }
 
-    // In production: only log warnings and errors
-    if (IS_PRODUCTION && (level === 'debug' || level === 'info')) return
+    // في Production نحتفظ بسجلات info، لكن نحذف debug فقط
+    if (IS_PRODUCTION && level === 'debug') return
 
     const formatted = IS_PRODUCTION
       ? JSON.stringify(entry)  // Structured JSON for log aggregators
