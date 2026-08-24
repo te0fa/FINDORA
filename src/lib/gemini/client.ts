@@ -13,8 +13,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
-export async function getGeminiModel() {
-  const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+export const getGeminiModel = async () => {
+  const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
   return genAI.getGenerativeModel({ 
     model: modelName,
     tools: [
@@ -22,8 +22,10 @@ export async function getGeminiModel() {
         googleSearchRetrieval: {},
       },
     ] as any, // Cast as any because the SDK types might be behind the grounding feature
-  })
-}
+  });
+};
+
+
 
 export interface ResearchResult {
   summary: string
@@ -35,12 +37,26 @@ export interface ResearchResult {
   }>
 }
 
-export async function runGroundedResearch(prompt: string): Promise<ResearchResult> {
-  const model = await getGeminiModel()
+// Optional metadata that will be sent as a system message.
+export type GroundingMetadata = Record<string, any>;
+
+/**
+ * Run grounded research using Gemini.
+ * @param prompt The user prompt.
+ * @param groundingMetadata Optional metadata that will be sent as a system message to the model.
+ * @returns A {@link ResearchResult} object.
+ */
+export async function runGroundedResearch(
+  prompt: string,
+  groundingMetadata?: GroundingMetadata,
+  modelOverride?: any,
+): Promise<ResearchResult> {
+  const model = modelOverride ?? (await getGeminiModel());
+  const grounding = groundingMetadata ?? {};
   
   const result = await withTimeout(
     model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      contents: [{ role: 'system', parts: [{ text: JSON.stringify(grounding) }] }, { role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {
         responseMimeType: 'application/json',
         responseSchema: {
@@ -69,8 +85,8 @@ export async function runGroundedResearch(prompt: string): Promise<ResearchResul
     'runGroundedResearch'
   )
 
-  const response = await result.response
-  const text = response.text()
+  const responseObj = await result.response();
+  const text = responseObj.text();
   try {
     return JSON.parse(text)
   } catch (parseErr: any) {
