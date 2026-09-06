@@ -53,8 +53,11 @@ jest.mock('@/lib/intelligence/demand-expansion', () => ({
 }))
 
 describe('P0-03-B: Guest Request Idempotency', () => {
+  const originalEnv = process.env
+
   beforeEach(() => {
     jest.clearAllMocks()
+    process.env = { ...originalEnv }
 
     // Default authenticated customer setup
     mockGetUser.mockResolvedValue({
@@ -74,6 +77,10 @@ describe('P0-03-B: Guest Request Idempotency', () => {
       }
       return { select: jest.fn() }
     })
+  })
+
+  afterAll(() => {
+    process.env = originalEnv
   })
 
   // Test 1: No idempotency key -> existing behavior preserved
@@ -612,6 +619,92 @@ describe('P0-03-B: Guest Request Idempotency', () => {
       expect(res.status).toBe(200)
       expect(mockRpc).toHaveBeenCalledWith('fn_create_sourcing_request', expect.any(Object))
       expect(mockRpc).not.toHaveBeenCalledWith('fn_create_sourcing_request_idempotent', expect.any(Object))
+    })
+
+    it('8. returns HTTP 400 when body idempotencyKey is non-string (number/boolean/object)', async () => {
+      const req = new Request('https://findora.io/api/customers/requests/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: 'Valid Name',
+          productName: 'Desk',
+          turnstileToken: 'mock-turnstile-pass',
+          idempotencyKey: 12345,
+        }),
+      })
+
+      const res = await POST(req)
+      expect(res.status).toBe(400)
+      const json = await res.json()
+      expect(json.code).toBe('INVALID_IDEMPOTENCY_KEY')
+      expect(json.error).toContain('text')
+      expect(mockRpc).not.toHaveBeenCalled()
+    })
+
+    it('9. treats null or undefined body idempotencyKey as absent and succeeds', async () => {
+      const req = new Request('https://findora.io/api/customers/requests/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: 'Valid Name',
+          productName: 'Desk',
+          turnstileToken: 'mock-turnstile-pass',
+          idempotencyKey: null,
+        }),
+      })
+
+      const res = await POST(req)
+      expect(res.status).toBe(200)
+      expect(mockRpc).toHaveBeenCalledWith('fn_create_sourcing_request', expect.any(Object))
+    })
+
+    it('10. enforces validation ordering: overlong idempotency key returns HTTP 400 before Turnstile verification', async () => {
+      // In production with Turnstile configured, an overlong key MUST return 400, NOT 403
+      (process.env as any).NODE_ENV = 'production'
+      process.env.TURNSTILE_SECRET_KEY = 'real-turnstile-secret'
+
+      const overlongKey = 'k'.repeat(101)
+      const req = new Request('https://findora.io/api/customers/requests/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': overlongKey,
+        },
+        body: JSON.stringify({
+          customerName: 'Valid Name',
+          productName: 'Desk',
+          // NO turnstileToken provided! In production, Turnstile would fail closed with 403
+        }),
+      })
+
+      const res = await POST(req)
+      expect(res.status).toBe(400)
+      const json = await res.json()
+      expect(json.code).toBe('INVALID_IDEMPOTENCY_KEY')
+      expect(json.error).toContain('100 characters')
+      expect(mockRpc).not.toHaveBeenCalled()
+    })
+
+    it('11. enforces validation ordering: invalid input boundaries return HTTP 400 before Turnstile verification', async () => {
+      // In production with Turnstile configured, missing customerName MUST return 400, NOT 403
+      (process.env as any).NODE_ENV = 'production'
+      process.env.TURNSTILE_SECRET_KEY = 'real-turnstile-secret'
+
+      const req = new Request('https://findora.io/api/customers/requests/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: '', // Invalid empty customerName
+          productName: 'Desk',
+          // NO turnstileToken provided!
+        }),
+      })
+
+      const res = await POST(req)
+      expect(res.status).toBe(400)
+      const json = await res.json()
+      expect(json.error).toContain('Customer name is required')
+      expect(mockRpc).not.toHaveBeenCalled()
     })
   })
 

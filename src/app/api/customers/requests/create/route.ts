@@ -16,38 +16,55 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  // 2. Client IP & Turnstile Verification (P0-03-A)
-  const clientIp =
-    request.headers.get('x-real-ip') ||
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    undefined
+  // 2. Idempotency Key Extraction & Validation (P0-03-B)
+  const rawStandardHeader = request.headers.get('idempotency-key')
+  const rawCustomHeader = request.headers.get('x-idempotency-key')
 
-  const turnstileToken =
-    body.turnstileToken ||
-    request.headers.get('cf-turnstile-response') ||
-    request.headers.get('x-turnstile-token')
-
-  const turnstileResult = await verifyTurnstileToken(turnstileToken, clientIp)
-  if (!turnstileResult.success) {
-    const safeIpPrefix = clientIp
-      ? clientIp.includes(':')
-        ? clientIp.split(':')[0] + ':*'
-        : clientIp.split('.').slice(0, 2).join('.') + '.x.x'
-      : 'unknown'
-
-    console.warn('[SECURITY][GUEST_REQUEST] Human verification failed:', {
-      ipPrefix: safeIpPrefix,
-      error: turnstileResult.error,
-    })
-
-    return NextResponse.json(
-      {
-        error: 'Human verification failed. Please refresh and try again.',
-        code: turnstileResult.error,
-      },
-      { status: 403 }
-    )
+  let standardHeaderKey: string | undefined = undefined
+  if (rawStandardHeader !== null && rawStandardHeader !== undefined) {
+    const trimmed = rawStandardHeader.trim()
+    if (trimmed.length > 100) {
+      return NextResponse.json(
+        { error: 'Idempotency key must not exceed 100 characters', code: 'INVALID_IDEMPOTENCY_KEY' },
+        { status: 400 }
+      )
+    }
+    if (trimmed.length > 0) standardHeaderKey = trimmed
   }
+
+  let customHeaderKey: string | undefined = undefined
+  if (rawCustomHeader !== null && rawCustomHeader !== undefined) {
+    const trimmed = rawCustomHeader.trim()
+    if (trimmed.length > 100) {
+      return NextResponse.json(
+        { error: 'Idempotency key must not exceed 100 characters', code: 'INVALID_IDEMPOTENCY_KEY' },
+        { status: 400 }
+      )
+    }
+    if (trimmed.length > 0) customHeaderKey = trimmed
+  }
+
+  const headerKey = standardHeaderKey || customHeaderKey
+
+  let bodyKey: string | undefined = undefined
+  if (body.idempotencyKey !== undefined && body.idempotencyKey !== null) {
+    if (typeof body.idempotencyKey !== 'string') {
+      return NextResponse.json(
+        { error: 'Idempotency key must be text', code: 'INVALID_IDEMPOTENCY_KEY' },
+        { status: 400 }
+      )
+    }
+    const trimmed = body.idempotencyKey.trim()
+    if (trimmed.length > 100) {
+      return NextResponse.json(
+        { error: 'Idempotency key must not exceed 100 characters', code: 'INVALID_IDEMPOTENCY_KEY' },
+        { status: 400 }
+      )
+    }
+    if (trimmed.length > 0) bodyKey = trimmed
+  }
+
+  const idempotencyKey = headerKey || bodyKey
 
   // 3. Strict Input Boundary Validation (P0-03-A)
   const { 
@@ -146,61 +163,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Target location must not exceed 100 characters' }, { status: 400 })
   }
 
-  // Optional client idempotency key (header or body, max 100 chars)
-  const rawStandardHeader = request.headers.get('idempotency-key')
-  const rawCustomHeader = request.headers.get('x-idempotency-key')
-
-  let standardHeaderKey: string | undefined = undefined
-  if (rawStandardHeader !== null && rawStandardHeader !== undefined) {
-    const trimmed = rawStandardHeader.trim()
-    if (trimmed.length > 100) {
-      return NextResponse.json(
-        { error: 'Idempotency key must not exceed 100 characters', code: 'INVALID_IDEMPOTENCY_KEY' },
-        { status: 400 }
-      )
-    }
-    if (trimmed.length > 0) standardHeaderKey = trimmed
-  }
-
-  let customHeaderKey: string | undefined = undefined
-  if (rawCustomHeader !== null && rawCustomHeader !== undefined) {
-    const trimmed = rawCustomHeader.trim()
-    if (trimmed.length > 100) {
-      return NextResponse.json(
-        { error: 'Idempotency key must not exceed 100 characters', code: 'INVALID_IDEMPOTENCY_KEY' },
-        { status: 400 }
-      )
-    }
-    if (trimmed.length > 0) customHeaderKey = trimmed
-  }
-
-  const headerKey = standardHeaderKey || customHeaderKey
-
-  let bodyKey: string | undefined = undefined
-  if (body.idempotencyKey !== undefined && body.idempotencyKey !== null) {
-    if (typeof body.idempotencyKey !== 'string') {
-      return NextResponse.json(
-        { error: 'Idempotency key must be text', code: 'INVALID_IDEMPOTENCY_KEY' },
-        { status: 400 }
-      )
-    }
-    const trimmed = body.idempotencyKey.trim()
-    if (trimmed.length > 100) {
-      return NextResponse.json(
-        { error: 'Idempotency key must not exceed 100 characters', code: 'INVALID_IDEMPOTENCY_KEY' },
-        { status: 400 }
-      )
-    }
-    if (trimmed.length > 0) bodyKey = trimmed
-  }
-
-  const idempotencyKey = headerKey || bodyKey
-
   // Graceful fallbacks for category and location
   const finalCategory = category && String(category).trim() ? String(category).trim() : 'general'
   const finalTargetLocation = targetLocation && String(targetLocation).trim() ? String(targetLocation).trim() : 'القاهرة'
 
-  // 4. Resolve Customer Identity (Session or Normalized Phone)
+  // 4. Client IP & Turnstile Verification (P0-03-A)
+  const clientIp =
+    request.headers.get('x-real-ip') ||
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    undefined
+
+  const turnstileToken =
+    body.turnstileToken ||
+    request.headers.get('cf-turnstile-response') ||
+    request.headers.get('x-turnstile-token')
+
+  const turnstileResult = await verifyTurnstileToken(turnstileToken, clientIp)
+  if (!turnstileResult.success) {
+    const safeIpPrefix = clientIp
+      ? clientIp.includes(':')
+        ? clientIp.split(':')[0] + ':*'
+        : clientIp.split('.').slice(0, 2).join('.') + '.x.x'
+      : 'unknown'
+
+    console.warn('[SECURITY][GUEST_REQUEST] Human verification failed:', {
+      ipPrefix: safeIpPrefix,
+      error: turnstileResult.error,
+    })
+
+    return NextResponse.json(
+      {
+        error: 'Human verification failed. Please refresh and try again.',
+        code: turnstileResult.error,
+      },
+      { status: 403 }
+    )
+  }
+
+  // 5. Resolve Customer Identity (Session or Normalized Phone)
   const supabase = await createClient() as any
   const { data: { user } } = await supabase.auth.getUser()
   let customerId: string | null = null
@@ -244,7 +244,7 @@ export async function POST(request: Request) {
   const requestId = crypto.randomUUID()
   const requestCode = `REQ-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 
-  // 5. B2B RFQ: Programmatic Intake Template (ZERO Synchronous Billable AI Calls — P0-03-A)
+  // 6. B2B RFQ: Programmatic Intake Template (ZERO Synchronous Billable AI Calls — P0-03-A)
   let rfqDocument = ''
   if (isBusiness) {
     rfqDocument = `
@@ -294,7 +294,7 @@ export async function POST(request: Request) {
     ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
   }
 
-  // 6. Compute Canonical Payload Hash (P0-03-B)
+  // 7. Compute Canonical Payload Hash (P0-03-B)
   const hasIdempotencyKey = Boolean(idempotencyKey)
   const payloadHash = hasIdempotencyKey && customerId
     ? computeCanonicalPayloadHash({
@@ -314,7 +314,7 @@ export async function POST(request: Request) {
       })
     : undefined
 
-  // 7. Atomic PostgreSQL Request Creation (P0-03-B / P0-04)
+  // 8. Atomic PostgreSQL Request Creation (P0-03-B / P0-04)
   const { createAdminClient } = await import('@/lib/dal/customers')
   const adminClient = await createAdminClient()
 
@@ -388,7 +388,7 @@ export async function POST(request: Request) {
   const finalRequestCode = rpcResult?.requestCode || requestCode
   const isReplay = Boolean(rpcResult?.is_replay)
 
-  // 8. Staff Reviewer Assignment: Preserved for intake triage, but ONLY on first creation (never on replay)
+  // 9. Staff Reviewer Assignment: Preserved for intake triage, but ONLY on first creation (never on replay)
   if (!isReplay) {
     try {
       const { autoAssignReviewerToRequest } = await import('@/lib/dal/staff')
