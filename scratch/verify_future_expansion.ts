@@ -1,26 +1,5 @@
-import { createHmac } from 'crypto'
-
 async function verifyFutureSystems() {
   console.log('--- STARTING PHASE V FUTURE SYSTEMS VERIFICATION ---')
-
-  // 1. Verify Bidding signature generation
-  console.log('\n[1/3] Simulating Outbound Bidding Token generation...')
-  const snapshotId = 'mock-snapshot-uuid-999'
-  const secret = process.env.SUPABASE_JWT_SECRET || 'findora-secret-key-2026'
-  
-  const hmac = createHmac('sha256', secret)
-  hmac.update(`bid:${snapshotId}`)
-  const token = hmac.digest('hex')
-
-  console.log(`Generated HMAC Token for snapshot ${snapshotId}:`);
-  console.log(`- Token: ${token}`);
-  console.log(`- Simulated SMS Link: https://findora.com/ar/vendors/bid?id=${snapshotId}&token=${token}`);
-
-  // 2. Validate token matching
-  const verifyHmac = createHmac('sha256', secret)
-  verifyHmac.update(`bid:${snapshotId}`)
-  const isMatch = verifyHmac.digest('hex') === token
-  console.log(`- Verification Check: ${isMatch ? 'PASSED ✅' : 'FAILED ❌'}`);
 
   // 3. Verify AI Support Chatbot Context mock
   console.log('\n[2/3] Simulating AI Support & Dispute assistant instructions...')

@@ -67,7 +67,7 @@
 | `/api/vendors/[id]` | **Requires Auth** | 🟢 (auth + staff role check) | Checks staff membership / permissions |
 | `/api/vendors/[id]/activate` | **Requires Auth** | 🟢 (auth + staff role check) | Checks staff membership / permissions |
 | `/api/vendors/[id]/archive` | **Requires Auth** | 🟢 (auth + staff role check) | Checks staff membership / permissions |
-| `/api/vendors/[id]/bid` | **Requires Auth** | 🟢 (auth + vendor role check) | Checks vendor permissions |
+| `/api/vendors/[id]/bid` | **DECOMMISSIONED** | 🟢 (Removed — P0-06 dead prototype cleanup) | Route safely deleted; canonical bidding via /api/bids |
 | `/api/vendors/[id]/message` | **Requires Auth** | 🟢 (auth + staff role check) | Checks staff membership / permissions |
 | `/api/vendors/[id]/suspend` | **Requires Auth** | 🟢 (auth + staff role check) | Checks staff membership / permissions |
 | `/api/vendors/[id]/trust-score` | **Requires Auth** | 🟢 (auth + staff role check) | Checks staff membership / permissions |
