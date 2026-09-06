@@ -9,8 +9,16 @@ import crypto from 'node:crypto'
 const PUBLIC_FILE_PATH_REGEX = /\.(.*)$/
 
 // ── Rate Limiting Config ──────────────────────────────────────────────────────
-function getRateLimitConfig(pathname: string): { limit: number; windowSeconds: number } | null {
+export function getRateLimitConfig(pathname: string): { limit: number; windowSeconds: number } | null {
   const cleanPath = pathname.replace(/^\/(?:ar|en)/, '')
+
+  // 0. Dedicated Customer Request Creation (P0-03-A Abuse Containment)
+  if (
+    cleanPath === '/api/customers/requests/create' ||
+    cleanPath.startsWith('/api/customers/requests/create/')
+  ) {
+    return { limit: 5, windowSeconds: 600 }
+  }
 
   // 1. Strict Auth & OTP routes
   if (

@@ -1,4 +1,5 @@
 'use client'
+import { useToast } from '@/components/ui/Toast'
 
 import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -54,6 +55,24 @@ declare global {
   }
   interface SpeechRecognitionErrorEvent extends Event {
     readonly error: string
+  }
+  interface Window {
+    turnstile?: {
+      render: (
+        container: string | HTMLElement,
+        options: {
+          sitekey: string
+          callback?: (token: string) => void
+          'error-callback'?: (error?: unknown) => void
+          'expired-callback'?: () => void
+          theme?: 'light' | 'dark' | 'auto'
+          size?: 'normal' | 'compact' | 'flexible'
+          [key: string]: unknown
+        }
+      ) => string
+      reset: (widgetId?: string) => void
+      remove: (widgetId?: string) => void
+    }
   }
 }
 
@@ -482,6 +501,7 @@ const GENERAL_ADVANCED_QUESTIONS: AdvancedQuestionDefinition[] = [
 ]
 
 export default function RequestWizardClient({ locale, initialCustomer }: { locale: string; initialCustomer?: any }) {
+  const { toast } = useToast()
   const isAr = locale === 'ar'
   const router = useRouter()
 
@@ -718,6 +738,77 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
   const [isListening, setIsListening]     = useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
 
+  // ── Cloudflare Turnstile anti-abuse (P0-03-A) ────────────────────────────────
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''
+  const [turnstileToken, setTurnstileToken] = useState<string>('')
+  const turnstileContainerRef = useRef<HTMLDivElement | null>(null)
+  const turnstileWidgetId = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!turnstileSiteKey || typeof window === 'undefined') return
+
+    if (!document.getElementById('cf-turnstile-script')) {
+      const script = document.createElement('script')
+      script.id = 'cf-turnstile-script'
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+      script.async = true
+      script.defer = true
+      document.head.appendChild(script)
+    }
+  }, [turnstileSiteKey])
+
+  useEffect(() => {
+    if (!turnstileSiteKey || typeof window === 'undefined') return
+
+    let isCancelled = false
+    let interval: NodeJS.Timeout | null = null
+
+    const renderWidget = () => {
+      if (isCancelled) return
+      if (window.turnstile && turnstileContainerRef.current && !turnstileWidgetId.current) {
+        try {
+          turnstileWidgetId.current = window.turnstile.render(turnstileContainerRef.current, {
+            sitekey: turnstileSiteKey,
+            callback: (token: string) => {
+              if (!isCancelled) setTurnstileToken(token)
+            },
+            'expired-callback': () => {
+              if (!isCancelled) setTurnstileToken('')
+            },
+            'error-callback': () => {
+              if (!isCancelled) setTurnstileToken('')
+            },
+            theme: 'dark',
+          })
+        } catch (err) {
+          console.warn('[TURNSTILE] Failed to render widget:', err)
+        }
+      }
+    }
+
+    if (window.turnstile) {
+      renderWidget()
+    } else {
+      interval = setInterval(() => {
+        if (window.turnstile) {
+          renderWidget()
+          if (interval) clearInterval(interval)
+        }
+      }, 200)
+    }
+
+    return () => {
+      isCancelled = true
+      if (interval) clearInterval(interval)
+      if (turnstileWidgetId.current && window.turnstile) {
+        try {
+          window.turnstile.remove(turnstileWidgetId.current)
+        } catch {}
+        turnstileWidgetId.current = null
+      }
+    }
+  }, [turnstileSiteKey, step, currentCustomer])
+
   // ─── Categories ──────────────────────────────────────────────────────────────
   const categories = [
     { id: 'electronics', label: isAr ? 'إلكترونيات وموبايلات' : 'Electronics & Mobiles', icon: '📱' },
@@ -770,7 +861,7 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
       if (event.error === 'not-allowed') {
         setShowMicPermissionModal(true)
       } else {
-        alert(isAr 
+        toast(isAr
           ? 'حدث خطأ في التسجيل الصوتي. حاول مرة أخرى.' 
           : 'Voice recognition failed. Please try again.')
       }
@@ -1107,6 +1198,10 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
     }
 
     try {
+      const effectiveTurnstileToken =
+        turnstileToken ||
+        (process.env.NODE_ENV !== 'production' ? 'mock-turnstile-pass' : '')
+
       const res = await fetch('/api/customers/requests/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1117,6 +1212,7 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
           metadata,
           source_type:    formData.sourceType,
           ai_confidence:  formData.aiConfidence,
+          turnstileToken: effectiveTurnstileToken,
         }),
       })
 
@@ -1131,11 +1227,11 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
           router.push(`/${locale}/customer/dashboard?requestId=${data.requestId}&code=${data.requestCode}`)
         }
       } else {
-        alert(data.error || 'Failed to submit request')
+        toast(data.error || 'Failed to submit request')
         setIsSubmitting(false)
       }
     } catch {
-      alert(isAr ? 'خطأ في الاتصال بالخادم' : 'Network error')
+      toast(isAr ? 'خطأ في الاتصال بالخادم' : 'Network error')
       setIsSubmitting(false)
     }
   }
@@ -1733,6 +1829,12 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
               </p>
             </div>
 
+            {currentCustomer && turnstileSiteKey && (
+              <div className="flex justify-center my-4" data-testid="turnstile-container-location">
+                <div ref={turnstileContainerRef} />
+              </div>
+            )}
+
             <div className="wizard-actions">
               <button type="button" onClick={() => setStep(STEP_DETAILS)} className="wizard-btn-secondary">{isAr ? 'رجوع' : 'Back'}</button>
               <button type="submit" disabled={!formData.targetLocation || isSubmitting} className="wizard-btn-primary" data-testid="wizard-next-location">
@@ -1799,6 +1901,12 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
             )}
 
             {/* No duplicate targetLocation field requested on STEP_INTAKE anymore since it is already fully answered on STEP_LOCATION */}
+
+            {turnstileSiteKey && (
+              <div className="flex justify-center my-4" data-testid="turnstile-container-intake">
+                <div ref={turnstileContainerRef} />
+              </div>
+            )}
 
             <div className="wizard-actions wizard-footer-actions">
               <button type="button" onClick={prevStep} disabled={isSubmitting} className="wizard-btn-secondary">{isAr ? 'رجوع' : 'Back'}</button>
