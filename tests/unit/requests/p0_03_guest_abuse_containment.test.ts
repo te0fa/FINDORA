@@ -415,8 +415,8 @@ describe('P0-03-A: Decoupled AI & Demand Expansion Containment', () => {
     // 3. Staff assignment was preserved
     expect(mockAutoAssignReviewerToRequest).toHaveBeenCalled()
 
-    // 4. Sourcing request was created via atomic RPC with structured RFQ and idempotency metadata
-    expect(mockRpc).toHaveBeenCalledWith('fn_create_sourcing_request', expect.objectContaining({
+    // 4. Sourcing request was created via atomic idempotent RPC with structured RFQ and idempotency metadata
+    expect(mockRpc).toHaveBeenCalledWith('fn_create_sourcing_request_idempotent', expect.objectContaining({
       p_customer_name: 'Procurement Manager',
       p_product_name: 'Commercial Solar Panels',
       p_is_business: true,

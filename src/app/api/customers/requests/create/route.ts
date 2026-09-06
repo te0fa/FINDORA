@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
+import { computeCanonicalPayloadHash } from '@/lib/security/idempotency'
 
 export async function POST(request: Request) {
   // 1. Parse JSON safely
@@ -146,14 +147,54 @@ export async function POST(request: Request) {
   }
 
   // Optional client idempotency key (header or body, max 100 chars)
-  const clientHeaderIdempotencyKey =
-    request.headers.get('idempotency-key') ||
-    request.headers.get('x-idempotency-key')
-  const clientBodyIdempotencyKey =
-    typeof body.idempotencyKey === 'string' && body.idempotencyKey.trim().length <= 100
-      ? body.idempotencyKey.trim()
-      : undefined
-  const idempotencyKey = clientHeaderIdempotencyKey || clientBodyIdempotencyKey
+  const rawStandardHeader = request.headers.get('idempotency-key')
+  const rawCustomHeader = request.headers.get('x-idempotency-key')
+
+  let standardHeaderKey: string | undefined = undefined
+  if (rawStandardHeader !== null && rawStandardHeader !== undefined) {
+    const trimmed = rawStandardHeader.trim()
+    if (trimmed.length > 100) {
+      return NextResponse.json(
+        { error: 'Idempotency key must not exceed 100 characters', code: 'INVALID_IDEMPOTENCY_KEY' },
+        { status: 400 }
+      )
+    }
+    if (trimmed.length > 0) standardHeaderKey = trimmed
+  }
+
+  let customHeaderKey: string | undefined = undefined
+  if (rawCustomHeader !== null && rawCustomHeader !== undefined) {
+    const trimmed = rawCustomHeader.trim()
+    if (trimmed.length > 100) {
+      return NextResponse.json(
+        { error: 'Idempotency key must not exceed 100 characters', code: 'INVALID_IDEMPOTENCY_KEY' },
+        { status: 400 }
+      )
+    }
+    if (trimmed.length > 0) customHeaderKey = trimmed
+  }
+
+  const headerKey = standardHeaderKey || customHeaderKey
+
+  let bodyKey: string | undefined = undefined
+  if (body.idempotencyKey !== undefined && body.idempotencyKey !== null) {
+    if (typeof body.idempotencyKey !== 'string') {
+      return NextResponse.json(
+        { error: 'Idempotency key must be text', code: 'INVALID_IDEMPOTENCY_KEY' },
+        { status: 400 }
+      )
+    }
+    const trimmed = body.idempotencyKey.trim()
+    if (trimmed.length > 100) {
+      return NextResponse.json(
+        { error: 'Idempotency key must not exceed 100 characters', code: 'INVALID_IDEMPOTENCY_KEY' },
+        { status: 400 }
+      )
+    }
+    if (trimmed.length > 0) bodyKey = trimmed
+  }
+
+  const idempotencyKey = headerKey || bodyKey
 
   // Graceful fallbacks for category and location
   const finalCategory = category && String(category).trim() ? String(category).trim() : 'general'
@@ -253,11 +294,31 @@ export async function POST(request: Request) {
     ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
   }
 
-  // 6. Atomic PostgreSQL Request Creation via canonical fn_create_sourcing_request RPC (P0-04)
+  // 6. Compute Canonical Payload Hash (P0-03-B)
+  const hasIdempotencyKey = Boolean(idempotencyKey)
+  const payloadHash = hasIdempotencyKey && customerId
+    ? computeCanonicalPayloadHash({
+        customerId,
+        productName: trimmedProductName,
+        category: finalCategory,
+        targetLocation: finalTargetLocation,
+        maxPrice: maxPrice ? Number(maxPrice) : null,
+        notes: trimmedNotes,
+        isBusiness: Boolean(isBusiness),
+        companyName,
+        crNumber,
+        taxNumber,
+        quantity,
+        sourceType: body.source_type,
+        aiConfidence: body.ai_confidence,
+      })
+    : undefined
+
+  // 7. Atomic PostgreSQL Request Creation (P0-03-B / P0-04)
   const { createAdminClient } = await import('@/lib/dal/customers')
   const adminClient = await createAdminClient()
 
-  const { data: rpcResult, error: rpcError } = await adminClient.rpc('fn_create_sourcing_request', {
+  const rpcParams: Record<string, any> = {
     p_request_id: requestId,
     p_customer_id: customerId,
     p_customer_name: trimmedCustomerName,
@@ -287,26 +348,67 @@ export async function POST(request: Request) {
     p_metadata: safeMetadata,
     p_source_type: body.source_type || 'manual',
     p_ai_confidence: body.ai_confidence ? Number(body.ai_confidence) : undefined,
-  })
+  }
+
+  if (hasIdempotencyKey) {
+    rpcParams.p_idempotency_key = idempotencyKey
+    rpcParams.p_payload_hash = payloadHash
+  }
+
+  const rpcFunction = hasIdempotencyKey
+    ? 'fn_create_sourcing_request_idempotent'
+    : 'fn_create_sourcing_request'
+
+  const { data: rpcResult, error: rpcError } = await (adminClient as any).rpc(
+    rpcFunction,
+    rpcParams
+  )
 
   if (rpcError) {
     console.error('Failed to create sourcing request atomically:', rpcError)
     return NextResponse.json({ error: 'Database error' }, { status: 500 })
   }
 
-  // 7. Staff Reviewer Assignment: Preserved for intake triage
-  try {
-    const { autoAssignReviewerToRequest } = await import('@/lib/dal/staff')
-    await autoAssignReviewerToRequest(requestId, null)
-  } catch (assignErr: any) {
-    console.warn('Auto-assignment failed for request:', assignErr.message)
+  if (rpcResult && rpcResult.success === false) {
+    if (rpcResult.code === 'IDEMPOTENCY_PAYLOAD_MISMATCH') {
+      return NextResponse.json(
+        {
+          error:
+            rpcResult.error ||
+            'An existing request was already submitted with this Idempotency-Key but different parameters.',
+          code: 'IDEMPOTENCY_PAYLOAD_MISMATCH',
+        },
+        { status: 409 }
+      )
+    }
+    return NextResponse.json({ error: rpcResult.error || 'Operation failed' }, { status: 400 })
+  }
+
+  const finalRequestId = rpcResult?.requestId || requestId
+  const finalRequestCode = rpcResult?.requestCode || requestCode
+  const isReplay = Boolean(rpcResult?.is_replay)
+
+  // 8. Staff Reviewer Assignment: Preserved for intake triage, but ONLY on first creation (never on replay)
+  if (!isReplay) {
+    try {
+      const { autoAssignReviewerToRequest } = await import('@/lib/dal/staff')
+      await autoAssignReviewerToRequest(finalRequestId, null)
+    } catch (assignErr: any) {
+      console.warn('Auto-assignment failed for request:', assignErr.message)
+    }
   }
 
   // Note on Demand Expansion (P0-03-A):
   // expandDemandAndCreateTasks is intentionally decoupled from synchronous guest intake
   // to eliminate immediate billable LLM calls and unreviewed platform task creation.
 
-  return NextResponse.json({ success: true, requestId, requestCode, isExistingRegisteredAccount })
+  return NextResponse.json({
+    success: true,
+    requestId: finalRequestId,
+    requestCode: finalRequestCode,
+    isExistingRegisteredAccount,
+    ...(isReplay ? { idempotentReplay: true } : {}),
+  })
 }
 
 async function copyTempImageToPermanent(tempPath: string, customerId: string): Promise<string | null> {
