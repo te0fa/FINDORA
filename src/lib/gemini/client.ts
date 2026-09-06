@@ -85,8 +85,18 @@ export async function runGroundedResearch(
     'runGroundedResearch'
   )
 
-  const responseObj = await result.response();
-  const text = responseObj.text();
+  const rawResp =
+    typeof result === 'object' && result !== null && 'response' in result
+      ? (result as { response: unknown }).response
+      : undefined
+  const responseObj = typeof rawResp === 'function' ? await (rawResp as () => unknown)() : await rawResp
+  const text =
+    typeof responseObj === 'object' &&
+    responseObj !== null &&
+    'text' in responseObj &&
+    typeof (responseObj as { text: unknown }).text === 'function'
+      ? (responseObj as { text: () => string }).text()
+      : String(responseObj ?? '')
   try {
     return JSON.parse(text)
   } catch (parseErr: any) {
