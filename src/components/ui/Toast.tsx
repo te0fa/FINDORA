@@ -102,8 +102,10 @@ function ToastItemComponent({
         padding: '14px 16px 10px',
         backdropFilter: 'blur(20px)',
         boxShadow: `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${colors.border}`,
-        minWidth: '300px',
+        minWidth: '280px',
         maxWidth: '400px',
+        width: '340px',
+        boxSizing: 'border-box',
         overflow: 'hidden',
         transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
         transform: visible ? 'translateX(0)' : slideDir,
@@ -112,9 +114,9 @@ function ToastItemComponent({
       }}
     >
       {/* Header Row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: toast.title ? '4px' : '0' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', width: '100%', marginBottom: toast.title ? '4px' : '0' }}>
         <span style={{ fontSize: '18px', flexShrink: 0, lineHeight: 1.2 }}>{ICONS[toast.type]}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, textAlign: isRTL ? 'right' : 'left' }}>
           {toast.title && (
             <div style={{
               fontWeight: 700,
@@ -128,9 +130,11 @@ function ToastItemComponent({
           )}
           <div style={{
             fontSize: '0.85rem',
-            color: 'rgba(255,255,255,0.85)',
-            lineHeight: 1.4,
-            wordBreak: 'break-word',
+            color: 'rgba(255,255,255,0.92)',
+            lineHeight: 1.5,
+            wordBreak: 'normal',
+            overflowWrap: 'break-word',
+            whiteSpace: 'normal',
           }}>
             {toast.message}
           </div>

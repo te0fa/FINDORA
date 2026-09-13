@@ -741,6 +741,8 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
   // ── Cloudflare Turnstile anti-abuse (P0-03-A) ────────────────────────────────
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''
   const [turnstileToken, setTurnstileToken] = useState<string>('')
+  const [isTurnstileLoading, setIsTurnstileLoading] = useState<boolean>(Boolean(turnstileSiteKey))
+  const [turnstileError, setTurnstileError] = useState<string | null>(null)
   const turnstileContainerRef = useRef<HTMLDivElement | null>(null)
   const turnstileWidgetId = useRef<string | null>(null)
 
@@ -758,30 +760,58 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
   }, [turnstileSiteKey])
 
   useEffect(() => {
-    if (!turnstileSiteKey || typeof window === 'undefined') return
+    if (!turnstileSiteKey || typeof window === 'undefined') {
+      setIsTurnstileLoading(false)
+      return
+    }
 
     let isCancelled = false
     let interval: NodeJS.Timeout | null = null
+    let safetyTimeout: NodeJS.Timeout | null = null
 
     const renderWidget = () => {
       if (isCancelled) return
       if (window.turnstile && turnstileContainerRef.current && !turnstileWidgetId.current) {
         try {
+          setIsTurnstileLoading(true)
+          setTurnstileError(null)
+
+          // 7-second safety timeout so button is never permanently locked on slow networks
+          safetyTimeout = setTimeout(() => {
+            if (!isCancelled && !turnstileToken) {
+              setIsTurnstileLoading(false)
+            }
+          }, 7000)
+
           turnstileWidgetId.current = window.turnstile.render(turnstileContainerRef.current, {
             sitekey: turnstileSiteKey,
             callback: (token: string) => {
-              if (!isCancelled) setTurnstileToken(token)
+              if (!isCancelled) {
+                setTurnstileToken(token)
+                setIsTurnstileLoading(false)
+                setTurnstileError(null)
+                if (safetyTimeout) clearTimeout(safetyTimeout)
+              }
             },
             'expired-callback': () => {
-              if (!isCancelled) setTurnstileToken('')
+              if (!isCancelled) {
+                setTurnstileToken('')
+                setIsTurnstileLoading(true)
+              }
             },
             'error-callback': () => {
-              if (!isCancelled) setTurnstileToken('')
+              if (!isCancelled) {
+                setTurnstileToken('')
+                setIsTurnstileLoading(false)
+                setTurnstileError(isAr ? 'تعذر إكمال التحقق الأمني، يرجى المحاولة مجدداً' : 'Security check failed, please retry')
+                if (safetyTimeout) clearTimeout(safetyTimeout)
+              }
             },
             theme: 'dark',
           })
         } catch (err) {
           console.warn('[TURNSTILE] Failed to render widget:', err)
+          setIsTurnstileLoading(false)
         }
       }
     }
@@ -800,6 +830,7 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
     return () => {
       isCancelled = true
       if (interval) clearInterval(interval)
+      if (safetyTimeout) clearTimeout(safetyTimeout)
       if (turnstileWidgetId.current && window.turnstile) {
         try {
           window.turnstile.remove(turnstileWidgetId.current)
@@ -807,7 +838,44 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
         turnstileWidgetId.current = null
       }
     }
-  }, [turnstileSiteKey, step, currentCustomer])
+  }, [turnstileSiteKey, step, currentCustomer, isAr])
+
+  const handleTurnstileRetry = () => {
+    setIsTurnstileLoading(true)
+    setTurnstileError(null)
+    setTurnstileToken('')
+    if (typeof window !== 'undefined' && window.turnstile) {
+      try {
+        if (turnstileWidgetId.current) {
+          window.turnstile.reset(turnstileWidgetId.current)
+        } else if (turnstileContainerRef.current) {
+          turnstileWidgetId.current = window.turnstile.render(turnstileContainerRef.current, {
+            sitekey: turnstileSiteKey,
+            callback: (token: string) => {
+              setTurnstileToken(token)
+              setIsTurnstileLoading(false)
+              setTurnstileError(null)
+            },
+            'expired-callback': () => {
+              setTurnstileToken('')
+              setIsTurnstileLoading(true)
+            },
+            'error-callback': () => {
+              setTurnstileToken('')
+              setIsTurnstileLoading(false)
+              setTurnstileError(isAr ? 'تعذر إكمال التحقق الأمني، يرجى المحاولة مجدداً' : 'Security check failed, please retry')
+            },
+            theme: 'dark',
+          })
+        }
+      } catch (err) {
+        console.warn('[TURNSTILE] Failed to reset widget:', err)
+        setIsTurnstileLoading(false)
+      }
+    } else {
+      setIsTurnstileLoading(false)
+    }
+  }
 
   // ─── Categories ──────────────────────────────────────────────────────────────
   const categories = [
@@ -1139,6 +1207,19 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
   // ── Final Submit ──────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Guard: Prevent premature submit while Turnstile is actively evaluating
+    if (turnstileSiteKey && !turnstileToken && isTurnstileLoading && process.env.NODE_ENV === 'production') {
+      toast(isAr ? 'جاري التحقق الأمني، يرجى الانتظار ثوانٍ معدودة...' : 'Verifying security, please wait a moment...')
+      return
+    }
+
+    // Guard: If Turnstile failed or timed out in production without token
+    if (turnstileSiteKey && !turnstileToken && process.env.NODE_ENV === 'production') {
+      toast(isAr ? 'تعذر إتمام التحقق الأمني، يرجى الضغط على "إعادة المحاولة"' : 'Security verification incomplete. Please tap "Retry Verification"')
+      return
+    }
+
     setIsSubmitting(true)
 
     const specs = formData.customSpecs || {}
@@ -1229,6 +1310,9 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
       } else {
         toast(data.error || 'Failed to submit request')
         setIsSubmitting(false)
+        if (data.code === 'INVALID_TURNSTILE_TOKEN' || data.code === 'MISSING_TURNSTILE_TOKEN') {
+          handleTurnstileRetry()
+        }
       }
     } catch {
       toast(isAr ? 'خطأ في الاتصال بالخادم' : 'Network error')
@@ -1830,16 +1914,47 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
             </div>
 
             {currentCustomer && turnstileSiteKey && (
-              <div className="flex justify-center my-4" data-testid="turnstile-container-location">
+              <div className="flex flex-col items-center justify-center my-4 min-h-[65px]" data-testid="turnstile-container-location">
                 <div ref={turnstileContainerRef} />
+                {isTurnstileLoading && !turnstileToken && (
+                  <p className="text-xs text-slate-400 mt-2 animate-pulse">
+                    {isAr ? '🛡️ جاري التحقق الأمني، يرجى الانتظار ثوانٍ معدودة...' : '🛡️ Verifying security, please wait a moment...'}
+                  </p>
+                )}
+                {turnstileError && !turnstileToken && (
+                  <div className="flex flex-col items-center mt-2">
+                    <p className="text-xs text-rose-400 mb-1">{turnstileError}</p>
+                    <button
+                      type="button"
+                      onClick={handleTurnstileRetry}
+                      className="text-xs text-amber-400 hover:underline px-2 py-1 bg-amber-500/10 rounded"
+                    >
+                      {isAr ? 'إعادة محاولة التحقق 🔄' : 'Retry Verification 🔄'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
             <div className="wizard-actions">
               <button type="button" onClick={() => setStep(STEP_DETAILS)} className="wizard-btn-secondary">{isAr ? 'رجوع' : 'Back'}</button>
-              <button type="submit" disabled={!formData.targetLocation || isSubmitting} className="wizard-btn-primary" data-testid="wizard-next-location">
+              <button
+                type="submit"
+                disabled={
+                  !formData.targetLocation ||
+                  isSubmitting ||
+                  Boolean(currentCustomer && turnstileSiteKey && !turnstileToken && isTurnstileLoading && process.env.NODE_ENV === 'production')
+                }
+                className="wizard-btn-primary"
+                data-testid="wizard-next-location"
+              >
                 {currentCustomer 
-                  ? (isSubmitting ? (isAr ? 'جاري الإرسال...' : 'Sending...') : (isAr ? 'إرسال الطلب 🚀' : 'Submit Request 🚀'))
+                  ? (isSubmitting
+                      ? (isAr ? 'جاري الإرسال...' : 'Sending...')
+                      : (turnstileSiteKey && !turnstileToken && isTurnstileLoading && process.env.NODE_ENV === 'production')
+                        ? (isAr ? 'جاري تأكيد الأمان... 🛡️' : 'Verifying Security... 🛡️')
+                        : (isAr ? 'إرسال الطلب 🚀' : 'Submit Request 🚀')
+                    )
                   : (isAr ? 'التالي' : 'Next')
                 }
               </button>
@@ -1903,15 +2018,48 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
             {/* No duplicate targetLocation field requested on STEP_INTAKE anymore since it is already fully answered on STEP_LOCATION */}
 
             {turnstileSiteKey && (
-              <div className="flex justify-center my-4" data-testid="turnstile-container-intake">
+              <div className="flex flex-col items-center justify-center my-4 min-h-[65px]" data-testid="turnstile-container-intake">
                 <div ref={turnstileContainerRef} />
+                {isTurnstileLoading && !turnstileToken && (
+                  <p className="text-xs text-slate-400 mt-2 animate-pulse">
+                    {isAr ? '🛡️ جاري التحقق الأمني، يرجى الانتظار ثوانٍ معدودة...' : '🛡️ Verifying security, please wait a moment...'}
+                  </p>
+                )}
+                {turnstileError && !turnstileToken && (
+                  <div className="flex flex-col items-center mt-2">
+                    <p className="text-xs text-rose-400 mb-1">{turnstileError}</p>
+                    <button
+                      type="button"
+                      onClick={handleTurnstileRetry}
+                      className="text-xs text-amber-400 hover:underline px-2 py-1 bg-amber-500/10 rounded"
+                    >
+                      {isAr ? 'إعادة محاولة التحقق 🔄' : 'Retry Verification 🔄'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
             <div className="wizard-actions wizard-footer-actions">
               <button type="button" onClick={prevStep} disabled={isSubmitting} className="wizard-btn-secondary">{isAr ? 'رجوع' : 'Back'}</button>
-              <button type="submit" disabled={isSubmitting || !formData.customerName || !formData.customerPhone || !formData.targetLocation} className="wizard-btn-submit" data-testid="start-request-submit">
-                {isSubmitting ? (isAr ? 'جاري الإرسال...' : 'Sending...') : (isAr ? 'أرسل الطلب الآن' : 'Submit Request')}
+              <button
+                type="submit"
+                disabled={
+                  isSubmitting ||
+                  !formData.customerName ||
+                  !formData.customerPhone ||
+                  !formData.targetLocation ||
+                  Boolean(turnstileSiteKey && !turnstileToken && isTurnstileLoading && process.env.NODE_ENV === 'production')
+                }
+                className="wizard-btn-submit"
+                data-testid="start-request-submit"
+              >
+                {isSubmitting
+                  ? (isAr ? 'جاري الإرسال...' : 'Sending...')
+                  : (turnstileSiteKey && !turnstileToken && isTurnstileLoading && process.env.NODE_ENV === 'production')
+                    ? (isAr ? 'جاري تأكيد الأمان... 🛡️' : 'Verifying Security... 🛡️')
+                    : (isAr ? 'أرسل الطلب الآن' : 'Submit Request')
+                }
               </button>
             </div>
           </div>
