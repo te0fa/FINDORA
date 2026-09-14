@@ -1310,7 +1310,7 @@ export default function RequestWizardClient({ locale, initialCustomer }: { local
       } else {
         toast(data.error || 'Failed to submit request')
         setIsSubmitting(false)
-        if (data.code === 'INVALID_TURNSTILE_TOKEN' || data.code === 'MISSING_TURNSTILE_TOKEN') {
+        if (turnstileSiteKey) {
           handleTurnstileRetry()
         }
       }

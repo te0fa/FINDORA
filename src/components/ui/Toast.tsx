@@ -116,7 +116,7 @@ function ToastItemComponent({
       {/* Header Row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', width: '100%', marginBottom: toast.title ? '4px' : '0' }}>
         <span style={{ fontSize: '18px', flexShrink: 0, lineHeight: 1.2 }}>{ICONS[toast.type]}</span>
-        <div style={{ flex: 1, minWidth: 0, textAlign: isRTL ? 'right' : 'left' }}>
+        <div style={{ flex: 1, minWidth: '200px', width: '100%', textAlign: isRTL ? 'right' : 'left' }}>
           {toast.title && (
             <div style={{
               fontWeight: 700,
@@ -132,6 +132,7 @@ function ToastItemComponent({
             fontSize: '0.85rem',
             color: 'rgba(255,255,255,0.92)',
             lineHeight: 1.5,
+            width: '100%',
             wordBreak: 'normal',
             overflowWrap: 'break-word',
             whiteSpace: 'normal',
