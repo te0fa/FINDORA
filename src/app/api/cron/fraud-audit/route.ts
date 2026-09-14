@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAIFeatureStatus } from '@/lib/dal/ai-control'
+import { verifyCronAuth, unauthorizedCronResponse } from '@/lib/security/cron'
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  const CRON_SECRET = process.env.CRON_SECRET
-  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!verifyCronAuth(request).authorized) {
+    return unauthorizedCronResponse()
   }
 
   const stabilizerStatus = await getAIFeatureStatus('flag_economy_stabilizer_active')

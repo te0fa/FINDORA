@@ -2,15 +2,13 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendSms } from '@/lib/notifications/sms'
 import { createLogger } from '@/lib/utils/logger'
+import { verifyCronAuth, unauthorizedCronResponse } from '@/lib/security/cron'
 
 const log = createLogger('cron/process-notifications')
 
 export async function GET(request: Request) {
-  // Verify cron secret (same pattern as fraud-audit)
-  const authHeader = request.headers.get('authorization')
-  const CRON_SECRET = process.env.CRON_SECRET
-  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!verifyCronAuth(request).authorized) {
+    return unauthorizedCronResponse()
   }
 
   const db = createAdminClient()
