@@ -2,6 +2,8 @@ import React from 'react'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import CustomerDashboardClient from '@/components/customer/CustomerDashboardClient'
+import RequestSuccessCelebration from '@/components/customer/RequestSuccessCelebration'
+import styles from '@/components/customer/CustomerDashboard.module.css'
 
 export const metadata = {
   title: 'My Requests — FINDORA',
@@ -21,8 +23,9 @@ export default async function CustomerDashboardPage({
   const isAr = locale === 'ar'
 
   let customerRequests: any[] = []
+  let featuredRequest: any = null
 
-  // If user is logged in, fetch their requests
+  // 1. If user is logged in, fetch their requests
   if (user) {
     const { data: customer } = await supabase
       .from('customers')
@@ -37,111 +40,178 @@ export default async function CustomerDashboardPage({
         .eq('customer_id', customer.id)
         .order('created_at', { ascending: false })
       customerRequests = data || []
+
+      if (customerRequests.length > 0) {
+        const reqIds = customerRequests.map(r => r.id)
+        const { data: requestRows } = await supabase
+          .from('requests')
+          .select('id, request_code')
+          .in('id', reqIds)
+
+        if (requestRows) {
+          const codeMap = new Map(requestRows.map(r => [r.id, r.request_code]))
+          customerRequests = customerRequests.map(r => ({
+            ...r,
+            request_code: codeMap.get(r.id) || null
+          }))
+        }
+      }
     }
-  } 
-  // If guest, fetch only the request passed in URL
+  }
+  // 2. If guest, fetch the request passed in URL
   else if (searchParams.requestId) {
-    const { data } = await supabase
-      .from('customer_requests')
-      .select('*')
-      .eq('id', searchParams.requestId)
-      .order('created_at', { ascending: false })
-    const reqs = data || []
-    if (reqs.length > 0) {
-      const { data: requestRow } = await supabase
+    if (searchParams.code) {
+      // Capability-based verification: verify request_code matches in canonical requests table
+      const { createAdminClient } = await import('@/lib/dal/customers')
+      const adminClient = await createAdminClient()
+
+      const { data: requestRow } = await adminClient
         .from('requests')
-        .select('request_code')
+        .select('*')
         .eq('id', searchParams.requestId)
+        .eq('request_code', searchParams.code)
         .maybeSingle()
-      customerRequests = reqs.map(r => ({
-        ...r,
-        request_code: requestRow?.request_code || null
-      }))
+
+      if (requestRow) {
+        const { data: crRow } = await adminClient
+          .from('customer_requests')
+          .select('*')
+          .eq('id', searchParams.requestId)
+          .maybeSingle()
+
+        if (crRow) {
+          const merged = {
+            ...crRow,
+            request_code: requestRow.request_code,
+            metadata: requestRow.metadata,
+          }
+          customerRequests = [merged]
+          featuredRequest = merged
+        }
+      }
     } else {
-      customerRequests = []
+      const { data } = await supabase
+        .from('customer_requests')
+        .select('*')
+        .eq('id', searchParams.requestId)
+        .order('created_at', { ascending: false })
+      customerRequests = data || []
+    }
+  }
+
+  // If featuredRequest not yet set from guest block but searchParams.requestId is present
+  if (!featuredRequest && searchParams.requestId) {
+    featuredRequest = customerRequests.find(r => r.id === searchParams.requestId) || null
+
+    if (!featuredRequest && searchParams.code) {
+      const { createAdminClient } = await import('@/lib/dal/customers')
+      const adminClient = await createAdminClient()
+      const { data: requestRow } = await adminClient
+        .from('requests')
+        .select('*')
+        .eq('id', searchParams.requestId)
+        .eq('request_code', searchParams.code)
+        .maybeSingle()
+      if (requestRow) {
+        const { data: crRow } = await adminClient
+          .from('customer_requests')
+          .select('*')
+          .eq('id', searchParams.requestId)
+          .maybeSingle()
+        if (crRow) {
+          featuredRequest = {
+            ...crRow,
+            request_code: requestRow.request_code,
+            metadata: requestRow.metadata,
+          }
+        }
+      }
     }
   }
 
   return (
-    <div className="min-h-screen bg-[hsl(220,25%,8%)] text-white p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-8">
-        
+    <div className={styles.dashboardContainer}>
+      <div className={styles.maxWrapper}>
+
         {/* Header */}
-        <div className="flex justify-between items-end border-b border-white/10 pb-4">
+        <div className={styles.pageHeader}>
           <div>
-            <h1 className="text-3xl font-extrabold">{isAr ? 'طلباتي' : 'My Requests'}</h1>
-            <p className="text-[hsl(220,10%,60%)] mt-1">
+            <h1 className={styles.pageTitle}>{isAr ? 'طلباتي' : 'My Requests'}</h1>
+            <p className={styles.pageSubtitle}>
               {isAr ? 'تتبع حالة طلباتك واستعرض العروض المتاحة' : 'Track your requests and review available offers'}
             </p>
           </div>
-          <Link href={`/${locale}/start-request`} className="px-6 py-2 bg-white/10 hover:bg-white/20 font-bold rounded-lg transition">
+          <Link href={`/${locale}/start-request`} className={styles.newRequestBtn}>
             {isAr ? '+ طلب جديد' : '+ New Request'}
           </Link>
         </div>
 
-        {/* Success / Request Created Banner */}
-        {searchParams.code && (
-          <div className="p-6 rounded-2xl border border-[hsl(152,69%,51%,0.4)] bg-[hsl(152,69%,51%,0.1)] flex gap-4 items-start animate-fade-in" data-testid="request-success-banner">
-            <div className="text-3xl text-[hsl(152,69%,51%)]">🎉</div>
-            <div className="space-y-1">
-              <h4 className="font-bold text-[hsl(152,69%,51%)] text-lg">
-                {isAr ? 'تم تقديم طلبك بنجاح!' : 'Request Submitted Successfully!'}
-              </h4>
-              <p className="text-sm text-white/90">
-                {isAr
-                  ? 'تم إنشاء طلبك بنجاح. يمكنك الآن متابعته أو تعديله من لوحة التحكم هذه.'
-                  : 'Your request was created successfully. You can track or manage it from this dashboard.'}
-              </p>
+        {/* Modern Celebration Card when request is created / code is present */}
+        {searchParams.code ? (
+          <RequestSuccessCelebration
+            locale={locale}
+            requestCode={searchParams.code}
+            requestId={searchParams.requestId}
+            isReturning={searchParams.returning === 'true'}
+            request={featuredRequest}
+          />
+        ) : null}
 
-              {searchParams.returning === 'true' && (
-                <div className="mt-4 p-4 rounded-xl border border-[hsl(258,89%,66%,0.4)] bg-[hsl(258,89%,66%,0.1)] text-sm text-[hsl(258,89%,76%)] animate-fade-in">
-                  <p className="font-bold text-white flex items-center gap-2 mb-1">
-                    <span>💡</span>
-                    {isAr ? 'تم ربط الطلب بحسابك المسجل لدينا!' : 'Request linked to your registered account!'}
-                  </p>
-                  <p>
-                    {isAr 
-                      ? 'لقد وجدنا أن رقم الهاتف هذا مسجل مسبقاً في قاعدة بياناتنا كعميل. تم حفظ طلبك الجديد على حسابك بنجاح.'
-                      : 'We found that this phone number is already registered in our database. Your new request was successfully saved to your account.'}
-                  </p>
-                  <div className="mt-3">
-                    <Link href={`/${locale}/auth/login?next=${encodeURIComponent(`/${locale}/customer/dashboard`)}`} className="inline-block px-4 py-1.5 bg-[hsl(258,89%,66%)] hover:bg-[hsl(258,89%,76%)] text-white text-xs font-bold rounded-lg transition" style={{ textDecoration: 'none' }}>
-                      {isAr ? 'تسجيل الدخول للمتابعة ←' : 'Log In to Follow Up ←'}
-                    </Link>
-                  </div>
-                </div>
-              )}
-              <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-[hsl(152,69%,51%,0.2)]">
-                <span className="text-xs text-[hsl(220,10%,60%)]">
-                  {isAr ? 'كود التتبع لتتبع الطلب لاحقاً:' : 'Tracking code to track request later:'}
-                </span>
-                <span className="px-3 py-1 font-mono text-sm font-bold bg-black/40 text-[hsl(152,69%,51%)] border border-[hsl(152,69%,51%,0.3)] rounded-lg" data-testid="request-success-code">
-                  {searchParams.code}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Guest Warning */}
-        {!user && customerRequests.length > 0 && (
-          <div className="p-4 rounded-xl border border-[hsl(43,96%,56%,0.5)] bg-[hsl(43,96%,56%,0.1)] flex gap-4 items-start">
-            <div className="text-2xl">⚠️</div>
+        {/* Guest Warning (only shown when NO code celebration is visible and user is guest with existing requests) */}
+        {!user && !searchParams.code && customerRequests.length > 0 && (
+          <div style={{
+            padding: '16px 20px',
+            borderRadius: '16px',
+            border: '1px solid rgba(245, 158, 11, 0.4)',
+            background: 'rgba(245, 158, 11, 0.08)',
+            display: 'flex',
+            gap: '16px',
+            alignItems: 'flex-start',
+            marginBottom: '24px'
+          }}>
+            <div style={{ fontSize: '24px' }}>⚠️</div>
             <div>
-              <h4 className="font-bold text-[hsl(43,96%,56%)]">{isAr ? 'أنت تتصفح كزائر' : 'You are browsing as a guest'}</h4>
-              <p className="text-sm text-white mt-1 mb-2">
-                {isAr 
+              <h4 style={{ fontWeight: 800, color: '#fbbf24', margin: '0 0 4px 0' }}>
+                {isAr ? 'أنت تتصفح كزائر' : 'You are browsing as a guest'}
+              </h4>
+              <p style={{ fontSize: '13px', color: '#ffffff', margin: '0 0 12px 0', lineHeight: 1.5 }}>
+                {isAr
                   ? 'يرجى حفظ رابط هذه الصفحة (أو Bookmark) لتتمكن من العودة لتتبع طلبك. أو قم بإنشاء حساب لحفظ طلباتك للأبد.'
                   : 'Please save or bookmark this link to track your request. Alternatively, create an account to save your requests permanently.'}
               </p>
-              <Link href={`/${locale}/auth/signup`} className="text-xs font-bold bg-[hsl(43,96%,56%)] text-black px-3 py-1 rounded-md hover:bg-white transition inline-block">
+              <Link
+                href={`/${locale}/auth/signup`}
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  background: '#fbbf24',
+                  color: '#000000',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  display: 'inline-block'
+                }}
+              >
                 {isAr ? 'إنشاء حساب مجاني' : 'Create Free Account'}
               </Link>
             </div>
           </div>
         )}
 
-        <CustomerDashboardClient locale={locale} requests={customerRequests} />
+        {/* Requests List */}
+        <div>
+          {customerRequests.length > 0 && (
+            <div className={styles.sectionHeader}>
+              <h3 className={styles.sectionTitle}>
+                {isAr ? 'قائمة الطلبات المسجلة' : 'Registered Requests'}
+              </h3>
+              <span className={styles.sectionCount}>
+                {customerRequests.length} {customerRequests.length === 1 ? (isAr ? 'طلب' : 'request') : (isAr ? 'طلبات' : 'requests')}
+              </span>
+            </div>
+          )}
+          <CustomerDashboardClient locale={locale} requests={customerRequests} />
+        </div>
 
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import styles from './CustomerDashboard.module.css'
 
 export function getStatusLabel(status: string) {
   const map: Record<string, { ar: string; en: string }> = {
@@ -27,7 +28,6 @@ export function getStatusLabel(status: string) {
   };
   const entry = map[status];
   if (entry) return `${entry.ar} / ${entry.en}`;
-  // حالة غير معروفة – رسالة عامة
   return 'جاري المعالجة / Processing';
 }
 
@@ -36,83 +36,105 @@ export default function CustomerDashboardClient({ locale, requests }: { locale: 
 
   if (requests.length === 0) {
     return (
-      <div className="text-center py-20 bg-black/20 rounded-2xl border border-white/5">
-        <div className="text-4xl mb-4">🛒</div>
-        <h3 className="text-xl font-bold text-white mb-2">{isAr ? 'لا توجد طلبات بعد' : 'No requests yet'}</h3>
-        <p className="text-[hsl(220,10%,60%)] mb-6">{isAr ? 'ابدأ أول طلب لك ودع شبكتنا تبحث لك عن أفضل العروض.' : 'Start your first request and let our network hunt for the best deals.'}</p>
-        <Link href={`/${locale}/start-request`} className="px-6 py-3 bg-[hsl(258,89%,66%)] text-white font-bold rounded-xl hover:bg-[hsl(258,89%,76%)] transition shadow-lg inline-block">
+      <div className={styles.emptyState}>
+        <div className={styles.emptyIcon}>🛒</div>
+        <h3 className={styles.emptyTitle}>{isAr ? 'لا توجد طلبات بعد' : 'No requests yet'}</h3>
+        <p className={styles.emptyText}>{isAr ? 'ابدأ أول طلب لك ودع شبكتنا تبحث لك عن أفضل العروض.' : 'Start your first request and let our network hunt for the best deals.'}</p>
+        <Link href={`/${locale}/start-request`} className={styles.emptyCta}>
           {isAr ? 'ابدأ البحث الآن' : 'Start Searching Now'}
         </Link>
       </div>
     )
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusStyle = (status: string) => {
     switch (status) {
       case 'new':
       case 'open':
       case 'submitted':
-        return 'bg-[hsl(43,96%,56%,0.2)] text-[hsl(43,96%,56%)] border-[hsl(43,96%,56%,0.5)]'
+        return {
+          background: 'rgba(245, 158, 11, 0.15)',
+          color: '#fbbf24',
+          borderColor: 'rgba(245, 158, 11, 0.4)'
+        }
       case 'intake_review':
       case 'operations_review':
       case 'research_phase':
       case 'research':
       case 'in_progress':
-        return 'bg-[hsl(258,89%,66%,0.2)] text-[hsl(258,89%,66%)] border-[hsl(258,89%,66%,0.5)]'
+      case 'processing':
+        return {
+          background: 'rgba(139, 92, 246, 0.15)',
+          color: '#c4b5fd',
+          borderColor: 'rgba(139, 92, 246, 0.4)'
+        }
       case 'report_ready':
       case 'partially_revealed':
       case 'client_ready':
       case 'completed':
       case 'approved':
-        return 'bg-[hsl(152,69%,51%,0.2)] text-[hsl(152,69%,51%)] border-[hsl(152,69%,51%,0.5)]'
+        return {
+          background: 'rgba(34, 197, 94, 0.15)',
+          color: '#4ade80',
+          borderColor: 'rgba(34, 197, 94, 0.4)'
+        }
       case 'rejected':
       case 'cancelled':
-        return 'bg-[hsl(0,84%,60%,0.2)] text-[hsl(0,84%,60%)] border-[hsl(0,84%,60%,0.5)]'
+        return {
+          background: 'rgba(239, 68, 68, 0.15)',
+          color: '#f87171',
+          borderColor: 'rgba(239, 68, 68, 0.4)'
+        }
       case 'archived':
-        return 'bg-white/10 text-white/60 border-white/20'
-      default: return 'bg-white/10 text-white border-white/20'
+      default:
+        return {
+          background: 'rgba(255, 255, 255, 0.08)',
+          color: '#94a3b8',
+          borderColor: 'rgba(255, 255, 255, 0.12)'
+        }
     }
   }
 
-
-
   return (
-    <div className="grid gap-4">
-      {requests.map(req => (
-        <Link 
-          href={`/${locale}/customer/request/${req.id}`} 
-          key={req.id} 
-          className="p-6 rounded-2xl border border-white/10 bg-black/40 hover:bg-[hsl(220,20%,12%)] hover:border-[hsl(258,89%,66%,0.5)] transition group block"
-        >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className={`text-xs font-bold px-3 py-1 rounded-full border ${getStatusColor(req.status)}`}>
-                  {getStatusLabel(req.status || 'open')}
-                </span>
-                {req.request_code && (
-                  <span className="text-xs font-mono px-2 py-0.5 bg-white/10 text-[hsl(258,89%,76%)] rounded">
-                    #{req.request_code}
+    <div className={styles.requestsList}>
+      {requests.map(req => {
+        const statusStyle = getStatusStyle(req.status || 'open');
+        const reqLink = `/${locale}/customer/request/${req.id}${req.request_code ? `?code=${req.request_code}` : ''}`;
+        return (
+          <Link
+            href={reqLink}
+            key={req.id}
+            className={styles.requestCard}
+          >
+            <div className={styles.cardContent}>
+              <div>
+                <div className={styles.cardTopRow}>
+                  <span className={styles.statusPill} style={statusStyle}>
+                    {getStatusLabel(req.status || 'open')}
                   </span>
-                )}
-                <span className="text-xs text-[hsl(220,10%,60%)] font-mono">{new Date(req.created_at).toLocaleDateString()}</span>
+                  {req.request_code && (
+                    <span className={styles.codePill}>
+                      #{req.request_code}
+                    </span>
+                  )}
+                  <span className={styles.dateText}>{new Date(req.created_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US')}</span>
+                </div>
+                <h2 className={styles.cardProduct}>
+                  {req.product_name}
+                </h2>
+                <div className={styles.cardMeta}>
+                  <span>📍 {req.target_location}</span>
+                  {req.max_price && <span>💰 Max: {Number(req.max_price).toLocaleString()} EGP</span>}
+                </div>
               </div>
-              <h2 className="text-xl font-bold text-white group-hover:text-[hsl(258,89%,66%)] transition">
-                {req.product_name}
-              </h2>
-              <p className="text-sm text-[hsl(220,10%,60%)] mt-1">
-                📍 {req.target_location} {req.max_price ? `| 💰 Max: ${req.max_price} EGP` : ''}
-              </p>
+
+              <div className={styles.cardCta}>
+                <span>{isAr ? 'عرض التفاصيل ←' : 'View Details →'}</span>
+              </div>
             </div>
-            
-            <div className="text-right">
-              <span className="text-sm font-bold text-[hsl(258,89%,66%)] group-hover:underline">
-                {isAr ? 'عرض التفاصيل ←' : 'View Details →'}
-              </span>
-            </div>
-          </div>
-        </Link>
-      ))}
+          </Link>
+        );
+      })}
     </div>
   )
 }
