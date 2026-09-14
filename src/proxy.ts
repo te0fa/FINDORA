@@ -55,12 +55,19 @@ export function getRateLimitConfig(pathname: string): { limit: number; windowSec
   return null
 }
 
+export interface RateLimitResult {
+  allowed: boolean
+  remaining: number
+  resetTime: number
+  status?: number
+}
+
 export async function checkRateLimit(
   ip: string,
   path: string,
   limit: number,
   windowSeconds: number
-) {
+): Promise<RateLimitResult> {
   try {
     const admin = (await createAdminClient()) as any;
     const windowKey = `${ip}:${path}`;
@@ -75,14 +82,38 @@ export async function checkRateLimit(
       .gte('window_start', new Date(windowStart).toISOString())
       .single();
 
-    // إذا لم توجد نافذة (أو حدث خطأ) – أنشئ نافذة جديدة
-    if (error || !data) {
-      await admin.from('rate_limit_windows').upsert({
+    const isNoRows = !data && (!error || error.code === 'PGRST116' || error.message?.includes('No rows') || error.details?.includes('0 rows'));
+
+    // If an unexpected error occurred (other than row-not-found), fail closed
+    if (error && !isNoRows) {
+      console.error('[SECURITY][RATE_LIMIT] Database select error in checkRateLimit:', error);
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: Math.floor(Date.now() / 1000) + Math.min(windowSeconds, 5),
+        status: 503,
+      };
+    }
+
+    // إذا لم توجد نافذة – أنشئ نافذة جديدة
+    if (isNoRows) {
+      const { error: upsertError } = await admin.from('rate_limit_windows').upsert({
         window_key: windowKey,
         request_count: 1,
         window_start: new Date().toISOString(),
         expires_at: new Date(now + windowSeconds * 1000).toISOString(),
       });
+
+      if (upsertError) {
+        console.error('[SECURITY][RATE_LIMIT] Database upsert error in checkRateLimit:', upsertError);
+        return {
+          allowed: false,
+          remaining: 0,
+          resetTime: Math.floor(Date.now() / 1000) + Math.min(windowSeconds, 5),
+          status: 503,
+        };
+      }
+
       return {
         allowed: true,
         remaining: limit - 1,
@@ -98,14 +129,25 @@ export async function checkRateLimit(
         resetTime: Math.floor(
           new Date(data.window_start).getTime() + windowSeconds * 1000
         ) / 1000,
+        status: 429,
       };
     }
 
     // حدّ لم يُستنفذ بعد → حدّث العداد
-    await admin
+    const { error: updateError } = await admin
       .from('rate_limit_windows')
       .update({ request_count: data.request_count + 1 })
       .eq('window_key', windowKey);
+
+    if (updateError) {
+      console.error('[SECURITY][RATE_LIMIT] Database update error in checkRateLimit:', updateError);
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: Math.floor(Date.now() / 1000) + Math.min(windowSeconds, 5),
+        status: 503,
+      };
+    }
 
     return {
       allowed: true,
@@ -114,12 +156,14 @@ export async function checkRateLimit(
         new Date(data.window_start).getTime() + windowSeconds * 1000
       ) / 1000,
     };
-  } catch {
-    // Fail-open for safety if database is unreachable
+  } catch (err) {
+    // P0-02: Fail-closed for security if database is unreachable
+    console.error('[SECURITY][RATE_LIMIT] Exception in checkRateLimit:', err);
     return {
-      allowed: true,
-      remaining: limit - 1,
-      resetTime: Math.floor(Date.now() / 1000) + windowSeconds,
+      allowed: false,
+      remaining: 0,
+      resetTime: Math.floor(Date.now() / 1000) + Math.min(windowSeconds, 5),
+      status: 503,
     };
   }
 }
@@ -196,24 +240,30 @@ export async function proxy(request: NextRequest) {
   if (rateLimitConfig) {
     const ip = getClientIP(request)
     const cleanPath = pathname.replace(/^\/(?:ar|en)/, '')
-    const { allowed, remaining, resetTime } = await checkRateLimit(
+    const rateLimitResult = await checkRateLimit(
       ip,
       cleanPath,
       rateLimitConfig.limit,
       rateLimitConfig.windowSeconds
     )
 
-    if (!allowed) {
-      const retryAfter = Math.max(1, resetTime - Math.ceil(Date.now() / 1000))
+    if (!rateLimitResult.allowed) {
+      const isDbError = rateLimitResult.status === 503
+      const retryAfter = Math.max(1, rateLimitResult.resetTime - Math.ceil(Date.now() / 1000))
+      const status = isDbError ? 503 : 429
+      const errorMessage = isDbError
+        ? 'Service temporarily unavailable. Please try again later.'
+        : 'Too many requests. Please wait and try again later.'
+
       const res = NextResponse.json(
-        { error: 'Too many requests. Please wait and try again later.' },
+        { error: errorMessage },
         {
-          status: 429,
+          status,
           headers: {
             'Retry-After': String(retryAfter),
             'X-RateLimit-Limit': String(rateLimitConfig.limit),
-            'X-RateLimit-Remaining': String(remaining),
-            'X-RateLimit-Reset': String(resetTime),
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': String(rateLimitResult.resetTime),
             'x-request-id': requestId,
           }
         }
