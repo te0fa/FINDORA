@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const CATEGORIES = [
   { value: 'electronics', label_ar: 'إلكترونيات', label_en: 'Electronics' },
@@ -27,6 +27,92 @@ export default function MerchantRegisterClient({ locale }: MerchantRegisterClien
   const [devCode, setDevCode] = useState('');
   const [toast, setToast] = useState<{msg:string;type:'success'|'error'}|null>(null);
 
+  // Cloudflare Turnstile token & state (P1-03 Batch 2)
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
+  const [turnstileToken, setTurnstileToken] = useState<string>('');
+  const [turnstileError, setTurnstileError] = useState<string | null>(null);
+  const turnstileContainerRef = useRef<HTMLDivElement | null>(null);
+  const turnstileWidgetId = useRef<string | null>(null);
+
+  // Dynamic Turnstile script injection
+  useEffect(() => {
+    if (!turnstileSiteKey || typeof window === 'undefined') return;
+    if (!document.getElementById('cf-turnstile-script')) {
+      const script = document.createElement('script');
+      script.id = 'cf-turnstile-script';
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }, [turnstileSiteKey]);
+
+  // Render Turnstile widget when in step 2
+  useEffect(() => {
+    if (!turnstileSiteKey || typeof window === 'undefined' || step !== 2 || otpSent) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const renderWidget = () => {
+      if (window.turnstile && turnstileContainerRef.current && !turnstileWidgetId.current) {
+        try {
+          setTurnstileError(null);
+          turnstileWidgetId.current = window.turnstile.render(turnstileContainerRef.current, {
+            sitekey: turnstileSiteKey,
+            theme: 'dark',
+            callback: (token: string) => {
+              if (!isCancelled) {
+                setTurnstileToken(token);
+                setTurnstileError(null);
+              }
+            },
+            'error-callback': () => {
+              if (!isCancelled) {
+                setTurnstileError(isAr ? 'فشل التحقق الأمني، يرجى إعادة المحاولة' : 'Security verification failed, please try again');
+                setTurnstileToken('');
+              }
+            },
+            'expired-callback': () => {
+              if (!isCancelled) {
+                setTurnstileToken('');
+                setTurnstileError(isAr ? 'انتهت صلاحية التحقق الأمني، يرجى إعادة المحاولة' : 'Verification token expired, please try again');
+              }
+            },
+          });
+        } catch {
+          // ignore render error
+        }
+      }
+    };
+
+    if (window.turnstile) {
+      renderWidget();
+    } else {
+      const interval = setInterval(() => {
+        if (window.turnstile) {
+          clearInterval(interval);
+          renderWidget();
+        }
+      }, 100);
+      return () => {
+        isCancelled = true;
+        clearInterval(interval);
+      };
+    }
+
+    return () => {
+      isCancelled = true;
+      if (turnstileWidgetId.current && window.turnstile) {
+        try {
+          window.turnstile.remove(turnstileWidgetId.current);
+        } catch {}
+        turnstileWidgetId.current = null;
+      }
+    };
+  }, [turnstileSiteKey, step, otpSent, isAr]);
+
   const [form, setForm] = useState({
     business_name_ar: '', business_name_en: '', business_category: '',
     phone_number: '', governorate: '', address_details: '', national_id: '',
@@ -39,46 +125,57 @@ export default function MerchantRegisterClient({ locale }: MerchantRegisterClien
 
   const handleSendOtp = async () => {
     if (!form.phone_number) return showToast(isAr ? 'أدخل رقم الهاتف' : 'Enter phone number', 'error');
+    if (turnstileSiteKey && !turnstileToken && process.env.NODE_ENV === 'production') {
+      return showToast(isAr ? 'يرجى إكمال التحقق الأمني أولاً' : 'Please complete security verification first', 'error');
+    }
     setLoading(true);
     try {
+      const effectiveToken = turnstileToken || (process.env.NODE_ENV !== 'production' ? 'mock-turnstile-pass' : '');
       const res = await fetch('/api/otp/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: form.phone_number, purpose: 'merchant_registration' }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(effectiveToken ? { 'cf-turnstile-response': effectiveToken } : {}),
+        },
+        body: JSON.stringify({
+          phoneNumber: form.phone_number,
+          purpose: 'merchant_registration',
+          turnstileToken: effectiveToken,
+        }),
       });
       const data = await res.json();
-      if (!res.ok) return showToast(data.error || 'Error', 'error');
+      if (!res.ok) {
+        if (data.code?.includes('TURNSTILE') || res.status === 403) {
+          if (turnstileWidgetId.current && window.turnstile) {
+            try { window.turnstile.reset(turnstileWidgetId.current); } catch {}
+          }
+          setTurnstileToken('');
+        }
+        const errorMsg = data.error === 'SMS_GATEWAY_NOT_CONFIGURED'
+          ? (isAr ? 'خدمة إرسال رسائل التحقق غير متاحة حالياً. يرجى المحاولة لاحقاً.' : 'Phone verification is temporarily unavailable. Please try again later.')
+          : (data.error || 'Error');
+        return showToast(errorMsg, 'error');
+      }
       setOtpSent(true);
       if (data.devCode) setDevCode(data.devCode);
       showToast(isAr ? 'تم إرسال الكود! ✅' : 'OTP sent! ✅');
     } finally { setLoading(false); }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyOtp = () => {
     if (!otpCode || otpCode.length !== 6) return showToast(isAr ? 'أدخل الكود المكون من 6 أرقام' : 'Enter 6-digit code', 'error');
-    setLoading(true);
-    try {
-      const res = await fetch('/api/otp/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: form.phone_number, code: otpCode, purpose: 'merchant_registration' }),
-      });
-      const data = await res.json();
-      if (!res.ok) return showToast(data.error || 'Error', 'error');
-      setOtpVerified(true);
-      showToast(isAr ? 'تم التحقق من الهاتف ✅' : 'Phone verified ✅');
-      setStep(3);
-    } finally { setLoading(false); }
+    setOtpVerified(true);
+    setStep(3);
   };
 
   const handleSubmit = async () => {
-    if (!otpVerified) return showToast(isAr ? 'يجب التحقق من الهاتف أولاً' : 'Phone must be verified first', 'error');
+    if (!otpVerified || !otpCode) return showToast(isAr ? 'يجب التحقق من الهاتف أولاً' : 'Phone must be verified first', 'error');
     setLoading(true);
     try {
       const res = await fetch('/api/merchants/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, phone_verified: true }),
+        body: JSON.stringify({ ...form, otpCode }),
       });
       const data = await res.json();
       if (!res.ok) return showToast(data.error || 'Error', 'error');
@@ -159,9 +256,17 @@ export default function MerchantRegisterClient({ locale }: MerchantRegisterClien
               <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '0.9rem' }}>{isAr ? `سنرسل كود تأكيد إلى ${form.phone_number}` : `We'll send a code to ${form.phone_number}`}</p>
               {devCode && <div style={{ padding: '10px 16px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, fontSize: '0.85rem', color: '#f59e0b' }}>🔧 Dev Mode — Code: <strong>{devCode}</strong></div>}
               {!otpSent ? (
-                <button onClick={handleSendOtp} disabled={loading} style={{ padding: '14px', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: 'none', borderRadius: 12, color: 'white', fontWeight: 800, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
-                  {loading ? '...' : (isAr ? 'إرسال الكود' : 'Send Code')}
-                </button>
+                <>
+                  {turnstileSiteKey && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '8px 0', minHeight: '65px' }}>
+                      <div ref={turnstileContainerRef} />
+                      {turnstileError && <p style={{ color: '#f87171', fontSize: '0.8rem', margin: '4px 0 0' }}>{turnstileError}</p>}
+                    </div>
+                  )}
+                  <button onClick={handleSendOtp} disabled={loading || (Boolean(turnstileSiteKey) && !turnstileToken && process.env.NODE_ENV === 'production')} style={{ padding: '14px', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: 'none', borderRadius: 12, color: 'white', fontWeight: 800, cursor: 'pointer', opacity: loading || (Boolean(turnstileSiteKey) && !turnstileToken && process.env.NODE_ENV === 'production') ? 0.7 : 1 }}>
+                    {loading ? '...' : (isAr ? 'إرسال الكود' : 'Send Code')}
+                  </button>
+                </>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <input value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" dir="ltr" maxLength={6} style={{ textAlign: 'center', padding: '16px', fontSize: '1.5rem', letterSpacing: '0.4em', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, color: 'white', fontWeight: 800 }} />

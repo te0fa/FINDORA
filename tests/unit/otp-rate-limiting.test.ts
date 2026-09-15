@@ -544,3 +544,400 @@ describe('P1-03 Batch 1: POST /api/otp/verify Identity Parity', () => {
     expect(verifyMock).not.toHaveBeenCalled();
   });
 });
+
+describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', () => {
+  const originalEnv = { ...process.env };
+  const sendOtpMock = sendOtp as jest.MockedFunction<typeof sendOtp>;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    sendOtpMock.mockReset();
+    sendOtpMock.mockResolvedValue({ success: true, expiresInSeconds: 300 });
+    mockDbQueryResponse = { data: [], error: null };
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  describe('Turnstile Token Validation & Failure Matrix', () => {
+    it('A. rejects request when token is missing and secret is configured with HTTP 403 MISSING_TURNSTILE_TOKEN', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      const body = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(body.error).toBe('Human verification failed. Please refresh and try again.');
+      expect(body.code).toBe('MISSING_TURNSTILE_TOKEN');
+      expect(sendOtpMock).not.toHaveBeenCalled();
+    });
+
+    it('B. rejects invalid mock token (mock-turnstile-fail) with HTTP 403 INVALID_TURNSTILE_TOKEN', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-fail',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      const body = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(body.error).toBe('Human verification failed. Please refresh and try again.');
+      expect(body.code).toBe('INVALID_TURNSTILE_TOKEN');
+      expect(sendOtpMock).not.toHaveBeenCalled();
+    });
+
+    it('C. rejects expired/replayed token reported by Cloudflare in production with HTTP 403 INVALID_OR_EXPIRED_TOKEN', async () => {
+      (process.env as any).NODE_ENV = 'production';
+      process.env.TURNSTILE_SECRET_KEY = 'prod-secret-key';
+
+      const originalFetch = global.fetch;
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: false, 'error-codes': ['timeout-or-duplicate'] }),
+      }) as any;
+
+      try {
+        const req = new NextRequest('http://localhost/api/otp/send', {
+          method: 'POST',
+          body: JSON.stringify({
+            phoneNumber: '01012345678',
+            purpose: 'merchant_registration',
+            turnstileToken: 'replayed-cf-token',
+          }),
+        });
+
+        const response = await sendOtpRoute(req);
+        const body = await response.json();
+
+        expect(response.status).toBe(403);
+        expect(body.error).toBe('Human verification failed. Please refresh and try again.');
+        expect(body.code).toBe('INVALID_OR_EXPIRED_TOKEN');
+        expect(sendOtpMock).not.toHaveBeenCalled();
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('D. fails closed on Cloudflare API/network error with HTTP 403 VERIFICATION_NETWORK_FAILURE', async () => {
+      (process.env as any).NODE_ENV = 'production';
+      process.env.TURNSTILE_SECRET_KEY = 'prod-secret-key';
+
+      const originalFetch = global.fetch;
+      global.fetch = jest.fn().mockRejectedValue(new Error('Cloudflare network timeout')) as any;
+
+      try {
+        const req = new NextRequest('http://localhost/api/otp/send', {
+          method: 'POST',
+          body: JSON.stringify({
+            phoneNumber: '01012345678',
+            purpose: 'merchant_registration',
+            turnstileToken: 'some-cf-token',
+          }),
+        });
+
+        const response = await sendOtpRoute(req);
+        const body = await response.json();
+
+        expect(response.status).toBe(403);
+        expect(body.error).toBe('Human verification failed. Please refresh and try again.');
+        expect(body.code).toBe('VERIFICATION_NETWORK_FAILURE');
+        expect(sendOtpMock).not.toHaveBeenCalled();
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('D2. fails closed on Cloudflare siteverify HTTP 500 error with HTTP 403 VERIFICATION_ENDPOINT_ERROR', async () => {
+      (process.env as any).NODE_ENV = 'production';
+      process.env.TURNSTILE_SECRET_KEY = 'prod-secret-key';
+
+      const originalFetch = global.fetch;
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      }) as any;
+
+      try {
+        const req = new NextRequest('http://localhost/api/otp/send', {
+          method: 'POST',
+          body: JSON.stringify({
+            phoneNumber: '01012345678',
+            purpose: 'merchant_registration',
+            turnstileToken: 'some-cf-token',
+          }),
+        });
+
+        const response = await sendOtpRoute(req);
+        const body = await response.json();
+
+        expect(response.status).toBe(403);
+        expect(body.error).toBe('Human verification failed. Please refresh and try again.');
+        expect(body.code).toBe('VERIFICATION_ENDPOINT_ERROR');
+        expect(sendOtpMock).not.toHaveBeenCalled();
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('rejects in production if TURNSTILE_SECRET_KEY is missing with HTTP 403 TURNSTILE_CONFIGURATION_ERROR', async () => {
+      (process.env as any).NODE_ENV = 'production';
+      delete process.env.TURNSTILE_SECRET_KEY;
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'some-token',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      const body = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(body.error).toBe('Human verification failed. Please refresh and try again.');
+      expect(body.code).toBe('TURNSTILE_CONFIGURATION_ERROR');
+      expect(sendOtpMock).not.toHaveBeenCalled();
+    });
+
+    it('E. allows valid mock token (mock-turnstile-pass) in non-production environments', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(sendOtpMock).toHaveBeenCalledWith('+201012345678', 'merchant_registration', expect.anything());
+    });
+  });
+
+  describe('Security Pipeline Ordering & DB Isolation', () => {
+    it('F. ensures Turnstile failure aborts BEFORE querying the database rate limits', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+
+      const fromSpy = jest.spyOn(mockAdminClient, 'from');
+      fromSpy.mockClear();
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-fail',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      expect(response.status).toBe(403);
+
+      // Verify that database rate-limit table was NEVER queried
+      expect(fromSpy).not.toHaveBeenCalled();
+    });
+
+    it('G. forwards client IP to verifyTurnstileToken', async () => {
+      (process.env as any).NODE_ENV = 'production';
+      process.env.TURNSTILE_SECRET_KEY = 'prod-secret-key';
+
+      const originalFetch = global.fetch;
+      let capturedBody = '';
+      global.fetch = jest.fn().mockImplementation(async (_url: string, options: any) => {
+        capturedBody = options.body.toString();
+        return {
+          ok: true,
+          json: async () => ({ success: true, challenge_ts: '2026-09-16T00:00:00Z', hostname: 'findora.app' }),
+        };
+      }) as any;
+
+      try {
+        const req = new NextRequest('http://localhost/api/otp/send', {
+          method: 'POST',
+          headers: {
+            'x-forwarded-for': '197.34.56.78, 10.0.0.1',
+          },
+          body: JSON.stringify({
+            phoneNumber: '01012345678',
+            purpose: 'merchant_registration',
+            turnstileToken: 'valid-cf-token',
+          }),
+        });
+
+        const response = await sendOtpRoute(req);
+        expect(response.status).toBe(200);
+
+        // Verify that remoteip in form data matched the first client IP
+        expect(capturedBody).toContain('remoteip=197.34.56.78');
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('H1. extracts Turnstile token from cf-turnstile-response header', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        headers: {
+          'cf-turnstile-response': 'mock-turnstile-pass',
+        },
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      expect(response.status).toBe(200);
+      expect(sendOtpMock).toHaveBeenCalledWith('+201012345678', 'merchant_registration', expect.anything());
+    });
+
+    it('H2. extracts Turnstile token from x-turnstile-token header', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        headers: {
+          'x-turnstile-token': 'mock-turnstile-pass',
+        },
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      expect(response.status).toBe(200);
+      expect(sendOtpMock).toHaveBeenCalledWith('+201012345678', 'merchant_registration', expect.anything());
+    });
+  });
+
+  describe('Preservation of Batch 1 Guarantees with Turnstile Active', () => {
+    it('I. canonicalizes phone format even when Turnstile token is valid', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '00201012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      expect(response.status).toBe(200);
+      expect(sendOtpMock).toHaveBeenCalledWith('+201012345678', 'merchant_registration', expect.anything());
+    });
+
+    it('J. enforces 3/hour phone quota even when Turnstile token is valid', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+
+      // Mock 3 recent OTPs for this canonical phone
+      mockDbQueryResponse = {
+        data: [
+          { id: '1', created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString() },
+          { id: '2', created_at: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
+          { id: '3', created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString() },
+        ],
+        error: null,
+      };
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      const body = await response.json();
+
+      expect(response.status).toBe(429);
+      expect(body.error).toContain('Too many OTP requests');
+      expect(sendOtpMock).not.toHaveBeenCalled();
+    });
+
+    it('K. enforces 60-second cooldown even when Turnstile token is valid', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+
+      // Mock recent OTP sent 25 seconds ago
+      mockDbQueryResponse = {
+        data: [
+          { id: '1', created_at: new Date(Date.now() - 25 * 1000).toISOString() },
+        ],
+        error: null,
+      };
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      const body = await response.json();
+
+      expect(response.status).toBe(429);
+      expect(body.error).toContain('Please wait 60 seconds');
+      expect(response.headers.get('Retry-After')).toBeDefined();
+      expect(sendOtpMock).not.toHaveBeenCalled();
+    });
+
+    it('L. fails closed (HTTP 503) on DB rate-limit query error even when Turnstile token is valid', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+
+      // Mock database error
+      mockDbQueryResponse = {
+        data: null,
+        error: { message: 'connection timeout' },
+      };
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      const body = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(body.error).toBe('Service temporarily unavailable');
+      expect(sendOtpMock).not.toHaveBeenCalled();
+    });
+  });
+});

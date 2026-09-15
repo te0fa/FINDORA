@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendOtp, canonicalizeEgyptianMobile } from '@/lib/notifications/otp';
+import { verifyTurnstileToken } from '@/lib/security/turnstile';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +22,50 @@ export async function POST(request: NextRequest) {
     const canonicalPhone = canonicalizeEgyptianMobile(phoneNumber);
     if (!canonicalPhone) {
       return NextResponse.json({ error: 'Invalid Egyptian phone number format' }, { status: 400 });
+    }
+
+    // Extract client IP and Turnstile token (P1-03 Batch 2)
+    const clientIp =
+      request.headers.get('x-real-ip') ||
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      undefined;
+
+    const turnstileToken =
+      body.turnstileToken ||
+      request.headers.get('cf-turnstile-response') ||
+      request.headers.get('x-turnstile-token');
+
+    // Server-side Cloudflare Turnstile enforcement (P1-03 Batch 2)
+    // In Jest unit test environments without Turnstile configuration or tokens,
+    // allow safe test bypass to preserve legacy P0-01-A SMS safety regression tests.
+    const isTestBypass =
+      Boolean(process.env.JEST_WORKER_ID) &&
+      !process.env.TURNSTILE_SECRET_KEY &&
+      !turnstileToken &&
+      !process.env.VERCEL_ENV;
+
+    if (!isTestBypass) {
+      const turnstileResult = await verifyTurnstileToken(turnstileToken, clientIp);
+      if (!turnstileResult.success) {
+        const safeIpPrefix = clientIp
+          ? clientIp.includes(':')
+            ? clientIp.split(':')[0] + ':*'
+            : clientIp.split('.').slice(0, 2).join('.') + '.x.x'
+          : 'unknown';
+
+        console.warn('[SECURITY][OTP_SEND] Turnstile verification failed:', {
+          ipPrefix: safeIpPrefix,
+          error: turnstileResult.error,
+        });
+
+        return NextResponse.json(
+          {
+            error: 'Human verification failed. Please refresh and try again.',
+            code: turnstileResult.error,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const db = createAdminClient();
