@@ -21,6 +21,9 @@ export interface SendOtpResult {
   isDev?: boolean; // In dev, code is returned for testing
   devCode?: string;
   error?: string;
+  code?: string;
+  retryAfter?: number;
+  message?: string;
 }
 
 export interface VerifyOtpResult {
@@ -60,14 +63,64 @@ export function isSmsProviderConfigured(): boolean {
 }
 
 /**
+ * Dispatches the OTP via the configured SMS gateway.
+ * Does NOT perform database reservation. Reservation MUST occur prior to dispatch.
+ */
+export async function dispatchOtpSms(
+  phoneNumber: string,
+  code: string,
+  purpose: OtpPurpose
+): Promise<SendOtpResult> {
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  // In production, verify an SMS provider is configured before attempting dispatch
+  if (!isDev && !isSmsProviderConfigured()) {
+    log.warn(`[OTP] Production SMS provider not configured for ${phoneNumber} — failing closed`);
+    return {
+      success: false,
+      expiresInSeconds: 0,
+      error: 'SMS_GATEWAY_NOT_CONFIGURED',
+    };
+  }
+
+  // Send via configured SMS provider or log in dev
+  if (!isDev) {
+    log.info(`[OTP] Production SMS to ${phoneNumber} dispatched via configured gateway`);
+  } else {
+    // Development: log to console
+    log.info(`\n╔══════════════════════════════════╗`);
+    log.info(`║  FINDORA OTP (Development Mode)   ║`);
+    log.info(`║  Phone: ${phoneNumber.padEnd(23)} ║`);
+    log.info(`║  Code:  ${code.padEnd(23)} ║`);
+    log.info(`║  Purpose: ${purpose.padEnd(21)} ║`);
+    log.info(`╚══════════════════════════════════╝\n`);
+  }
+
+  return {
+    success: true,
+    expiresInSeconds: 600, // 10 minutes
+    isDev,
+    devCode: isDev ? code : undefined, // Never return code in production
+  };
+}
+
+/**
  * Send OTP to a phone number.
  * In production: fails closed if no SMS provider is configured (returns SMS_GATEWAY_NOT_CONFIGURED).
  * In development: logs to console and returns devCode for local testing.
  */
+export interface SendOtpOptions {
+  code?: string;
+  alreadyReserved?: boolean;
+  maxHourly?: number;
+  cooldownSeconds?: number;
+}
+
 export async function sendOtp(
   phoneNumber: string,
   purpose: OtpPurpose,
-  adminClient: any
+  adminClient: any,
+  options?: SendOtpOptions
 ): Promise<SendOtpResult> {
   try {
     const isDev = process.env.NODE_ENV !== 'production';
@@ -82,53 +135,58 @@ export async function sendOtp(
       };
     }
 
-    // 2. Invalidate any existing unused OTPs for this phone+purpose
-    await adminClient
-      .from('phone_otp_codes')
-      .update({ is_used: true })
-      .eq('phone_number', phoneNumber)
-      .eq('purpose', purpose)
-      .eq('is_used', false);
+    const code = options?.code ?? generateOtpCode();
 
-    // 3. Generate new code and compute hash (throws in production if OTP_SALT is missing)
-    const code = generateOtpCode();
+    // 2. If already reserved by caller (e.g. route handler), dispatch SMS directly
+    if (options?.alreadyReserved) {
+      return dispatchOtpSms(phoneNumber, code, purpose);
+    }
+
+    // 3. Standalone reservation path: MUST use atomic RPC fn_reserve_and_create_otp
     const codeHash = hashOtpCode(code);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-    // 4. Store hashed code in DB
-    const { error: insertError } = await adminClient
-      .from('phone_otp_codes')
-      .insert({
-        phone_number: phoneNumber,
-        code_hash: codeHash,
-        purpose,
-        expires_at: expiresAt,
-      });
-
-    if (insertError) {
-      log.error('[OTP] Insert error:', insertError.message);
-      return { success: false, expiresInSeconds: 0, error: 'Failed to create OTP' };
+    if (typeof adminClient?.rpc !== 'function') {
+      log.error('[OTP] Database client does not support .rpc — failing closed');
+      return {
+        success: false,
+        expiresInSeconds: 0,
+        error: 'DATABASE_ERROR',
+        message: 'Service temporarily unavailable. Please try again later.',
+      };
     }
 
-    // 5. Send via configured SMS provider or log in dev
-    if (!isDev) {
-      log.info(`[OTP] Production SMS to ${phoneNumber} dispatched via configured gateway`);
-    } else {
-      // Development: log to console
-      log.info(`\n╔══════════════════════════════════╗`);
-      log.info(`║  FINDORA OTP (Development Mode)   ║`);
-      log.info(`║  Phone: ${phoneNumber.padEnd(23)} ║`);
-      log.info(`║  Code:  ${code.padEnd(23)} ║`);
-      log.info(`║  Purpose: ${purpose.padEnd(21)} ║`);
-      log.info(`╚══════════════════════════════════╝\n`);
+    const rpcRes = await adminClient.rpc('fn_reserve_and_create_otp', {
+      p_phone_number: phoneNumber,
+      p_code_hash: codeHash,
+      p_purpose: purpose,
+      p_expires_at: expiresAt,
+      p_max_hourly: options?.maxHourly ?? 3,
+      p_cooldown_seconds: options?.cooldownSeconds ?? 60,
+    });
+
+    if (rpcRes?.error) {
+      log.error('[OTP] RPC error in fn_reserve_and_create_otp:', rpcRes.error.message);
+      return {
+        success: false,
+        expiresInSeconds: 0,
+        error: 'DATABASE_ERROR',
+        message: 'Service temporarily unavailable. Please try again later.',
+      };
     }
 
-    return {
-      success: true,
-      expiresInSeconds: 600, // 10 minutes
-      isDev,
-      devCode: isDev ? code : undefined, // Never return code in production
-    };
+    if (!rpcRes?.data?.success) {
+      return {
+        success: false,
+        expiresInSeconds: 0,
+        error: rpcRes?.data?.code || 'RATE_LIMIT_EXCEEDED',
+        code: rpcRes?.data?.code,
+        retryAfter: rpcRes?.data?.retry_after,
+        message: rpcRes?.data?.error || 'Rate limit exceeded',
+      };
+    }
+
+    return dispatchOtpSms(phoneNumber, code, purpose);
   } catch (err: any) {
     log.error('[OTP] Error sending OTP:', err?.message || err);
     return {

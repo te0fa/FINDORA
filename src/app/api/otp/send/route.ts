@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendOtp, canonicalizeEgyptianMobile } from '@/lib/notifications/otp';
+import {
+  dispatchOtpSms,
+  canonicalizeEgyptianMobile,
+  isSmsProviderConfigured,
+  generateOtpCode,
+  hashOtpCode,
+} from '@/lib/notifications/otp';
 import { verifyTurnstileToken } from '@/lib/security/turnstile';
 
 export async function POST(request: NextRequest) {
@@ -68,19 +74,45 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // SMS provider pre-flight check (P1-03 Batch 3):
+    // In production, verify SMS provider is configured before attempting database reservation
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+
+    if (isProduction && !isSmsProviderConfigured()) {
+      return NextResponse.json(
+        {
+          error: 'SMS_GATEWAY_NOT_CONFIGURED',
+          message: 'Phone verification is temporarily unavailable. Please try again later.',
+        },
+        { status: 503 }
+      );
+    }
+
+    // Generate code and hash in Node.js runtime memory (plain code never stored in SQL parameters)
+    const code = generateOtpCode();
+    const codeHash = hashOtpCode(code);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
     const db = createAdminClient();
+    let rpcRes: any;
+    if (typeof (db as any)?.rpc === 'function') {
+      try {
+        rpcRes = await (db as any).rpc('fn_reserve_and_create_otp', {
+          p_phone_number: canonicalPhone,
+          p_code_hash: codeHash,
+          p_purpose: purpose,
+          p_expires_at: expiresAt,
+          p_max_hourly: 3,
+          p_cooldown_seconds: 60,
+        });
+      } catch (e: any) {
+        rpcRes = { error: e };
+      }
+    }
 
-    // Unified rate limit & cooldown query:
-    // Query recent OTP requests for this canonical phone across all purposes within the rolling 60-minute window
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { data: recentOtps, error: dbError } = await (db as any).from('phone_otp_codes')
-      .select('id, created_at')
-      .eq('phone_number', canonicalPhone)
-      .gte('created_at', oneHourAgo)
-      .order('created_at', { ascending: false });
-
-    // Fail closed if database rate limit query fails
-    if (dbError) {
+    // Atomic reservation via PostgreSQL RPC fn_reserve_and_create_otp
+    // This is the SOLE reservation mechanism. If RPC fails, fail closed with HTTP 503.
+    if (!rpcRes || rpcRes.error) {
       return NextResponse.json(
         {
           error: 'Service temporarily unavailable',
@@ -90,37 +122,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Unified limit: max 3 OTP requests per canonical phone per rolling 60 minutes (independent of purpose)
-    if (recentOtps && recentOtps.length >= 3) {
-      return NextResponse.json({
-        error: 'Too many OTP requests. Please wait before requesting a new code.',
-      }, { status: 429 });
-    }
-
-    // 2. Cooldown: 60-second cooldown between OTP sends for the same canonical phone
-    if (recentOtps && recentOtps.length > 0 && recentOtps[0]?.created_at) {
-      const latestCreatedAt = new Date(recentOtps[0].created_at).getTime();
-      if (!isNaN(latestCreatedAt)) {
-        const elapsedMs = Date.now() - latestCreatedAt;
-        if (elapsedMs < 60000) {
-          const retryAfter = Math.max(1, Math.ceil((60000 - elapsedMs) / 1000));
-          return NextResponse.json(
-            {
-              error: 'Please wait 60 seconds before requesting another code.',
-              retryAfter,
-            },
-            {
-              status: 429,
-              headers: {
-                'Retry-After': String(retryAfter),
-              },
-            }
-          );
-        }
+    if (!rpcRes.data?.success) {
+      if (rpcRes.data?.code === 'RATE_LIMIT_EXCEEDED') {
+        return NextResponse.json(
+          {
+            error: 'Too many OTP requests. Please wait before requesting a new code.',
+            code: 'RATE_LIMIT_EXCEEDED',
+          },
+          { status: 429 }
+        );
       }
+
+      if (rpcRes.data?.code === 'COOLDOWN_ACTIVE') {
+        const retryAfter = rpcRes.data?.retry_after || 60;
+        return NextResponse.json(
+          {
+            error: 'Please wait 60 seconds before requesting another code.',
+            code: 'COOLDOWN_ACTIVE',
+            retryAfter,
+          },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': String(retryAfter),
+            },
+          }
+        );
+      }
+
+      return NextResponse.json(
+        { error: rpcRes.data?.error || 'Failed to send OTP' },
+        { status: 400 }
+      );
     }
 
-    const result = await sendOtp(canonicalPhone, purpose, db);
+    // Atomic reservation succeeded & committed. Lock released.
+    // Now dispatch SMS directly via dispatchOtpSms (no second reservation, no monkey-patching).
+    const result = await dispatchOtpSms(canonicalPhone, code, purpose);
 
     if (!result.success) {
       if (result.error === 'SMS_GATEWAY_NOT_CONFIGURED') {
@@ -132,15 +170,7 @@ export async function POST(request: NextRequest) {
           { status: 503 }
         );
       }
-      if (result.error === 'OTP_CONFIGURATION_ERROR') {
-        return NextResponse.json(
-          {
-            error: 'OTP_CONFIGURATION_ERROR',
-            message: 'Authentication service configuration error.',
-          },
-          { status: 500 }
-        );
-      }
+
       return NextResponse.json({ error: result.error || 'Failed to send OTP' }, { status: 500 });
     }
 
@@ -152,7 +182,15 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (err: any) {
-    // log.error('[OTP SEND]', err);
+    if (err?.message?.includes('OTP_SALT')) {
+      return NextResponse.json(
+        {
+          error: 'OTP_CONFIGURATION_ERROR',
+          message: 'Authentication service configuration error.',
+        },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -18,7 +18,7 @@
 import { canonicalizeEgyptianMobile, EGYPTIAN_MOBILE_REGEX } from '@/lib/phone';
 import { POST as sendOtpRoute } from '@/app/api/otp/send/route';
 import { POST as verifyOtpRoute } from '@/app/api/otp/verify/route';
-import { sendOtp, verifyOtp } from '@/lib/notifications/otp';
+import { sendOtp, dispatchOtpSms, verifyOtp } from '@/lib/notifications/otp';
 import { NextRequest } from 'next/server';
 
 // Mock logger
@@ -37,12 +37,15 @@ jest.mock('@/lib/notifications/otp', () => {
   return {
     ...actual,
     sendOtp: jest.fn(),
+    dispatchOtpSms: jest.fn(),
     verifyOtp: jest.fn(),
   };
 });
 
 // Mock Supabase admin client
 let mockDbQueryResponse: { data: any; error: any } = { data: [], error: null };
+
+let customRpcHandler: ((fnName: string, args: any) => any) | null = null;
 
 const createMockAdminClient = () => {
   const queryBuilder: any = {
@@ -60,9 +63,63 @@ const createMockAdminClient = () => {
       Promise.resolve(mockDbQueryResponse).then(resolve, reject),
   };
 
+  const rpcMock = jest.fn(async (fnName: string, args: any) => {
+    if (customRpcHandler) {
+      return customRpcHandler(fnName, args);
+    }
+
+    if (fnName === 'fn_reserve_and_create_otp') {
+      if (mockDbQueryResponse.error) {
+        return { data: null, error: mockDbQueryResponse.error };
+      }
+
+      const maxHourly = args?.p_max_hourly ?? 3;
+      const cooldownSeconds = args?.p_cooldown_seconds ?? 60;
+      const recentRows = mockDbQueryResponse.data || [];
+
+      if (recentRows.length >= maxHourly) {
+        return {
+          data: {
+            success: false,
+            code: 'RATE_LIMIT_EXCEEDED',
+            error: 'Too many OTP requests. Please wait before requesting a new code.',
+          },
+          error: null,
+        };
+      }
+
+      if (recentRows.length > 0 && recentRows[0]?.created_at) {
+        const latestTime = new Date(recentRows[0].created_at).getTime();
+        const elapsedMs = Date.now() - latestTime;
+        if (elapsedMs < cooldownSeconds * 1000) {
+          const retryAfter = Math.max(1, Math.ceil((cooldownSeconds * 1000 - elapsedMs) / 1000));
+          return {
+            data: {
+              success: false,
+              code: 'COOLDOWN_ACTIVE',
+              retry_after: retryAfter,
+              error: 'Please wait 60 seconds before requesting another code.',
+            },
+            error: null,
+          };
+        }
+      }
+
+      return {
+        data: {
+          success: true,
+          otp_id: 'mock-otp-uuid',
+        },
+        error: null,
+      };
+    }
+
+    return { data: null, error: null };
+  });
+
   return {
     from: jest.fn(() => queryBuilder),
-    rpc: jest.fn(),
+    rpc: rpcMock,
   };
 };
 
@@ -195,13 +252,13 @@ describe('P1-03 Batch 1: Canonical Egyptian Mobile Identity', () => {
 });
 
 describe('P1-03 Batch 1: POST /api/otp/send Rate Limiting & Security', () => {
-  const sendMock = sendOtp as jest.MockedFunction<typeof sendOtp>;
+  const dispatchMock = dispatchOtpSms as jest.MockedFunction<typeof dispatchOtpSms>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockDbQueryResponse = { data: [], error: null };
     mockAdminClient = createMockAdminClient();
-    sendMock.mockResolvedValue({
+    dispatchMock.mockResolvedValue({
       success: true,
       expiresInSeconds: 600,
       isDev: false,
@@ -234,8 +291,8 @@ describe('P1-03 Batch 1: POST /api/otp/send Rate Limiting & Security', () => {
 
       expect(response.status).toBe(429);
       expect(body.error).toBe('Too many OTP requests. Please wait before requesting a new code.');
-      // sendOtp must NOT be called
-      expect(sendMock).not.toHaveBeenCalled();
+      // dispatchOtpSms must NOT be called
+      expect(dispatchMock).not.toHaveBeenCalled();
     });
 
     it('allows request when only 2 OTPs exist in the last hour and cooldown has elapsed', async () => {
@@ -260,10 +317,10 @@ describe('P1-03 Batch 1: POST /api/otp/send Rate Limiting & Security', () => {
 
       expect(response.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(sendMock).toHaveBeenCalledWith(
+      expect(dispatchMock).toHaveBeenCalledWith(
         '+201012345678',
-        'vendor_auth',
-        expect.anything()
+        expect.any(String),
+        'vendor_auth'
       );
     });
   });
@@ -303,7 +360,7 @@ describe('P1-03 Batch 1: POST /api/otp/send Rate Limiting & Security', () => {
       expect(res2.status).toBe(429);
 
       // Verify that the query always queried with canonical format +201012345678
-      expect(sendMock).not.toHaveBeenCalled();
+      expect(dispatchMock).not.toHaveBeenCalled();
     });
   });
 
@@ -333,7 +390,7 @@ describe('P1-03 Batch 1: POST /api/otp/send Rate Limiting & Security', () => {
       expect(body.retryAfter).toBeGreaterThanOrEqual(34);
       expect(body.retryAfter).toBeLessThanOrEqual(36);
       expect(response.headers.get('Retry-After')).toBe(String(body.retryAfter));
-      expect(sendMock).not.toHaveBeenCalled();
+      expect(dispatchMock).not.toHaveBeenCalled();
     });
 
     it('rejects request with 429 and retryAfter: 1 when previous OTP was sent 59 seconds ago', async () => {
@@ -359,7 +416,7 @@ describe('P1-03 Batch 1: POST /api/otp/send Rate Limiting & Security', () => {
       expect(response.status).toBe(429);
       expect(body.retryAfter).toBe(1);
       expect(response.headers.get('Retry-After')).toBe('1');
-      expect(sendMock).not.toHaveBeenCalled();
+      expect(dispatchMock).not.toHaveBeenCalled();
     });
 
     it('allows request when previous OTP was sent 65 seconds ago', async () => {
@@ -384,12 +441,12 @@ describe('P1-03 Batch 1: POST /api/otp/send Rate Limiting & Security', () => {
 
       expect(response.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(sendMock).toHaveBeenCalledWith('+201012345678', 'vendor_auth', expect.anything());
+      expect(dispatchMock).toHaveBeenCalledWith('+201012345678', expect.any(String), 'vendor_auth');
     });
   });
 
   describe('Fail-Closed Database Error Handling', () => {
-    it('returns HTTP 503 and does NOT call sendOtp when database rate-limit query fails', async () => {
+    it('returns HTTP 503 and does NOT call dispatchOtpSms when database rate-limit query fails', async () => {
       mockDbQueryResponse = {
         data: null,
         error: { message: 'Connection pool exhausted' },
@@ -408,7 +465,7 @@ describe('P1-03 Batch 1: POST /api/otp/send Rate Limiting & Security', () => {
 
       expect(response.status).toBe(503);
       expect(body.error).toContain('unavailable');
-      expect(sendMock).not.toHaveBeenCalled();
+      expect(dispatchMock).not.toHaveBeenCalled();
     });
   });
 
@@ -427,7 +484,7 @@ describe('P1-03 Batch 1: POST /api/otp/send Rate Limiting & Security', () => {
 
       expect(response.status).toBe(400);
       expect(body.error).toBe('Invalid Egyptian phone number format');
-      expect(sendMock).not.toHaveBeenCalled();
+      expect(dispatchMock).not.toHaveBeenCalled();
     });
 
     it('returns HTTP 400 when purpose is invalid', async () => {
@@ -444,7 +501,7 @@ describe('P1-03 Batch 1: POST /api/otp/send Rate Limiting & Security', () => {
 
       expect(response.status).toBe(400);
       expect(body.error).toBe('Invalid purpose');
-      expect(sendMock).not.toHaveBeenCalled();
+      expect(dispatchMock).not.toHaveBeenCalled();
     });
   });
 });
@@ -547,13 +604,15 @@ describe('P1-03 Batch 1: POST /api/otp/verify Identity Parity', () => {
 
 describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', () => {
   const originalEnv = { ...process.env };
-  const sendOtpMock = sendOtp as jest.MockedFunction<typeof sendOtp>;
+  const dispatchOtpSmsMock = dispatchOtpSms as jest.MockedFunction<typeof dispatchOtpSms>;
 
   beforeEach(() => {
     process.env = { ...originalEnv };
-    sendOtpMock.mockReset();
-    sendOtpMock.mockResolvedValue({ success: true, expiresInSeconds: 300 });
+    dispatchOtpSmsMock.mockReset();
+    dispatchOtpSmsMock.mockResolvedValue({ success: true, expiresInSeconds: 300 });
     mockDbQueryResponse = { data: [], error: null };
+    process.env.OTP_SALT = 'mock-test-otp-salt';
+    process.env.SMS_PROVIDER_API_KEY = 'mock-sms-provider-key';
   });
 
   afterAll(() => {
@@ -578,7 +637,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
       expect(response.status).toBe(403);
       expect(body.error).toBe('Human verification failed. Please refresh and try again.');
       expect(body.code).toBe('MISSING_TURNSTILE_TOKEN');
-      expect(sendOtpMock).not.toHaveBeenCalled();
+      expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
     });
 
     it('B. rejects invalid mock token (mock-turnstile-fail) with HTTP 403 INVALID_TURNSTILE_TOKEN', async () => {
@@ -599,7 +658,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
       expect(response.status).toBe(403);
       expect(body.error).toBe('Human verification failed. Please refresh and try again.');
       expect(body.code).toBe('INVALID_TURNSTILE_TOKEN');
-      expect(sendOtpMock).not.toHaveBeenCalled();
+      expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
     });
 
     it('C. rejects expired/replayed token reported by Cloudflare in production with HTTP 403 INVALID_OR_EXPIRED_TOKEN', async () => {
@@ -628,7 +687,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
         expect(response.status).toBe(403);
         expect(body.error).toBe('Human verification failed. Please refresh and try again.');
         expect(body.code).toBe('INVALID_OR_EXPIRED_TOKEN');
-        expect(sendOtpMock).not.toHaveBeenCalled();
+        expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
       } finally {
         global.fetch = originalFetch;
       }
@@ -657,7 +716,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
         expect(response.status).toBe(403);
         expect(body.error).toBe('Human verification failed. Please refresh and try again.');
         expect(body.code).toBe('VERIFICATION_NETWORK_FAILURE');
-        expect(sendOtpMock).not.toHaveBeenCalled();
+        expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
       } finally {
         global.fetch = originalFetch;
       }
@@ -689,7 +748,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
         expect(response.status).toBe(403);
         expect(body.error).toBe('Human verification failed. Please refresh and try again.');
         expect(body.code).toBe('VERIFICATION_ENDPOINT_ERROR');
-        expect(sendOtpMock).not.toHaveBeenCalled();
+        expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
       } finally {
         global.fetch = originalFetch;
       }
@@ -714,7 +773,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
       expect(response.status).toBe(403);
       expect(body.error).toBe('Human verification failed. Please refresh and try again.');
       expect(body.code).toBe('TURNSTILE_CONFIGURATION_ERROR');
-      expect(sendOtpMock).not.toHaveBeenCalled();
+      expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
     });
 
     it('E. allows valid mock token (mock-turnstile-pass) in non-production environments', async () => {
@@ -734,7 +793,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
 
       expect(response.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(sendOtpMock).toHaveBeenCalledWith('+201012345678', 'merchant_registration', expect.anything());
+      expect(dispatchOtpSmsMock).toHaveBeenCalledWith('+201012345678', expect.any(String), 'merchant_registration');
     });
   });
 
@@ -814,7 +873,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
 
       const response = await sendOtpRoute(req);
       expect(response.status).toBe(200);
-      expect(sendOtpMock).toHaveBeenCalledWith('+201012345678', 'merchant_registration', expect.anything());
+      expect(dispatchOtpSmsMock).toHaveBeenCalledWith('+201012345678', expect.any(String), 'merchant_registration');
     });
 
     it('H2. extracts Turnstile token from x-turnstile-token header', async () => {
@@ -833,7 +892,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
 
       const response = await sendOtpRoute(req);
       expect(response.status).toBe(200);
-      expect(sendOtpMock).toHaveBeenCalledWith('+201012345678', 'merchant_registration', expect.anything());
+      expect(dispatchOtpSmsMock).toHaveBeenCalledWith('+201012345678', expect.any(String), 'merchant_registration');
     });
   });
 
@@ -852,7 +911,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
 
       const response = await sendOtpRoute(req);
       expect(response.status).toBe(200);
-      expect(sendOtpMock).toHaveBeenCalledWith('+201012345678', 'merchant_registration', expect.anything());
+      expect(dispatchOtpSmsMock).toHaveBeenCalledWith('+201012345678', expect.any(String), 'merchant_registration');
     });
 
     it('J. enforces 3/hour phone quota even when Turnstile token is valid', async () => {
@@ -882,7 +941,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
 
       expect(response.status).toBe(429);
       expect(body.error).toContain('Too many OTP requests');
-      expect(sendOtpMock).not.toHaveBeenCalled();
+      expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
     });
 
     it('K. enforces 60-second cooldown even when Turnstile token is valid', async () => {
@@ -911,7 +970,7 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
       expect(response.status).toBe(429);
       expect(body.error).toContain('Please wait 60 seconds');
       expect(response.headers.get('Retry-After')).toBeDefined();
-      expect(sendOtpMock).not.toHaveBeenCalled();
+      expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
     });
 
     it('L. fails closed (HTTP 503) on DB rate-limit query error even when Turnstile token is valid', async () => {
@@ -937,7 +996,423 @@ describe('P1-03 Batch 2: POST /api/otp/send Cloudflare Turnstile Enforcement', (
 
       expect(response.status).toBe(503);
       expect(body.error).toBe('Service temporarily unavailable');
-      expect(sendOtpMock).not.toHaveBeenCalled();
+      expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('P1-03 Batch 3: Concurrency & TOCTOU Hardening via Atomic Reservation', () => {
+    const originalEnv = { ...process.env };
+    const dispatchOtpSmsMock = dispatchOtpSms as jest.MockedFunction<typeof dispatchOtpSms>;
+
+    // Simulated in-memory PostgreSQL table and advisory lock
+    interface SimOtpRow {
+      id: string;
+      phone_number: string;
+      code_hash: string;
+      purpose: string;
+      created_at: Date;
+      expires_at: Date;
+      is_used: boolean;
+    }
+
+    let simRows: SimOtpRow[] = [];
+    const lockQueues = new Map<string, Promise<void>>();
+
+    async function acquireAdvisoryLock(phone: string): Promise<() => void> {
+      const lockKey = phone.trim();
+      let releaseLock: () => void;
+      const currentLock = lockQueues.get(lockKey) || Promise.resolve();
+      const newLock = new Promise<void>((resolve) => {
+        releaseLock = resolve;
+      });
+      lockQueues.set(lockKey, currentLock.then(() => newLock));
+      await currentLock;
+      return () => {
+        releaseLock!();
+      };
+    }
+
+    let capturedRpcArgs: any = null;
+
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+      dispatchOtpSmsMock.mockReset();
+      dispatchOtpSmsMock.mockResolvedValue({ success: true, expiresInSeconds: 600 });
+      simRows = [];
+      lockQueues.clear();
+      capturedRpcArgs = null;
+      process.env.OTP_SALT = 'mock-test-otp-salt';
+      process.env.TURNSTILE_SECRET_KEY = 'mock-secret-key';
+      process.env.SMS_PROVIDER_API_KEY = 'mock-sms-provider-key';
+
+      // Wire customRpcHandler to execute atomic reservation logic
+      customRpcHandler = async (fnName: string, args: any) => {
+        if (fnName === 'fn_reserve_and_create_otp') {
+          capturedRpcArgs = args;
+          const { p_phone_number, p_code_hash, p_purpose, p_expires_at } = args;
+          const maxHourly = args.p_max_hourly ?? 3;
+          const cooldownSeconds = args.p_cooldown_seconds ?? 60;
+
+          // 1. Acquire transaction advisory lock
+          const release = await acquireAdvisoryLock(p_phone_number);
+
+          try {
+            // Micro-tick delay to simulate real I/O and verify race-free synchronization
+            await new Promise((r) => setTimeout(r, 5));
+
+            const now = Date.now();
+            const oneHourAgo = now - 60 * 60 * 1000;
+
+            // 2. Query unified rolling 60-minute rows across ALL purposes
+            const recentRows = simRows.filter(
+              (r) => r.phone_number === p_phone_number.trim() && r.created_at.getTime() >= oneHourAgo
+            );
+
+            // 3. Hourly quota check
+            if (recentRows.length >= maxHourly) {
+              return {
+                data: {
+                  success: false,
+                  code: 'RATE_LIMIT_EXCEEDED',
+                  error: 'Too many OTP requests. Please wait before requesting a new code.',
+                },
+                error: null,
+              };
+            }
+
+            // 4. Cooldown check
+            if (recentRows.length > 0) {
+              const latestRow = recentRows.reduce((prev, curr) =>
+                curr.created_at.getTime() > prev.created_at.getTime() ? curr : prev
+              );
+              const elapsedSec = Math.floor((now - latestRow.created_at.getTime()) / 1000);
+              if (elapsedSec < cooldownSeconds) {
+                const retryAfter = Math.max(1, cooldownSeconds - elapsedSec);
+                return {
+                  data: {
+                    success: false,
+                    code: 'COOLDOWN_ACTIVE',
+                    retry_after: retryAfter,
+                    error: 'Please wait 60 seconds before requesting another code.',
+                  },
+                  error: null,
+                };
+              }
+            }
+
+            // 5. Invalidate unused previous OTPs for this purpose
+            for (const r of simRows) {
+              if (r.phone_number === p_phone_number.trim() && r.purpose === p_purpose && !r.is_used) {
+                r.is_used = true;
+              }
+            }
+
+            // 6. Insert new OTP
+            const newId = `otp-${Math.random().toString(36).substring(2, 9)}`;
+            simRows.push({
+              id: newId,
+              phone_number: p_phone_number.trim(),
+              code_hash: p_code_hash.trim(),
+              purpose: p_purpose,
+              created_at: new Date(now),
+              expires_at: new Date(p_expires_at),
+              is_used: false,
+            });
+
+            return {
+              data: {
+                success: true,
+                otp_id: newId,
+              },
+              error: null,
+            };
+          } finally {
+            release();
+          }
+        }
+        return { data: null, error: null };
+      };
+    });
+
+    afterAll(() => {
+      process.env = originalEnv;
+      customRpcHandler = null;
+    });
+
+    it('A. fails closed with HTTP 503 and zero DB writes when SMS provider is missing in production', async () => {
+      (process.env as any).NODE_ENV = 'production';
+      delete process.env.SMS_PROVIDER_API_KEY;
+      delete process.env.SMS_MISR_API_KEY;
+      delete process.env.TWILIO_ACCOUNT_SID;
+
+      const originalFetch = global.fetch;
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
+      }) as any;
+
+      try {
+        const req = new NextRequest('http://localhost/api/otp/send', {
+          method: 'POST',
+          body: JSON.stringify({
+            phoneNumber: '01012345678',
+            purpose: 'merchant_registration',
+            turnstileToken: 'mock-turnstile-pass',
+          }),
+        });
+
+        const response = await sendOtpRoute(req);
+        const body = await response.json();
+
+        expect(response.status).toBe(503);
+        expect(body.error).toBe('SMS_GATEWAY_NOT_CONFIGURED');
+        expect(body.message).toContain('temporarily unavailable');
+        // Verify RPC was NOT called and zero records inserted
+        expect(capturedRpcArgs).toBeNull();
+        expect(simRows).toHaveLength(0);
+        expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('B. enforces sequential quota and cooldown correctly across requests', async () => {
+      // 1st request succeeds
+      const req1 = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+      const res1 = await sendOtpRoute(req1);
+      expect(res1.status).toBe(200);
+      expect(simRows).toHaveLength(1);
+
+      // 2nd request immediately afterwards fails with 429 COOLDOWN_ACTIVE
+      const req2 = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+      const res2 = await sendOtpRoute(req2);
+      const body2 = await res2.json();
+      expect(res2.status).toBe(429);
+      expect(body2.code).toBe('COOLDOWN_ACTIVE');
+      expect(res2.headers.get('Retry-After')).toBeDefined();
+      expect(simRows).toHaveLength(1); // No new row added
+
+      // Simulate cooldown elapsed: adjust created_at of row 1 to 65 seconds ago
+      simRows[0].created_at = new Date(Date.now() - 65 * 1000);
+
+      // 3rd request succeeds (2nd successful OTP in rolling hour)
+      const req3 = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+      const res3 = await sendOtpRoute(req3);
+      expect(res3.status).toBe(200);
+      expect(simRows).toHaveLength(2);
+
+      // Simulate cooldown elapsed again: adjust created_at of row 2 to 65 seconds ago
+      simRows[1].created_at = new Date(Date.now() - 65 * 1000);
+
+      // 4th request succeeds (3rd successful OTP in rolling hour - quota max reached)
+      const req4 = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+      const res4 = await sendOtpRoute(req4);
+      expect(res4.status).toBe(200);
+      expect(simRows).toHaveLength(3);
+
+      // Simulate cooldown elapsed for 4th: adjust row 3
+      simRows[2].created_at = new Date(Date.now() - 65 * 1000);
+
+      // 5th request fails with 429 RATE_LIMIT_EXCEEDED (3/hour exhausted)
+      const req5 = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+      const res5 = await sendOtpRoute(req5);
+      const body5 = await res5.json();
+      expect(res5.status).toBe(429);
+      expect(body5.code).toBe('RATE_LIMIT_EXCEEDED');
+      expect(simRows).toHaveLength(3); // Still exactly 3 rows
+    });
+
+    it('C. eliminates TOCTOU race: 10 concurrent burst requests produce exactly 1 success and 9 rate-limits', async () => {
+      const burstRequests = Array.from({ length: 10 }, () =>
+        new NextRequest('http://localhost/api/otp/send', {
+          method: 'POST',
+          body: JSON.stringify({
+            phoneNumber: '01012345678',
+            purpose: 'merchant_registration',
+            turnstileToken: 'mock-turnstile-pass',
+          }),
+        })
+      );
+
+      const responses = await Promise.all(burstRequests.map((req) => sendOtpRoute(req)));
+      const statuses = responses.map((r) => r.status);
+
+      const successes = statuses.filter((s) => s === 200);
+      const rateLimits = statuses.filter((s) => s === 429);
+
+      expect(successes).toHaveLength(1);
+      expect(rateLimits).toHaveLength(9);
+      // Exactly 1 OTP row was inserted into the database
+      expect(simRows).toHaveLength(1);
+      // Exactly 1 SMS dispatch was executed
+      expect(dispatchOtpSmsMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('D. eliminates cross-purpose concurrency race: 4 concurrent requests with different purposes produce exactly 1 success', async () => {
+      const purposes = [
+        'contributor_registration',
+        'merchant_registration',
+        'withdrawal_verification',
+        'vendor_auth',
+      ];
+
+      const requests = purposes.map(
+        (purpose) =>
+          new NextRequest('http://localhost/api/otp/send', {
+            method: 'POST',
+            body: JSON.stringify({
+              phoneNumber: '01012345678',
+              purpose,
+              turnstileToken: 'mock-turnstile-pass',
+            }),
+          })
+      );
+
+      const responses = await Promise.all(requests.map((req) => sendOtpRoute(req)));
+      const statuses = responses.map((r) => r.status);
+
+      const successes = statuses.filter((s) => s === 200);
+      const rateLimits = statuses.filter((s) => s === 429);
+
+      expect(successes).toHaveLength(1);
+      expect(rateLimits).toHaveLength(3);
+      expect(simRows).toHaveLength(1);
+      expect(dispatchOtpSmsMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('E. eliminates canonical variants concurrency race: 4 concurrent requests with format variants synchronize on same lock', async () => {
+      const phoneFormats = [
+        '01012345678',
+        '+201012345678',
+        '00201012345678',
+        '1012345678',
+      ];
+
+      const requests = phoneFormats.map(
+        (phoneNumber) =>
+          new NextRequest('http://localhost/api/otp/send', {
+            method: 'POST',
+            body: JSON.stringify({
+              phoneNumber,
+              purpose: 'merchant_registration',
+              turnstileToken: 'mock-turnstile-pass',
+            }),
+          })
+      );
+
+      const responses = await Promise.all(requests.map((req) => sendOtpRoute(req)));
+      const statuses = responses.map((r) => r.status);
+
+      const successes = statuses.filter((s) => s === 200);
+      const rateLimits = statuses.filter((s) => s === 429);
+
+      expect(successes).toHaveLength(1);
+      expect(rateLimits).toHaveLength(3);
+      expect(simRows).toHaveLength(1);
+      expect(simRows[0].phone_number).toBe('+201012345678');
+      expect(dispatchOtpSmsMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('F. fails closed (HTTP 503) when database RPC returns an error', async () => {
+      customRpcHandler = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'Database connection failed' },
+      });
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      const body = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(body.error).toBe('Service temporarily unavailable');
+      expect(dispatchOtpSmsMock).not.toHaveBeenCalled();
+    });
+
+    it('G. retains OTP reservation in database when downstream SMS dispatch fails', async () => {
+      dispatchOtpSmsMock.mockResolvedValueOnce({
+        success: false,
+        error: 'SMS_GATEWAY_ERROR',
+        expiresInSeconds: 0,
+      });
+
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      expect(response.status).toBe(500);
+
+      // The OTP was reserved and the row REMAINS in the database (preventing toll-fraud loops)
+      expect(simRows).toHaveLength(1);
+    });
+
+    it('H. ensures plaintext OTP code never enters SQL/RPC parameters', async () => {
+      const req = new NextRequest('http://localhost/api/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phoneNumber: '01012345678',
+          purpose: 'merchant_registration',
+          turnstileToken: 'mock-turnstile-pass',
+        }),
+      });
+
+      const response = await sendOtpRoute(req);
+      expect(response.status).toBe(200);
+
+      expect(capturedRpcArgs).not.toBeNull();
+      // Verify code_hash is a 64-character SHA-256 hex string
+      expect(capturedRpcArgs.p_code_hash).toMatch(/^[a-f0-9]{64}$/);
+      // Verify plaintext code is NOT present in any RPC parameter
+      expect(capturedRpcArgs).not.toHaveProperty('code');
+      expect(capturedRpcArgs).not.toHaveProperty('p_code');
     });
   });
 });
