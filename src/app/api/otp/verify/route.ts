@@ -1,6 +1,6 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { verifyOtp } from '@/lib/notifications/otp';
+import { verifyOtp, canonicalizeEgyptianMobile } from '@/lib/notifications/otp';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,8 +15,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Code must be exactly 6 digits' }, { status: 400 });
     }
 
+    const canonicalPhone = canonicalizeEgyptianMobile(phoneNumber);
+    if (!canonicalPhone) {
+      return NextResponse.json({ error: 'Invalid Egyptian phone number format' }, { status: 400 });
+    }
+
     const db = createAdminClient();
-    const result = await verifyOtp(phoneNumber, code, purpose, db);
+    const result = await verifyOtp(canonicalPhone, code, purpose, db);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });

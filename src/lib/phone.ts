@@ -46,3 +46,39 @@ export function normalizePhone(rawPhone: string | null | undefined): { raw: stri
     normalized,
   };
 }
+
+/**
+ * Egyptian mobile regex matching all accepted formats:
+ * - 01[0125]XXXXXXXX (11 digits with leading 0)
+ * - +201[0125]XXXXXXXX (E.164 with +20)
+ * - 00201[0125]XXXXXXXX (with international 0020)
+ * - 201[0125]XXXXXXXX (12 digits with 20 prefix)
+ * - 1[0125]XXXXXXXX (10 digits bare national number)
+ *
+ * Valid mobile operators:
+ * - 010: Vodafone
+ * - 011: Etisalat
+ * - 012: Orange
+ * - 015: WE (Telecom Egypt)
+ *
+ * Note: Fixes previous regex character-class bug ([0-2|5] which matched literal '|').
+ */
+export const EGYPTIAN_MOBILE_REGEX = /^(\+20|0020|20|0)?(1[0125]\d{8})$/;
+
+/**
+ * Validates and converts any supported Egyptian mobile phone format into
+ * the canonical platform identity format: +201XXXXXXXXX (13 characters).
+ *
+ * Strips whitespace and common punctuation (dashes, parentheses).
+ * Returns null if invalid or not a valid Egyptian mobile number.
+ */
+export function canonicalizeEgyptianMobile(rawPhone: string | null | undefined): string | null {
+  if (!rawPhone || typeof rawPhone !== 'string') return null;
+
+  const cleaned = rawPhone.replace(/[\s\-()]/g, '');
+  const match = cleaned.match(EGYPTIAN_MOBILE_REGEX);
+  if (!match) return null;
+
+  const nationalNumber = match[2]; // 1[0125]\d{8} (10 digits)
+  return `+20${nationalNumber}`;
+}
