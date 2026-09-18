@@ -2,18 +2,28 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
-  const supabase = await createClient() as any
+  const supabase = await createClient()
 
   // 1. Auth check
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-  // 2. Parse request
-  const body = await request.json()
-  const { taskId } = body
-  if (!taskId) return NextResponse.json({ error: 'Missing taskId' }, { status: 400 })
+  // 2. Parse request body
+  let body: any
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 })
+  }
 
-  // 3. Fetch contributor
+  const { taskId } = body || {}
+  if (!taskId) {
+    return NextResponse.json({ error: 'Missing taskId' }, { status: 400 })
+  }
+
+  // 3. Fetch authenticated contributor profile
   const { data: contributor, error: contributorError } = await supabase
     .from('contributors')
     .select('id, status')
@@ -24,63 +34,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Contributor not approved' }, { status: 403 })
   }
 
-  // 4. Concurrency Check: Ensure no active task
-  const { data: activeClaim } = await supabase
-    .from('task_claims')
-    .select('id')
-    .eq('contributor_id', contributor.id)
-    .eq('status', 'in_progress')
-    .single()
+  // 4. Atomic Task Claim via PostgreSQL RPC
+  // Enforces hierarchical row locking (contributor -> platform_tasks),
+  // stale claim expiration, atomic state transition, and unique constraint defense.
+  // Eliminates client-side TOCTOU race conditions and manual rollback failure modes.
+  const { data: rpcRes, error: rpcError } = await (supabase as any).rpc('fn_claim_platform_task', {
+    p_task_id: taskId,
+    p_contributor_id: contributor.id,
+  })
 
-  if (activeClaim) {
-    return NextResponse.json({ error: 'You already have an active task' }, { status: 400 })
+  if (rpcError) {
+    return NextResponse.json({ error: 'Failed to claim task' }, { status: 500 })
   }
 
-  // 5. Task Availability Check & Lock
-  const { data: task, error: taskError } = await supabase
-    .from('platform_tasks')
-    .select('*')
-    .eq('id', taskId)
-    .eq('status', 'open')
-    .single()
+  if (!rpcRes?.success) {
+    const code = rpcRes?.code
+    const errorMsg = rpcRes?.error || 'Failed to claim task'
 
-  if (taskError || !task) {
-    return NextResponse.json({ error: 'Task is no longer available' }, { status: 404 })
+    switch (code) {
+      case 'INVALID_INPUT':
+        return NextResponse.json({ error: errorMsg, code }, { status: 400 })
+      case 'CONTRIBUTOR_NOT_FOUND':
+        return NextResponse.json({ error: errorMsg, code }, { status: 404 })
+      case 'CONTRIBUTOR_NOT_APPROVED':
+      case 'CONTRIBUTOR_IDENTITY_MISMATCH':
+        return NextResponse.json({ error: errorMsg, code }, { status: 403 })
+      case 'ALREADY_HAVE_ACTIVE_TASK':
+        return NextResponse.json({ error: errorMsg, code }, { status: 400 })
+      case 'TASK_NOT_FOUND':
+        return NextResponse.json({ error: errorMsg, code }, { status: 404 })
+      case 'TASK_NOT_AVAILABLE':
+        return NextResponse.json({ error: errorMsg, code }, { status: 409 })
+      default:
+        return NextResponse.json({ error: errorMsg, code }, { status: 500 })
+    }
   }
 
-  // Calculate expiration
-  const expiresAt = new Date(Date.now() + (task.time_limit_minutes * 60000)).toISOString()
-
-  // 6. Transaction: Claim the task
-  // Since we don't have RPC for transaction here, we update the task and insert the claim.
-  // Using an Rpc would be safer against race conditions, but this is okay for MVP.
-  
-  const { error: updateError } = await supabase
-    .from('platform_tasks')
-    .update({ status: 'claimed' })
-    .eq('id', taskId)
-    .eq('status', 'open') // Optimistic locking
-
-  if (updateError) {
-    return NextResponse.json({ error: 'Task was claimed by someone else' }, { status: 409 })
-  }
-
-  const { data: claimData, error: claimError } = await supabase
-    .from('task_claims')
-    .insert({
-      task_id: taskId,
-      contributor_id: contributor.id,
-      status: 'in_progress',
-      expires_at: expiresAt
-    })
-    .select()
-    .single()
-
-  if (claimError) {
-    // Rollback task status if claim fails (rare)
-    await supabase.from('platform_tasks').update({ status: 'open' }).eq('id', taskId)
-    return NextResponse.json({ error: 'Failed to create claim' }, { status: 500 })
-  }
-
-  return NextResponse.json({ success: true, claim: claimData })
+  return NextResponse.json({ success: true, claim: rpcRes.claim })
 }
