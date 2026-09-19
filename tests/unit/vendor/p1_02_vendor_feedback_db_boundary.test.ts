@@ -100,13 +100,17 @@ describe('P1-02 Batch 1: Customer Vendor Feedback DB Boundary', () => {
     })
 
     it('Case 8: client_ready before release is rejected', () => {
-      expect(migrationContent).toContain("IF v_request.client_released_at IS NULL AND v_request.current_status NOT IN ('closed', 'completed') THEN")
+      expect(migrationContent).toContain("IF v_request.current_status NOT IN ('closed', 'completed')")
+      expect(migrationContent).toMatch(/NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+public\.request_operational_states\s+ros\s+WHERE\s+ros\.request_id\s*=\s*p_request_id\s+AND\s+ros\.client_released_at\s+IS\s+NOT\s+NULL\s*\)/i)
       expect(migrationContent).toContain("RAISE EXCEPTION 'FORBIDDEN: Report has not been released for request %.'")
     })
 
     it('Cases 9-10: released eligible request or closed/completed eligible request accepted by gate', () => {
-      // Gate permits release or closed/completed
-      expect(migrationContent).toMatch(/v_request\.client_released_at\s+IS\s+NULL\s+AND\s+v_request\.current_status\s+NOT\s+IN\s*\('closed',\s*'completed'\)/i)
+      // Gate permits release via request_operational_states.client_released_at or closed/completed status
+      expect(migrationContent).toContain("v_request.current_status NOT IN ('closed', 'completed')")
+      expect(migrationContent).toContain("ros.client_released_at IS NOT NULL")
+      expect(migrationContent).not.toMatch(/SELECT[\s\S]*?client_released_at[\s\S]*?FROM\s+public\.requests/i)
+      expect(migrationContent).not.toMatch(/v_request\.client_released_at/i)
     })
 
     it('Cases 14-15: archived or is_cancelled request is rejected', () => {

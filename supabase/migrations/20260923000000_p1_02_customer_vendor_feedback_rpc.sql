@@ -88,7 +88,6 @@ BEGIN
         current_status,
         is_cancelled,
         archived_at,
-        client_released_at,
         service_fee_amount
     INTO v_request
     FROM public.requests
@@ -119,7 +118,14 @@ BEGIN
     END IF;
 
     -- 8. Enforce report release or completed status
-    IF v_request.client_released_at IS NULL AND v_request.current_status NOT IN ('closed', 'completed') THEN
+    IF v_request.current_status NOT IN ('closed', 'completed')
+       AND NOT EXISTS (
+           SELECT 1
+           FROM public.request_operational_states ros
+           WHERE ros.request_id = p_request_id
+             AND ros.client_released_at IS NOT NULL
+       )
+    THEN
         RAISE EXCEPTION 'FORBIDDEN: Report has not been released for request %.', p_request_id USING ERRCODE = '42501';
     END IF;
 
