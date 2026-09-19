@@ -13,7 +13,7 @@ CREATE OR REPLACE FUNCTION public.fn_create_sourcing_request(
     p_request_id            uuid,
     p_customer_id          uuid,
     p_customer_name        text,
-    p_customer_phone       text     DEFAULT NULL,
+    p_customer_phone       text,
     p_product_name         text,
     p_category             text,
     p_target_location      text,

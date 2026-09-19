@@ -322,6 +322,7 @@ export async function POST(request: Request) {
     p_request_id: requestId,
     p_customer_id: customerId,
     p_customer_name: trimmedCustomerName,
+    p_customer_phone: null,
     p_product_name: trimmedProductName,
     p_category: finalCategory,
     p_target_location: finalTargetLocation,

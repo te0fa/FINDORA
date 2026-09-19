@@ -120,6 +120,7 @@ describe('P0-04: Atomic Customer Request Creation', () => {
       p_request_id: json.requestId,
       p_customer_id: 'existing-customer-uuid',
       p_customer_name: 'Ahmed Ali',
+      p_customer_phone: null,
       p_product_name: 'iPhone 15 Pro',
       p_category: 'electronics',
       p_target_location: 'Cairo',
@@ -235,7 +236,7 @@ describe('P0-04: Atomic Customer Request Creation', () => {
       p_customer_name: 'New Guest',
     }))
     const rpcArgs = mockRpc.mock.calls[0][1]
-    expect(rpcArgs.p_customer_phone).toBeUndefined()
+    expect(rpcArgs.p_customer_phone).toBeNull()
   })
 
   // 6. B2B Data Preservation
@@ -377,6 +378,6 @@ describe('P0-04: Atomic Customer Request Creation', () => {
       p_source_type: 'manual',
     }))
     const dalArgs = mockRpc.mock.calls[0][1]
-    expect(dalArgs.p_customer_phone).toBeUndefined()
+    expect(dalArgs.p_customer_phone).toBeNull()
   })
 })

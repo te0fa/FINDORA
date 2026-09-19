@@ -108,7 +108,7 @@ describe('P1-07 Batch 3 — Writer Decoupling Tests', () => {
     const [rpcName, rpcParams] = mockRpc.mock.calls[0]
     expect(rpcName).toBe('fn_create_sourcing_request')
     expect(rpcParams.p_customer_id).toBe('resolved-customer-uuid-001')
-    expect(rpcParams.p_customer_phone).toBeUndefined()
+    expect(rpcParams.p_customer_phone).toBeNull()
   })
 
   // ── Test 2: DAL createSourcingRequest does NOT query customer phone for dual-write ─
@@ -202,11 +202,11 @@ describe('P1-07 Batch 3 — Writer Decoupling Tests', () => {
     const [rpcName, rpcParams] = mockRpc.mock.calls[0]
     expect(rpcName).toBe('fn_create_sourcing_request')
     expect(rpcParams.p_customer_id).toBe('customer-uuid-003')
-    expect(rpcParams.p_customer_phone).toBeUndefined()
+    expect(rpcParams.p_customer_phone).toBeNull()
   })
 
-  // ── Test 4: RPC contract preserves compatibility with p_customer_phone DEFAULT NULL
-  it('4. Batch 3 migration preserves exact 29-parameter signature with p_customer_phone DEFAULT NULL', () => {
+  // ── Test 4: RPC contract preserves compatibility with p_customer_phone text (no DEFAULT) ──
+  it('4. Batch 3 migration preserves exact 29-parameter signature with p_customer_phone text (no DEFAULT)', () => {
     const migrationPath = path.join(
       process.cwd(),
       'supabase/migrations/20260920000000_p1_07_decouple_customer_requests_phone_writer.sql'
@@ -215,7 +215,8 @@ describe('P1-07 Batch 3 — Writer Decoupling Tests', () => {
 
     const sql = fs.readFileSync(migrationPath, 'utf8')
     expect(sql).toContain('CREATE OR REPLACE FUNCTION public.fn_create_sourcing_request(')
-    expect(sql).toMatch(/p_customer_phone\s+text\s+DEFAULT\s+NULL/)
+    expect(sql).toMatch(/p_customer_phone\s+text,/)
+    expect(sql).not.toMatch(/p_customer_phone\s+text\s+DEFAULT/)
     expect(sql).toContain('p_customer_id')
     expect(sql).toContain('p_customer_name')
     expect(sql).toContain('SECURITY DEFINER')
@@ -318,7 +319,7 @@ describe('P1-07 Batch 3 — Writer Decoupling Tests', () => {
     expect(sql).toContain("RETURN jsonb_build_object('success', true, 'request', v_request)")
   })
 
-  // ── Test 10: No direct application writers of customer_requests.customer_phone
+  // ── Test 10: Explicit null compatibility and zero active phone writers ───────
   it('10. Static audit: zero active application writers for customer_requests.customer_phone', () => {
     const routeContent = fs.readFileSync(
       path.join(process.cwd(), 'src/app/api/customers/requests/create/route.ts'),
@@ -329,8 +330,12 @@ describe('P1-07 Batch 3 — Writer Decoupling Tests', () => {
       'utf8'
     )
 
-    // Neither file should pass p_customer_phone to RPC
-    expect(routeContent).not.toMatch(/p_customer_phone:\s*customerPhone/)
-    expect(dalContent).not.toMatch(/p_customer_phone:\s*customerPhone/)
+    // Both files pass explicit null for p_customer_phone compatibility
+    expect(routeContent).toMatch(/p_customer_phone:\s*null/)
+    expect(dalContent).toMatch(/p_customer_phone:\s*null/)
+
+    // Neither file passes actual customer phone to p_customer_phone
+    expect(routeContent).not.toMatch(/p_customer_phone:\s*(?:customerPhone|normalizedPhone)/)
+    expect(dalContent).not.toMatch(/p_customer_phone:\s*(?:customerPhone|params\.customerPhone)/)
   })
 })

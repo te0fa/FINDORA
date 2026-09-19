@@ -99,6 +99,7 @@ export async function createSourcingRequest(params: CreateSourcingRequestParams)
     p_request_id: requestId,
     p_customer_id: params.customerId,
     p_customer_name: customerName,
+    p_customer_phone: null,
     p_product_name: params.title,
     p_category: params.requestKind || 'everyday_purchase',
     p_target_location: params.preferences?.preferred_governorate || 'Cairo',
