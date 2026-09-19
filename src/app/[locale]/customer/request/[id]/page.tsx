@@ -17,11 +17,13 @@ export default async function OfferRoomPage(props: {
   const supabase = await createClient() as any
   const isAr = locale === 'ar'
 
+  const SAFE_FIELDS = 'id, product_name, category, target_location, max_price, additional_notes, status, created_at'
+
   // Fetch the Request
   let request: any = null
   const { data: reqData } = await supabase
     .from('customer_requests')
-    .select('*')
+    .select(SAFE_FIELDS)
     .eq('id', id)
     .maybeSingle()
 
@@ -32,7 +34,7 @@ export default async function OfferRoomPage(props: {
     const adminClient = await createAdminClient()
     const { data: requestRow } = await adminClient
       .from('requests')
-      .select('*')
+      .select('id, request_code')
       .eq('id', id)
       .eq('request_code', searchParams.code)
       .maybeSingle()
@@ -40,14 +42,13 @@ export default async function OfferRoomPage(props: {
     if (requestRow) {
       const { data: crRow } = await adminClient
         .from('customer_requests')
-        .select('*')
+        .select(SAFE_FIELDS)
         .eq('id', id)
         .maybeSingle()
       if (crRow) {
         request = {
           ...crRow,
           request_code: requestRow.request_code,
-          metadata: requestRow.metadata,
         }
       }
     }
@@ -68,9 +69,16 @@ export default async function OfferRoomPage(props: {
     requestCode = requestRow?.request_code || null
   }
 
-  const requestWithCode = {
-    ...request,
-    request_code: requestCode
+  const clientSafeRequest = {
+    id: request.id,
+    product_name: request.product_name,
+    category: request.category,
+    target_location: request.target_location,
+    max_price: request.max_price,
+    additional_notes: request.additional_notes,
+    status: request.status,
+    created_at: request.created_at,
+    request_code: requestCode,
   }
 
   // Fetch Offers (simulating that the contributor_submissions table holds the offers)
@@ -87,7 +95,7 @@ export default async function OfferRoomPage(props: {
 
         {/* Header */}
         <div className="flex justify-between items-center">
-          <Link href={`/${locale}/customer/dashboard${!request.auth_user_id ? `?requestId=${id}` : ''}`} className="text-sm text-[hsl(220,10%,60%)] hover:text-white">
+          <Link href={`/${locale}/customer/dashboard?requestId=${id}`} className="text-sm text-[hsl(220,10%,60%)] hover:text-white">
             {isAr ? '← العودة للطلبات' : '← Back to Requests'}
           </Link>
         </div>
@@ -101,21 +109,21 @@ export default async function OfferRoomPage(props: {
             <span>📍 {request.target_location}</span>
             {request.max_price && <span>💰 Max: {request.max_price} EGP</span>}
             <span className="font-mono">📅 {new Date(request.created_at).toLocaleDateString()}</span>
-            {requestWithCode.request_code && (
+            {requestCode && (
               <span className="font-mono px-2 py-0.5 bg-white/10 text-[hsl(258,89%,76%)] rounded text-xs">
-                #{requestWithCode.request_code}
+                #{requestCode}
               </span>
             )}
           </div>
-          {request.notes && (
+          {request.additional_notes && (
             <div className="mt-4 p-4 rounded-xl bg-white/5 text-sm italic border border-white/5">
-              "{request.notes}"
+              "{request.additional_notes}"
             </div>
           )}
         </div>
 
         {/* The Offer Room Client */}
-        <OfferRoomClient locale={locale} request={requestWithCode} offers={offers || []} />
+        <OfferRoomClient locale={locale} request={clientSafeRequest} offers={offers || []} />
 
       </div>
     </div>

@@ -8,7 +8,7 @@
  *
  * Security:
  *   1. Feature flag gate
- *   2. Phone match: request.customer_phone must equal the provided phone
+ *   2. Phone match: verified against customers.phone_number_normalized via customer_id
  *      (prevents anyone from fetching someone else's request by guessing an ID)
  *   3. Uses admin client (service role) — same as create route
  */
@@ -16,7 +16,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isFeatureEnabled } from '@/lib/feature-flags/feature-service'
-import { normalizePhoneForLookup } from '@/lib/intelligence/lookup-guard'
+import { canonicalizeEgyptianMobile } from '@/lib/phone'
 
 export async function GET(
   request: Request,
@@ -36,9 +36,9 @@ export async function GET(
 
   const url = new URL(request.url)
   const rawPhone = url.searchParams.get('phone') ?? ''
-  const normalizedPhone = normalizePhoneForLookup(rawPhone)
+  const canonicalPhone = canonicalizeEgyptianMobile(rawPhone)
 
-  if (!normalizedPhone) {
+  if (!canonicalPhone) {
     return NextResponse.json(
       { error: 'INVALID_PHONE', messageAr: 'رقم الهاتف غير صحيح أو مفقود' },
       { status: 400 }
@@ -50,7 +50,7 @@ export async function GET(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: row, error } = await (admin as any)
     .from('customer_requests')
-    .select('id, customer_phone, product_name, category, target_location, max_price, additional_notes, status, created_at')
+    .select('id, customer_id, product_name, category, target_location, max_price, additional_notes, status, created_at')
     .eq('id', id)
     .maybeSingle()
 
@@ -63,10 +63,26 @@ export async function GET(
     return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
   }
 
-  // ── 4. Security check: phone must match ──────────────────────────────────
-  // Normalize the stored phone as well to ensure format-agnostic comparison.
-  const storedNormalized = normalizePhoneForLookup(row.customer_phone ?? '')
-  if (!storedNormalized || storedNormalized !== normalizedPhone) {
+  // ── 4. Security check: phone must match customer ─────────────────────────
+  if (!row.customer_id) {
+    console.warn(`[reuse] Missing customer_id on request ${id}`)
+    return NextResponse.json({ error: 'PHONE_MISMATCH' }, { status: 403 })
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: customer, error: custError } = await (admin as any)
+    .from('customers')
+    .select('phone_number_normalized')
+    .eq('id', row.customer_id)
+    .maybeSingle()
+
+  if (custError || !customer || !customer.phone_number_normalized) {
+    console.warn(`[reuse] Customer phone not found for request ${id}`)
+    return NextResponse.json({ error: 'PHONE_MISMATCH' }, { status: 403 })
+  }
+
+  const storedCanonicalPhone = customer.phone_number_normalized
+  if (storedCanonicalPhone !== canonicalPhone) {
     // Log without exposing the actual phone values
     console.warn(`[reuse] Phone mismatch for request ${id} — access denied`)
     return NextResponse.json({ error: 'PHONE_MISMATCH' }, { status: 403 })

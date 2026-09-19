@@ -19,8 +19,9 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isFeatureEnabled, getFeatureConfig } from '@/lib/feature-flags/feature-service'
-import { guardLookupRate, normalizePhoneForLookup } from '@/lib/intelligence/lookup-guard'
+import { guardLookupRate } from '@/lib/intelligence/lookup-guard'
 import { verifyOtp } from '@/lib/otp/verify'
+import { canonicalizeEgyptianMobile } from '@/lib/phone'
 
 export async function POST(request: Request) {
   try {
@@ -79,42 +80,45 @@ export async function POST(request: Request) {
   }
 
   const rawInputPhone = (phone ?? '').trim()
-  const normalizedPhone = normalizePhoneForLookup(rawInputPhone)
-  if (!normalizedPhone) {
+  const canonicalPhone = canonicalizeEgyptianMobile(rawInputPhone)
+  if (!canonicalPhone) {
     return NextResponse.json(
       { error: 'INVALID_PHONE', messageAr: 'رقم الهاتف غير صحيح' },
       { status: 400 }
     )
   }
 
-  // Generate format-agnostic phone variations to query database (raw, local, normalized)
-  let localDigits = rawInputPhone
-  if (localDigits.startsWith('+20')) localDigits = localDigits.substring(3)
-  else if (localDigits.startsWith('+2')) localDigits = localDigits.substring(2)
-  if (localDigits.startsWith('0')) localDigits = localDigits.substring(1)
+  // ── 5. Resolve customer by canonical phone ──────────────────────────────
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: customer, error: custError } = await (admin as any)
+    .from('customers')
+    .select('id')
+    .eq('phone_number_normalized', canonicalPhone)
+    .maybeSingle()
 
-  const phoneFormats = Array.from(new Set([
-    rawInputPhone,
-    normalizedPhone,
-    `0${localDigits}`,
-    `+20${localDigits}`,
-    localDigits
-  ])).filter(Boolean)
+  if (custError) {
+    console.error('[history-lookup] Customer lookup error:', custError.message)
+    return NextResponse.json({ error: 'DB_ERROR' }, { status: 500 })
+  }
 
-  // ── 5. Read config from DB (set in migration, adjustable from dashboard) ─
+  if (!customer) {
+    return NextResponse.json({ found: false })
+  }
+
+  // ── 6. Read config from DB (set in migration, adjustable from dashboard) ─
   const config = await getFeatureConfig('request_history_lookup')
   const maxResults   = typeof config.max_results   === 'number' ? config.max_results   : 3
   const lookbackDays = typeof config.lookback_days === 'number' ? config.lookback_days : 365
 
-  // ── 6. Query customer_requests ───────────────────────────────────────────
+  // ── 7. Query customer_requests using customer_id ─────────────────────────
   // Uses admin client (service role) to bypass RLS — this is a guest endpoint,
   // same pattern as /api/customers/requests/create/route.ts.
-  const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (admin as any)
     .from('customer_requests')
     .select('id, product_name, category, status, created_at')
-    .in('customer_phone', phoneFormats)
+    .eq('customer_id', customer.id)
     .gte('created_at', new Date(Date.now() - lookbackDays * 86_400_000).toISOString())
     .order('created_at', { ascending: false })
     .limit(maxResults)
