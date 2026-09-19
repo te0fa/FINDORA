@@ -5,8 +5,63 @@ import { createAdminClient } from '@/lib/dal/customers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
+/**
+ * Enforces strict authentication and ownership verification for request operations.
+ * Prevents Broken Object Level Authorization (BOLA/IDOR).
+ */
+async function verifyRequestOwnership(requestId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+
+  const adminClient = await createAdminClient()
+
+  // 1. Fetch customer profile associated with the authenticated user
+  const { data: customer } = await adminClient
+    .from('customers')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle()
+
+  // 2. Check if user is an active staff member (staff override allowed)
+  const { data: staffMember } = await adminClient
+    .from('staff_members')
+    .select('id, is_active')
+    .eq('auth_user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (!customer && !staffMember) {
+    throw new Error('Customer profile not found')
+  }
+
+  // 3. Fetch request record
+  const { data: requestRecord, error: fetchErr } = await adminClient
+    .from('requests')
+    .select('id, customer_id, current_status, title')
+    .eq('id', requestId)
+    .maybeSingle()
+
+  if (fetchErr || !requestRecord) {
+    throw new Error('Request not found')
+  }
+
+  // 4. Verify ownership
+  if (customer && requestRecord.customer_id !== customer.id && !staffMember) {
+    throw new Error('Forbidden: You do not own this request')
+  }
+
+  return { user, customer, staffMember, requestRecord, adminClient, supabase }
+}
+
 export async function sendCustomerMessage(requestId: string, message: string) {
   try {
+    await verifyRequestOwnership(requestId)
     const sent = await dalSendMessage(requestId, message)
     revalidatePath(`/[locale]/requests/${requestId}`, 'page')
     return { success: true, message: sent }
@@ -18,36 +73,19 @@ export async function sendCustomerMessage(requestId: string, message: string) {
 
 export async function updateRequestDetails(requestId: string, newDescription: string, newTitle?: string) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Unauthorized')
+    const { supabase, requestRecord } = await verifyRequestOwnership(requestId)
 
-    const adminClient = await createAdminClient()
+    // Call customer RPC under user auth context (auth.uid() preserved)
+    const { error: rpcErr } = await (supabase as any).rpc('fn_customer_update_request_details', {
+      p_request_id: requestId,
+      p_title: newTitle && newTitle.trim() !== '' ? newTitle.trim() : null,
+      p_raw_description: newDescription !== undefined && newDescription !== null ? newDescription : null,
+    })
 
-    // First check request ownership and status
-    const { data: req, error: fetchErr } = await adminClient
-      .from('requests')
-      .select('customer_id, current_status, title')
-      .eq('id', requestId)
-      .single()
-
-    if (fetchErr || !req) throw new Error('Request not found')
-
-    const updates: any = { raw_description: newDescription }
-    if (newTitle) {
-      updates.title = newTitle
-    }
-
-    // Update request
-    const { error: updateErr } = await adminClient
-      .from('requests')
-      .update(updates)
-      .eq('id', requestId)
-
-    if (updateErr) throw new Error(updateErr.message)
+    if (rpcErr) throw new Error(rpcErr.message)
 
     // Send an automated notification message in the chat
-    const alertMessage = `[SYSTEM] Client updated details:\n- Title: ${newTitle || req.title}\n- Description: ${newDescription}`
+    const alertMessage = `[SYSTEM] Client updated details:\n- Title: ${newTitle?.trim() || requestRecord.title}\n- Description: ${newDescription ?? ''}`
     await dalSendMessage(requestId, alertMessage)
 
     revalidatePath(`/[locale]/requests/${requestId}`, 'page')
@@ -59,6 +97,7 @@ export async function updateRequestDetails(requestId: string, newDescription: st
 
 export async function requestReviewerAction(requestId: string, messageText: string) {
   try {
+    await verifyRequestOwnership(requestId)
     const sent = await dalSendMessage(requestId, `[CLIENT EDIT REQUEST] ${messageText}`)
     revalidatePath(`/[locale]/requests/${requestId}`, 'page')
     return { success: true, message: sent }
@@ -75,10 +114,13 @@ export async function submitDisputeAction(
   details: string
 ) {
   try {
+    const { customer } = await verifyRequestOwnership(requestId)
+    const effectiveCustomerId = customer?.id || customerId
+
     const { createDispute } = await import('@/lib/dal/disputes')
     const dispute = await createDispute({
       request_id: requestId,
-      customer_id: customerId,
+      customer_id: effectiveCustomerId,
       vendor_id: vendorId,
       dispute_reason: disputeReason,
       details
@@ -92,18 +134,17 @@ export async function submitDisputeAction(
 
 export async function toggleAutoReorderAction(requestId: string, isRecurring: boolean, intervalMonths: number) {
   try {
-    const adminClient = await createAdminClient()
-    const { error } = await adminClient
-      .from('requests')
-      .update({
-        is_recurring: isRecurring,
-        reorder_interval_months: intervalMonths,
-        last_reordered_at: null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', requestId)
+    const { supabase } = await verifyRequestOwnership(requestId)
 
-    if (error) throw new Error(error.message)
+    // Call customer RPC under user auth context (auth.uid() preserved)
+    const { error: rpcErr } = await (supabase as any).rpc('fn_customer_toggle_auto_reorder', {
+      p_request_id: requestId,
+      p_is_recurring: isRecurring,
+      p_reorder_interval_months: intervalMonths,
+    })
+
+    if (rpcErr) throw new Error(rpcErr.message)
+
     revalidatePath(`/[locale]/requests/${requestId}`, 'page')
     return { success: true }
   } catch (err: any) {
@@ -119,11 +160,13 @@ export async function submitPriceGuaranteeAction(
   proofDetails: string
 ) {
   try {
-    const adminClient = await createAdminClient()
+    const { customer, adminClient } = await verifyRequestOwnership(requestId)
+    const effectiveCustomerId = customer?.id || customerId
+
     const { error } = await adminClient
       .from('price_guarantees')
       .insert({
-        customer_id: customerId,
+        customer_id: effectiveCustomerId,
         request_id: requestId,
         product_name: productName,
         lower_price: lowerPrice,
@@ -141,7 +184,7 @@ export async function submitPriceGuaranteeAction(
 
 export async function startSmartNegotiationAction(requestId: string) {
   try {
-    const adminClient = await createAdminClient()
+    const { adminClient } = await verifyRequestOwnership(requestId)
     const { sendWhatsApp } = await import('@/lib/notifications/whatsapp')
     
     // Fetch active bids and their vendors
