@@ -44,6 +44,12 @@ export type CreateSourcingRequestParams = {
   referenceImagePath?: string | null
   autoSubmit?: boolean
   preferences: any
+  isBusiness?: boolean
+  businessMetadata?: any
+  rfqDocument?: string | null
+  metadata?: any
+  sourceType?: string | null
+  aiConfidence?: number | null
 }
 
 export async function createSourcingRequest(params: CreateSourcingRequestParams) {
@@ -51,10 +57,10 @@ export async function createSourcingRequest(params: CreateSourcingRequestParams)
 
   const requestCode = `REQ-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`
 
-  // Resolve Customer Name and Phone for dual-write
+  // Resolve Customer Name
   const { data: customer, error: customerErr } = await adminClient
     .from('customers')
-    .select('full_name, phone_number_raw, phone_number_normalized')
+    .select('full_name')
     .eq('id', params.customerId)
     .single()
 
@@ -63,7 +69,6 @@ export async function createSourcingRequest(params: CreateSourcingRequestParams)
   }
 
   const customerName = customer.full_name || 'Valued Customer'
-  const customerPhone = customer.phone_number_raw || customer.phone_number_normalized || ''
 
   // Resolve Customer Service Fee
   let serviceFeeAmount = 299
@@ -90,11 +95,10 @@ export async function createSourcingRequest(params: CreateSourcingRequestParams)
     finalRequestKind = 'project_supply'
   }
 
-  const { data: rpcResult, error: rpcError } = await adminClient.rpc('fn_create_sourcing_request', {
+  const { data: rpcResult, error: rpcError } = await (adminClient as any).rpc('fn_create_sourcing_request', {
     p_request_id: requestId,
     p_customer_id: params.customerId,
     p_customer_name: customerName,
-    p_customer_phone: customerPhone,
     p_product_name: params.title,
     p_category: params.requestKind || 'everyday_purchase',
     p_target_location: params.preferences?.preferred_governorate || 'Cairo',
@@ -113,7 +117,13 @@ export async function createSourcingRequest(params: CreateSourcingRequestParams)
     p_followup_requested: params.followupRequested ?? false,
     p_site_visit_requested: params.siteVisitRequested ?? false,
     p_reference_image_path: params.referenceImagePath || undefined,
-    p_preferences: params.preferences || {}
+    p_preferences: params.preferences || {},
+    p_is_business: params.isBusiness ?? false,
+    p_business_metadata: params.businessMetadata || {},
+    p_rfq_document: params.rfqDocument || undefined,
+    p_metadata: params.metadata || {},
+    p_source_type: params.sourceType || 'manual',
+    p_ai_confidence: params.aiConfidence ?? undefined,
   })
 
   if (rpcError) throw new Error(rpcError.message)

@@ -233,8 +233,9 @@ describe('P0-04: Atomic Customer Request Creation', () => {
     expect(mockRpc).toHaveBeenCalledWith('fn_create_sourcing_request', expect.objectContaining({
       p_customer_id: 'guest-cust-uuid-456',
       p_customer_name: 'New Guest',
-      p_customer_phone: '01012345678',
     }))
+    const rpcArgs = mockRpc.mock.calls[0][1]
+    expect(rpcArgs.p_customer_phone).toBeUndefined()
   })
 
   // 6. B2B Data Preservation
@@ -375,5 +376,7 @@ describe('P0-04: Atomic Customer Request Creation', () => {
       p_is_business: false,
       p_source_type: 'manual',
     }))
+    const dalArgs = mockRpc.mock.calls[0][1]
+    expect(dalArgs.p_customer_phone).toBeUndefined()
   })
 })
