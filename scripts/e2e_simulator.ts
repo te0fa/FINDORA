@@ -25,13 +25,33 @@ async function runE2E() {
 
     // 1. Create a simulated customer request
     console.log('[1] Creating Customer Request...')
+    let { data: simCustomer } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('phone_number_normalized', '+201000000000')
+      .maybeSingle()
+
+    if (!simCustomer) {
+      const { data: newCust, error: custErr } = await supabase
+        .from('customers')
+        .insert({
+          phone_number_raw: '01000000000',
+          phone_number_normalized: '+201000000000',
+          full_name: 'Simulated Customer',
+        })
+        .select('id')
+        .single()
+      if (custErr) throw new Error('Customer creation failed: ' + custErr.message)
+      simCustomer = newCust
+    }
+
     const { data: request, error: reqError } = await supabase.from('customer_requests').insert({
+      customer_id: simCustomer.id,
       category: 'electronics',
       product_name: 'iPhone 15 Pro Max 256GB - Simulation',
       target_location: 'Cairo, Maadi',
       max_price: 60000,
       customer_name: 'Simulated Customer',
-      customer_phone: '01000000000',
       status: 'processing'
     }).select().single()
 

@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -2975,7 +2975,6 @@ export type Database = {
           created_at: string
           customer_id: string | null
           customer_name: string
-          customer_phone: string | null
           id: string
           is_expanded_by_ai: boolean | null
           max_price: number | null
@@ -2991,7 +2990,6 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           customer_name: string
-          customer_phone?: string | null
           id?: string
           is_expanded_by_ai?: boolean | null
           max_price?: number | null
@@ -3007,7 +3005,6 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           customer_name?: string
-          customer_phone?: string | null
           id?: string
           is_expanded_by_ai?: boolean | null
           max_price?: number | null
@@ -19820,7 +19817,7 @@ export type Database = {
           p_channel?: string
           p_customer_id: string
           p_customer_name: string
-          p_customer_phone: string
+          p_customer_phone: string | null
           p_execution_requested?: boolean
           p_followup_requested?: boolean
           p_intake_mode?: string
@@ -19838,6 +19835,48 @@ export type Database = {
           p_status?: string
           p_target_location: string
           p_title?: string
+          p_is_business?: boolean
+          p_business_metadata?: Json
+          p_rfq_document?: string
+          p_metadata?: Json
+          p_source_type?: string
+          p_ai_confidence?: number
+        }
+        Returns: Json
+      }
+      fn_create_sourcing_request_idempotent: {
+        Args: {
+          p_additional_notes?: string
+          p_category: string
+          p_channel?: string
+          p_customer_id: string
+          p_customer_name: string
+          p_customer_phone: string | null
+          p_execution_requested?: boolean
+          p_followup_requested?: boolean
+          p_intake_mode?: string
+          p_max_price?: number
+          p_preferences?: Json
+          p_pricing_decision?: string
+          p_product_name: string
+          p_raw_description?: string
+          p_reference_image_path?: string
+          p_request_code?: string
+          p_request_id: string
+          p_request_kind?: string
+          p_service_fee_amount?: number
+          p_site_visit_requested?: boolean
+          p_status?: string
+          p_target_location: string
+          p_title?: string
+          p_is_business?: boolean
+          p_business_metadata?: Json
+          p_rfq_document?: string
+          p_metadata?: Json
+          p_source_type?: string
+          p_ai_confidence?: number
+          p_idempotency_key?: string
+          p_payload_hash?: string
         }
         Returns: Json
       }

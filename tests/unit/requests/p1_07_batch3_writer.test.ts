@@ -334,7 +334,7 @@ describe('P1-07 Batch 3 — Writer Decoupling Tests', () => {
     expect(routeContent).toMatch(/p_customer_phone:\s*null/)
     expect(dalContent).toMatch(/p_customer_phone:\s*null/)
 
-    // Neither file passes actual customer phone to p_customer_phone
+    // Neither file passes actual customer phone to p_customer_phone, nor writes customer_phone
     expect(routeContent).not.toMatch(/p_customer_phone:\s*(?:customerPhone|normalizedPhone)/)
     expect(dalContent).not.toMatch(/p_customer_phone:\s*(?:customerPhone|params\.customerPhone)/)
   })
