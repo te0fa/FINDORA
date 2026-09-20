@@ -28,7 +28,13 @@ export async function POST(request: NextRequest) {
   const isValid = verifyPaymobWebhookHmac(payload as unknown as Record<string, any>, receivedHmac);
 
   if (!isValid) {
-    // log.error('[PAYMOB WEBHOOK] Invalid HMAC signature — possible tampering');
+    log.warn('Invalid Paymob webhook HMAC signature rejected', {
+      event: 'PAYMOB_WEBHOOK_HMAC_INVALID',
+      hasHmac: Boolean(receivedHmac),
+      hmacLength: typeof receivedHmac === 'string' ? receivedHmac.length : 0,
+      transactionId: payload?.id ?? null,
+      orderId: payload?.order?.merchant_order_id ?? null,
+    });
     // Still return 200 to prevent Paymob from retrying (log and investigate separately)
     return NextResponse.json({ received: true, note: 'hmac_invalid' }, { status: 200 });
   }

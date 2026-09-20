@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FINDORA — Paymob Egypt Payment Gateway Integration
  * Production-ready. Works without API keys (graceful simulation fallback).
  * 
@@ -222,9 +222,9 @@ export function verifyPaymobWebhookHmac(
   receivedHmac: string
 ): boolean {
   const hmacSecret = process.env.PAYMOB_HMAC_SECRET;
-  if (!hmacSecret) {
-    log.warn('[PAYMOB] HMAC_SECRET not configured — skipping webhook verification');
-    return true; // Allow in dev/unconfigured mode
+  if (!hmacSecret || !receivedHmac || typeof receivedHmac !== 'string') {
+    log.error('[PAYMOB] PAYMOB_HMAC_SECRET is not configured or receivedHmac is missing — failing closed');
+    return false;
   }
 
   // Paymob's HMAC fields (must be in this exact order)
@@ -252,10 +252,14 @@ export function verifyPaymobWebhookHmac(
     .update(concatenated)
     .digest('hex');
 
-  return crypto.timingSafeEqual(
-    Buffer.from(expectedHmac, 'hex'),
-    Buffer.from(receivedHmac.toLowerCase(), 'hex')
-  );
+  const expectedBuffer = Buffer.from(expectedHmac, 'hex');
+  const receivedBuffer = Buffer.from(receivedHmac.toLowerCase(), 'hex');
+
+  if (expectedBuffer.length !== receivedBuffer.length || expectedBuffer.length === 0) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
 }
 
 // ─── Refund (Future use) ──────────────────────────────────────────────────────
