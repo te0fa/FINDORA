@@ -178,7 +178,7 @@ function getClientIP(request: NextRequest): string {
 }
 
 // ── Auth Checks for APIs ──────────────────────────────────────────────────────
-function requiresAuth(pathname: string, method: string): boolean {
+export function requiresAuth(pathname: string, method: string): boolean {
   const cleanPath = pathname.replace(/^\/(?:ar|en)/, '')
 
   if (!cleanPath.startsWith('/api/')) return false
@@ -195,6 +195,8 @@ function requiresAuth(pathname: string, method: string): boolean {
     cleanPath.startsWith('/api/test-sentry') ||
     cleanPath.startsWith('/api/webhooks/') ||
     cleanPath.startsWith('/api/vendors/check-duplicate') ||
+    cleanPath === '/api/vendor/login' ||
+    cleanPath === '/api/vendor/register' ||
     cleanPath.startsWith('/api/trends') ||
     cleanPath.startsWith('/api/customers/requests/create') ||
     cleanPath.startsWith('/api/ai/concierge') ||
