@@ -152,7 +152,7 @@ async function triggerWaitlistNotifications(requestId: string): Promise<void> {
 export async function updateBid(
   bidId: string,
   input: Partial<CreateBidInput>
-): Promise<VendorBid | null> {
+): Promise<VendorBid> {
   const adminClient = await createAdminClient()
 
   const { data, error } = await (adminClient as any)
@@ -167,7 +167,7 @@ export async function updateBid(
 
   if (error) {
     log.error('updateBid failed', { bidId, error: error.message })
-    return null
+    throw new Error(`Failed to update bid: ${error.message}`)
   }
 
   log.info('Bid updated successfully', { id: bidId, price: input.price_amount })

@@ -50,9 +50,19 @@ export type CreateSourcingRequestParams = {
   metadata?: any
   sourceType?: string | null
   aiConfidence?: number | null
+  auctionDurationHours?: number | null
 }
 
 export async function createSourcingRequest(params: CreateSourcingRequestParams) {
+  let auctionDurationHours = 48
+  if (params.auctionDurationHours !== undefined && params.auctionDurationHours !== null) {
+    const val = Number(params.auctionDurationHours)
+    if (!Number.isInteger(val) || val <= 0) {
+      throw new Error('INVALID_ARGUMENT: auctionDurationHours must be a positive integer.')
+    }
+    auctionDurationHours = val
+  }
+
   const adminClient = await createAdminClient()
 
   const requestCode = `REQ-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`
@@ -125,6 +135,7 @@ export async function createSourcingRequest(params: CreateSourcingRequestParams)
     p_metadata: params.metadata || {},
     p_source_type: params.sourceType || 'manual',
     p_ai_confidence: params.aiConfidence ?? undefined,
+    p_auction_duration_hours: auctionDurationHours,
   })
 
   if (rpcError) throw new Error(rpcError.message)

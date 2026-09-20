@@ -348,6 +348,7 @@ export async function POST(request: Request) {
     p_metadata: safeMetadata,
     p_source_type: body.source_type || 'manual',
     p_ai_confidence: body.ai_confidence ? Number(body.ai_confidence) : undefined,
+    p_auction_duration_hours: 48,
   }
 
   if (hasIdempotencyKey) {

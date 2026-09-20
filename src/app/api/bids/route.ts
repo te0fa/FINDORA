@@ -306,15 +306,33 @@ async function postBidHandler(request: NextRequest): Promise<NextResponse> {
 
     const isStaff = !!staffMember
 
-    // 1. Fetch request details to get budget and priority
+    // 1. Fetch request details to get budget, priority, and auction status
     const { data: sourcingRequest, error: reqErr } = await supabase
       .from('requests')
-      .select('budget, priority')
+      .select('budget, priority, selected_bid_id, auction_ends_at, current_status, is_archived')
       .eq('id', request_id)
       .single()
 
     if (reqErr || !sourcingRequest) {
       return NextResponse.json({ error: 'Sourcing request not found' }, { status: 404 })
+    }
+
+    // Pre-flight auction closure checks (P2-03)
+    if (sourcingRequest.is_archived) {
+      return NextResponse.json({ error: 'AUCTION_CLOSED: Sourcing request is archived.', code: 'AUCTION_CLOSED' }, { status: 409 })
+    }
+
+    const currentStatus = sourcingRequest.current_status || 'open'
+    if (!['open', 'submitted', 'assigned'].includes(currentStatus)) {
+      return NextResponse.json({ error: `AUCTION_CLOSED: Sourcing request is not open for bidding (status: ${sourcingRequest.current_status}).`, code: 'AUCTION_CLOSED' }, { status: 409 })
+    }
+
+    if (sourcingRequest.selected_bid_id) {
+      return NextResponse.json({ error: 'AUCTION_CLOSED: An offer has already been approved for this request.', code: 'AUCTION_CLOSED' }, { status: 409 })
+    }
+
+    if (sourcingRequest.auction_ends_at && new Date() > new Date(sourcingRequest.auction_ends_at)) {
+      return NextResponse.json({ error: 'AUCTION_CLOSED: Bidding period has expired.', code: 'AUCTION_CLOSED' }, { status: 409 })
     }
 
     // 2. Fetch vendor details and enforce vendor ownership
@@ -406,6 +424,19 @@ async function postBidHandler(request: NextRequest): Promise<NextResponse> {
     })
   } catch (error: any) {
     log.error('postBidHandler unexpected error', { error: error?.message })
+    if (
+      error?.message?.includes('AUCTION_CLOSED') ||
+      error?.message?.includes('P0003') ||
+      error?.message?.includes('P0004') ||
+      error?.message?.includes('P0005') ||
+      error?.message?.includes('P0006') ||
+      error?.code === 'P0003' ||
+      error?.code === 'P0004' ||
+      error?.code === 'P0005' ||
+      error?.code === 'P0006'
+    ) {
+      return NextResponse.json({ error: error?.message || 'AUCTION_CLOSED', code: 'AUCTION_CLOSED' }, { status: 409 })
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

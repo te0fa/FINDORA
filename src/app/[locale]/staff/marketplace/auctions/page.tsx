@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getStaffMemberByAuthUserId, getStaffUiPermissions } from '@/lib/dal/staff'
 import { createAdminClient } from '@/lib/dal/customers'
+import StaffAuctionApprovalAction from './StaffAuctionApprovalAction'
 
 export const metadata = { title: 'إدارة المزادات والمناقصات | Sourcing Auctions — Findora Staff' }
 
@@ -15,11 +16,14 @@ interface RequestAuctionItem {
   city: string | null
   priority: string | null
   created_at: string
+  auction_ends_at: string | null
+  selected_bid_id: string | null
   customer: {
     id: string
     full_name: string
   }
   bids_count: number
+  vendor_bids: any[]
   selected_bid: {
     id: string
     price_amount: number
@@ -52,7 +56,7 @@ export default async function SourcingAuctionsPage({
   const { data: requestsData, error } = await adminClient
     .from('requests')
     .select(`
-      id, request_code, title, current_status, budget, city, priority, created_at,
+      id, request_code, title, current_status, budget, city, priority, created_at, auction_ends_at, selected_bid_id,
       customer:customers(id, full_name),
       vendor_bids(id, price_amount, vendor:vendors(display_name))
     `)
@@ -77,9 +81,9 @@ export default async function SourcingAuctionsPage({
     const bids = r.vendor_bids || []
     
     // Check if a bid is selected
-    // Note: in requests we have selected_bid_id. Let's find it in the bids list
-    // (for this dashboard we can mock selected_bid or query if needed. Let's just find the bid with the highest deal_score or first available for presentation)
-    const selectedBid = bids.length > 0 ? bids[0] : null // fallback representation
+    const selectedBid = r.selected_bid_id
+      ? bids.find((b: any) => b.id === r.selected_bid_id) || null
+      : null
 
     return {
       id: r.id,
@@ -90,8 +94,11 @@ export default async function SourcingAuctionsPage({
       city: r.city,
       priority: r.priority,
       created_at: r.created_at,
+      auction_ends_at: r.auction_ends_at,
+      selected_bid_id: r.selected_bid_id,
       customer: r.customer ? r.customer[0] || r.customer : { id: '', full_name: 'عميل غير معروف' },
       bids_count: bids.length,
+      vendor_bids: bids,
       selected_bid: selectedBid ? {
         id: selectedBid.id,
         price_amount: Number(selectedBid.price_amount),
@@ -249,6 +256,8 @@ export default async function SourcingAuctionsPage({
                 <th>{isRTL ? 'الأولوية' : 'Priority'}</th>
                 <th>{isRTL ? 'العروض المقدمة' : 'Bids Recv'}</th>
                 <th>{isRTL ? 'حالة المزاد' : 'Auction Status'}</th>
+                <th>{isRTL ? 'انتهاء المزاد' : 'Auction End'}</th>
+                <th>{isRTL ? 'اعتماد العرض' : 'Approval'}</th>
               </tr>
             </thead>
             <tbody>
@@ -295,6 +304,44 @@ export default async function SourcingAuctionsPage({
                       <span className={`badge badge-status badge-status-${item.current_status}`}>
                         {item.current_status}
                       </span>
+                    </td>
+                    <td>
+                      {item.auction_ends_at ? (
+                        <div style={{ fontSize: '0.8rem' }}>
+                          <div>
+                            {new Date(item.auction_ends_at).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
+                          {item.selected_bid_id ? (
+                            <span style={{ color: '#4ade80', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                              {isRTL ? 'معتمد' : 'Approved'}
+                            </span>
+                          ) : new Date() > new Date(item.auction_ends_at) ? (
+                            <span style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                              {isRTL ? 'منتهي' : 'Expired'}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#60a5fa', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                              {isRTL ? 'نشط' : 'Active'}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ opacity: 0.4 }}>-</span>
+                      )}
+                    </td>
+                    <td>
+                      <StaffAuctionApprovalAction
+                        requestId={item.id}
+                        selectedBidId={item.selected_bid_id}
+                        auctionEndsAt={item.auction_ends_at}
+                        bids={item.vendor_bids}
+                        locale={locale}
+                      />
                     </td>
                   </tr>
                 )

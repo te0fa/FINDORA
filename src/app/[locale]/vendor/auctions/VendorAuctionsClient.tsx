@@ -13,6 +13,29 @@ interface SourcingRequest {
   accepts_used: boolean
   created_at: string
   customer_id: string
+  auction_ends_at?: string | null
+  selected_bid_id?: string | null
+}
+
+function formatRemainingTime(endsAt: string | null | undefined, isRTL: boolean) {
+  if (!endsAt) return null
+  const diff = new Date(endsAt).getTime() - Date.now()
+  if (diff <= 0) return isRTL ? 'انتهت المزايدة' : 'Auction ended'
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24)
+    const remHours = hours % 24
+    return isRTL ? `متبقي ${days} يوم ${remHours} س` : `${days}d ${remHours}h left`
+  }
+  return isRTL ? `متبقي ${hours} س ${minutes} د` : `${hours}h ${minutes}m left`
+}
+
+function isAuctionClosed(req?: SourcingRequest | null) {
+  if (!req) return false
+  if (req.selected_bid_id) return true
+  if (req.auction_ends_at && new Date() > new Date(req.auction_ends_at)) return true
+  return false
 }
 
 interface VendorAuctionsClientProps {
@@ -103,6 +126,12 @@ export default function VendorAuctionsClient({
   const handleSubmitBid = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedRequestId || !price || !deliveryDays) return
+
+    const req = requests.find(r => r.id === selectedRequestId)
+    if (isAuctionClosed(req)) {
+      setError(isRTL ? 'المزاد مغلق. لا يمكن تقديم أو تعديل العروض.' : 'Auction is closed. Bids cannot be submitted or updated.')
+      return
+    }
 
     setSubmitting(true)
     setError(null)
@@ -255,6 +284,14 @@ export default function VendorAuctionsClient({
           background: rgba(34, 197, 94, 0.15);
           color: #4ade80;
         }
+        .badge-closed {
+          background: rgba(239, 68, 68, 0.15);
+          color: #f87171;
+        }
+        .badge-time {
+          background: rgba(59, 130, 246, 0.15);
+          color: #60a5fa;
+        }
         .form-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -401,6 +438,16 @@ export default function VendorAuctionsClient({
                         {hasBid && <span className="badge badge-has-bid">{isRTL ? 'تم تقديم عرض' : 'Offer Placed'}</span>}
                       </div>
                     </div>
+
+                    <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {req.selected_bid_id ? (
+                        <span className="badge badge-closed">🔒 {isRTL ? 'تم قبول عرض (مغلق)' : 'Offer Approved (Closed)'}</span>
+                      ) : isAuctionClosed(req) ? (
+                        <span className="badge badge-closed">⏰ {isRTL ? 'انتهت المزايدة (مغلق)' : 'Expired (Closed)'}</span>
+                      ) : formatRemainingTime(req.auction_ends_at, isRTL) ? (
+                        <span className="badge badge-time">⏱️ {formatRemainingTime(req.auction_ends_at, isRTL)}</span>
+                      ) : null}
+                    </div>
                   </div>
                 )
               })
@@ -463,6 +510,23 @@ export default function VendorAuctionsClient({
 
                 {error && <div style={{ color: '#ef4444', marginBottom: '16px', fontWeight: 'bold' }}>{error}</div>}
 
+                {selectedRequest && isAuctionClosed(selectedRequest) && (
+                  <div style={{
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    color: '#f87171',
+                    padding: '14px',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    fontWeight: 'bold',
+                    fontSize: '0.9rem'
+                  }}>
+                    {selectedRequest.selected_bid_id
+                      ? (isRTL ? '🔒 تم اعتماد عرض لهذا الطلب بالفعل. تم إغلاق باب المزايدة.' : '🔒 An offer has already been approved for this request. Bidding is closed.')
+                      : (isRTL ? '⏰ انتهت فترة المزايدة المحددة لهذا الطلب وتم إغلاق المزاد.' : '⏰ The bidding period for this request has expired. Bidding is closed.')}
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmitBid}>
                   <div className="form-grid">
                     <div className="form-group">
@@ -470,6 +534,7 @@ export default function VendorAuctionsClient({
                       <input
                         type="number"
                         required
+                        disabled={isAuctionClosed(selectedRequest)}
                         className="form-input"
                         value={price}
                         onChange={e => setPrice(e.target.value)}
@@ -481,6 +546,7 @@ export default function VendorAuctionsClient({
                       <input
                         type="number"
                         required
+                        disabled={isAuctionClosed(selectedRequest)}
                         className="form-input"
                         value={deliveryDays}
                         onChange={e => setDeliveryDays(e.target.value)}
@@ -491,6 +557,7 @@ export default function VendorAuctionsClient({
                       <label className="form-label">{isRTL ? 'الضمان (أشهر)' : 'Warranty (Months)'}</label>
                       <input
                         type="number"
+                        disabled={isAuctionClosed(selectedRequest)}
                         className="form-input"
                         value={warrantyMonths}
                         onChange={e => setWarrantyMonths(e.target.value)}
@@ -501,6 +568,7 @@ export default function VendorAuctionsClient({
                       <label className="form-label">{isRTL ? 'حالة المنتج' : 'Condition'}</label>
                       <select
                         className="form-input"
+                        disabled={isAuctionClosed(selectedRequest)}
                         value={condition}
                         onChange={e => setCondition(e.target.value as any)}
                       >
@@ -513,6 +581,7 @@ export default function VendorAuctionsClient({
                       <input
                         type="checkbox"
                         id="installation"
+                        disabled={isAuctionClosed(selectedRequest)}
                         checked={installation}
                         onChange={e => setInstallation(e.target.checked)}
                       />
@@ -525,6 +594,7 @@ export default function VendorAuctionsClient({
                       <input
                         type="text"
                         className="form-input"
+                        disabled={isAuctionClosed(selectedRequest)}
                         value={afterSales}
                         onChange={e => setAfterSales(e.target.value)}
                         placeholder={isRTL ? 'مثال: صيانة مجانية أول 6 أشهر' : 'e.g. Free maintenance first 6 months'}
@@ -535,6 +605,7 @@ export default function VendorAuctionsClient({
                       <input
                         type="text"
                         className="form-input"
+                        disabled={isAuctionClosed(selectedRequest)}
                         value={freebies}
                         onChange={e => setFreebies(e.target.value)}
                         placeholder={isRTL ? 'مثال: جراب وشاحن أصلي مجاناً' : 'e.g. Free original charger and cover'}
@@ -545,10 +616,23 @@ export default function VendorAuctionsClient({
                   <button
                     type="submit"
                     className="submit-btn"
-                    disabled={submitting}
-                    style={{ background: 'var(--accent)', color: '#000', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%' }}
+                    disabled={submitting || isAuctionClosed(selectedRequest)}
+                    style={{
+                      background: isAuctionClosed(selectedRequest) ? '#475569' : 'var(--accent)',
+                      color: isAuctionClosed(selectedRequest) ? '#94a3b8' : '#000',
+                      border: 'none',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      cursor: isAuctionClosed(selectedRequest) ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                      width: '100%'
+                    }}
                   >
-                    {submitting ? (isRTL ? 'جاري التقييم والتسجيل...' : 'Evaluating bid...') : (isRTL ? 'تقديم العرض والمنافسة' : 'Submit Bid & Compete')}
+                    {isAuctionClosed(selectedRequest)
+                      ? (isRTL ? 'المزاد مغلق (لا يمكن تقديم عروض)' : 'Auction Closed')
+                      : submitting
+                      ? (isRTL ? 'جاري التقييم والتسجيل...' : 'Evaluating bid...')
+                      : (isRTL ? 'تقديم العرض والمنافسة' : 'Submit Bid & Compete')}
                   </button>
                 </form>
               </div>

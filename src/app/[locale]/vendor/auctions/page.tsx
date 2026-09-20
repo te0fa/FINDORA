@@ -17,6 +17,8 @@ interface SourcingRequest {
   accepts_used: boolean
   created_at: string
   customer_id: string
+  auction_ends_at?: string | null
+  selected_bid_id?: string | null
 }
 
 export default async function VendorAuctionsPage({
@@ -47,7 +49,7 @@ export default async function VendorAuctionsPage({
   // 2. Fetch all active sourcing requests open for bidding
   const { data: requestsData } = await adminClient
     .from('requests')
-    .select('id, request_code, title, raw_description, budget, city, priority, accepts_used, created_at, customer_id')
+    .select('id, request_code, title, raw_description, budget, city, priority, accepts_used, created_at, customer_id, auction_ends_at, selected_bid_id')
     .in('current_status', ['submitted', 'assigned'])
     .order('created_at', { ascending: false })
 
