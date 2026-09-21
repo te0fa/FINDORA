@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ensureCustomerProfile, getCustomerByAuthId, createAdminClient, linkAuthUserToCustomer } from '@/lib/dal/customers'
+import { generateCustomerCode, isCustomerCodeConflict, MAX_CUSTOMER_CODE_RETRIES } from '@/lib/customers/customer-code'
 import { getStaffMemberByAuthUserId, resolveStaffHomePath } from '@/lib/dal/staff'
 import { normalizePhone } from '@/lib/phone'
 import { headers } from 'next/headers'
@@ -178,22 +179,35 @@ export async function signup(formData: FormData) {
         const linked = await linkAuthUserToCustomer(data.user.id, phoneObj.normalized)
         
         if (!linked) {
-          // Create new customer profile with verified phone
-          const customerCode = `CUST-${Math.floor(1000 + Math.random() * 9000)}`
-          const { error: insertError } = await adminClient.from('customers').insert({
-            auth_user_id: data.user.id,
-            full_name: fullName,
-            customer_code: customerCode,
-            phone_number_raw: phoneObj.raw,
-            phone_number_normalized: phoneObj.normalized,
-            phone_verified_at: new Date().toISOString(),
-            preferred_language: locale,
-            email: email,
-            status: 'active'
-          })
-          if (insertError) {
+          // Create new customer profile with verified phone (bounded retry on customer_code collision)
+          let customerCreated = false
+          for (let attempt = 1; attempt <= MAX_CUSTOMER_CODE_RETRIES; attempt++) {
+            const customerCode = generateCustomerCode()
+            const { error: insertError } = await adminClient.from('customers').insert({
+              auth_user_id: data.user.id,
+              full_name: fullName,
+              customer_code: customerCode,
+              phone_number_raw: phoneObj.raw,
+              phone_number_normalized: phoneObj.normalized,
+              phone_verified_at: new Date().toISOString(),
+              preferred_language: locale,
+              email: email,
+              status: 'active'
+            })
+            if (!insertError) {
+              customerCreated = true
+              break
+            }
+            if (isCustomerCodeConflict(insertError)) {
+              console.warn(`customer_code collision on attempt ${attempt} during signup, retrying...`)
+              continue
+            }
             console.error('Error inserting customer:', insertError)
-            return { error: insertError.message }
+            return { error: 'Failed to create customer profile. Please try again.' }
+          }
+          if (!customerCreated) {
+            console.error(`Exhausted ${MAX_CUSTOMER_CODE_RETRIES} attempts to create customer profile during signup`)
+            return { error: 'Failed to create customer profile. Please try again.' }
           }
         } else {
           // Profile was linked, now mark phone as verified and update missing info

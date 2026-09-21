@@ -4,6 +4,7 @@ import { createLogger } from '@/lib/utils/logger';
 const log = createLogger('DAL:customers');
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { generateCustomerCode, isCustomerCodeConflict, MAX_CUSTOMER_CODE_RETRIES } from '@/lib/customers/customer-code'
 export { createAdminClient }
 
 export async function getCustomerByAuthId(authUserId: string) {
@@ -45,27 +46,47 @@ export async function ensureCustomerProfile(authUserId: string, fullName: string
 
   if (existing) return existing
 
-  // 2. Create if missing
-  const customerCode = `CUST-${Math.floor(1000 + Math.random() * 9000)}`
+  // 2. Create if missing with bounded retry on customer_code collision
+  for (let attempt = 1; attempt <= MAX_CUSTOMER_CODE_RETRIES; attempt++) {
+    const customerCode = generateCustomerCode()
 
-  const { data, error } = await adminClient
-    .from('customers')
-    .insert({
-      auth_user_id: authUserId,
-      full_name: fullName,
-      customer_code: customerCode,
-      preferred_language: locale,
-      status: 'active'
-    } as any)
-    .select()
-    .single()
+    const { data, error } = await adminClient
+      .from('customers')
+      .insert({
+        auth_user_id: authUserId,
+        full_name: fullName,
+        customer_code: customerCode,
+        preferred_language: locale,
+        status: 'active'
+      } as any)
+      .select()
+      .single()
 
-  if (error) {
+    if (!error) {
+      return data
+    }
+
+    if (isCustomerCodeConflict(error)) {
+      log.warn(`customer_code collision on attempt ${attempt} for auth_user_id ${authUserId}, retrying...`)
+      continue
+    }
+
+    // Check if another concurrent process already created the profile for this auth_user_id
+    if (error.code === '23505') {
+      const { data: concurrentProfile } = await adminClient
+        .from('customers')
+        .select('*')
+        .eq('auth_user_id', authUserId)
+        .single()
+      if (concurrentProfile) return concurrentProfile
+    }
+
     log.error('Error ensuring customer profile:', error)
     return null
   }
 
-  return data
+  log.error(`Exhausted ${MAX_CUSTOMER_CODE_RETRIES} attempts to ensure customer profile due to customer_code collisions`)
+  return null
 }
 
 /**
@@ -110,25 +131,36 @@ export async function upsertGuestCustomerByPhone(
     return existing
   }
 
-  // 2. Create new guest customer
-  const customerCode = `CUST-${Math.floor(1000 + Math.random() * 9000)}`
+  // 2. Create new guest customer with bounded retry on customer_code collision
+  for (let attempt = 1; attempt <= MAX_CUSTOMER_CODE_RETRIES; attempt++) {
+    const customerCode = generateCustomerCode()
 
-  const { data, error } = await adminClient
-    .from('customers')
-    .insert({
-      auth_user_id: null,
-      full_name: fullName,
-      customer_code: customerCode,
-      preferred_language: locale,
-      phone_number_raw: phoneObj.raw,
-      phone_number_normalized: phoneObj.normalized,
-      email: email || null,
-      status: 'active'
-    } as any)
-    .select()
-    .single()
+    const { data, error } = await adminClient
+      .from('customers')
+      .insert({
+        auth_user_id: null,
+        full_name: fullName,
+        customer_code: customerCode,
+        preferred_language: locale,
+        phone_number_raw: phoneObj.raw,
+        phone_number_normalized: phoneObj.normalized,
+        email: email || null,
+        status: 'active'
+      } as any)
+      .select()
+      .single()
 
-  if (error) {
+    if (!error) {
+      return data
+    }
+
+    // Check if error is specifically customer_code collision
+    if (isCustomerCodeConflict(error)) {
+      log.warn(`customer_code collision on attempt ${attempt} for guest phone ${phoneObj.normalized}, retrying...`)
+      continue
+    }
+
+    // Check if error is a concurrent creation of the same phone number
     if (error.code === '23505') {
       const { data: retryData } = await adminClient
         .from('customers')
@@ -137,10 +169,11 @@ export async function upsertGuestCustomerByPhone(
         .single()
       if (retryData) return retryData
     }
+
     throw new Error(error.message)
   }
 
-  return data
+  throw new Error('Failed to generate a unique customer code after multiple attempts.')
 }
 
 /**
