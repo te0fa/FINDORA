@@ -276,8 +276,8 @@ describe('P0-04: Atomic Customer Request Creation', () => {
     }))
   })
 
-  // 7. Metadata Preservation
-  it('preserves intake metadata, source_type, and ai_confidence', async () => {
+  // 7. Metadata Preservation & Server Authority (P2-04)
+  it('preserves allowed intake metadata while enforcing server authority over source_type and ai_confidence', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'auth-user-ai' } }, error: null })
     mockRpc.mockResolvedValue({ data: { success: true, request: { id: 'ai-req-1' } }, error: null })
 
@@ -301,8 +301,8 @@ describe('P0-04: Atomic Customer Request Creation', () => {
     expect(res.status).toBe(200)
 
     expect(mockRpc).toHaveBeenCalledWith('fn_create_sourcing_request', expect.objectContaining({
-      p_source_type: 'product_link',
-      p_ai_confidence: 0.95,
+      p_source_type: 'manual',
+      p_ai_confidence: undefined,
       p_metadata: {
         brand: 'Apple',
         condition: 'new',

@@ -289,12 +289,14 @@ export async function POST(request: Request) {
     quantity: quantity ? String(quantity).trim() : undefined
   } : {}
 
-  const safeMetadata = {
-    ...(body.metadata || {}),
-    ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
+  // P2-04 Remediation: Construct customer-safe metadata via strict allowlist
+  const safeMetadata = sanitizeCustomerMetadata(body.metadata, idempotencyKey)
+  if (finalReferenceImagePath) {
+    safeMetadata.reference_image_path = finalReferenceImagePath
   }
 
-  // 7. Compute Canonical Payload Hash (P0-03-B)
+  // 7. Compute Canonical Payload Hash (P0-03-B / P2-04)
+  // P2-04: Normal web request creation enforces sourceType = 'manual' and ignores caller-supplied aiConfidence
   const hasIdempotencyKey = Boolean(idempotencyKey)
   const payloadHash = hasIdempotencyKey && customerId
     ? computeCanonicalPayloadHash({
@@ -309,12 +311,12 @@ export async function POST(request: Request) {
         crNumber,
         taxNumber,
         quantity,
-        sourceType: body.source_type,
-        aiConfidence: body.ai_confidence,
+        sourceType: 'manual',
+        aiConfidence: null,
       })
     : undefined
 
-  // 8. Atomic PostgreSQL Request Creation (P0-03-B / P0-04)
+  // 8. Atomic PostgreSQL Request Creation (P0-03-B / P0-04 / P2-04)
   const { createAdminClient } = await import('@/lib/dal/customers')
   const adminClient = await createAdminClient()
 
@@ -346,8 +348,8 @@ export async function POST(request: Request) {
     p_business_metadata: businessMetadata,
     p_rfq_document: rfqDocument || undefined,
     p_metadata: safeMetadata,
-    p_source_type: body.source_type || 'manual',
-    p_ai_confidence: body.ai_confidence ? Number(body.ai_confidence) : undefined,
+    p_source_type: 'manual', // P2-04: Server-authoritative; client cannot spoof intake source
+    p_ai_confidence: undefined, // P2-04: Customer requests cannot inject trusted AI confidence
     p_auction_duration_hours: 48,
   }
 
@@ -450,5 +452,184 @@ async function copyTempImageToPermanent(tempPath: string, customerId: string): P
     console.error('[IMAGE_MOVE] Unexpected error:', err.message)
     return null
   }
+}
+
+/**
+ * P2-04 Remediation: Customer-safe metadata sanitizer
+ *
+ * Enforces an explicit allowlist of customer-provided metadata keys based on actual
+ * application consumption. Strips all untrusted, internal, or reserved keys
+ * (e.g. status, pricing, workflow, staff decisions, fraud flags, authorization,
+ * internal AI provenance, source_type, ai_confidence, etc.).
+ *
+ * Sanitizes nested objects (customSpecs, advancedSpecs) to ensure they contain
+ * only scalar string/number values with restricted lengths, preventing prototype
+ * pollution or nested bypasses.
+ */
+export function sanitizeCustomerMetadata(
+  input: any,
+  idempotencyKey?: string | null
+): Record<string, unknown> {
+  const safe: Record<string, unknown> = {}
+
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    if (idempotencyKey) {
+      safe.idempotency_key = idempotencyKey
+    }
+    return safe
+  }
+
+  // Helper for scalar strings
+  const pickString = (val: unknown, maxLen = 200): string | undefined => {
+    if (typeof val === 'string' && val.trim().length > 0) {
+      return val.trim().slice(0, maxLen)
+    }
+    return undefined
+  }
+
+  // Helper for positive finite numbers
+  const pickNumber = (val: unknown): number | undefined => {
+    if (typeof val === 'number' && Number.isFinite(val) && val >= 0) {
+      return val
+    }
+    if (typeof val === 'string' && val.trim().length > 0) {
+      const num = Number(val)
+      if (Number.isFinite(num) && num >= 0) {
+        return num
+      }
+    }
+    return undefined
+  }
+
+  // Helper for booleans
+  const pickBoolean = (val: unknown): boolean | undefined => {
+    if (typeof val === 'boolean') {
+      return val
+    }
+    return undefined
+  }
+
+  // Helper for string arrays
+  const pickStringArray = (val: unknown, maxItems = 20, maxLen = 100): string[] | undefined => {
+    if (Array.isArray(val)) {
+      const filtered = val
+        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        .slice(0, maxItems)
+        .map(item => item.trim().slice(0, maxLen))
+      return filtered.length > 0 ? filtered : undefined
+    }
+    return undefined
+  }
+
+  // Helper for flat record of specifications (customSpecs, advancedSpecs)
+  const sanitizeSpecsRecord = (val: unknown): Record<string, string> | undefined => {
+    if (!val || typeof val !== 'object' || Array.isArray(val)) {
+      return undefined
+    }
+    const cleanSpecs: Record<string, string> = Object.create(null)
+    let count = 0
+    for (const [k, v] of Object.entries(val)) {
+      if (count >= 30) break // max 30 spec fields
+      // Disallow prototype pollution or suspicious keys
+      if (
+        k === '__proto__' ||
+        k === 'constructor' ||
+        k === 'prototype' ||
+        k.startsWith('$') ||
+        k.startsWith('_')
+      ) {
+        continue
+      }
+      const cleanKey = k.trim().slice(0, 64)
+      if (!cleanKey) continue
+
+      if (typeof v === 'string' && v.trim().length > 0) {
+        cleanSpecs[cleanKey] = v.trim().slice(0, 300)
+        count++
+      } else if (typeof v === 'number' && Number.isFinite(v)) {
+        cleanSpecs[cleanKey] = String(v)
+        count++
+      } else if (typeof v === 'boolean') {
+        cleanSpecs[cleanKey] = String(v)
+        count++
+      }
+    }
+    return Object.keys(cleanSpecs).length > 0 ? cleanSpecs : undefined
+  }
+
+  // 1. Category & Specifications
+  const subcategory = pickString(input.subcategory, 64)
+  if (subcategory) safe.subcategory = subcategory
+
+  const brand = pickString(input.brand, 100)
+  if (brand) safe.brand = brand
+
+  const condition = pickString(input.condition, 50)
+  if (condition) safe.condition = condition
+
+  const color = pickString(input.color, 50)
+  if (color) safe.color = color
+
+  const size = pickString(input.size, 50)
+  if (size) safe.size = size
+
+  const warranty = pickString(input.warranty, 100)
+  if (warranty) safe.warranty = warranty
+
+  const origin = pickString(input.origin, 100)
+  if (origin) safe.origin = origin
+
+  const supplier_tier = pickString(input.supplier_tier, 50)
+  if (supplier_tier) safe.supplier_tier = supplier_tier
+
+  const buying_stage = pickString(input.buying_stage, 50)
+  if (buying_stage) safe.buying_stage = buying_stage
+
+  // 2. Manual V2 Extra Fields
+  const budgetMin = pickNumber(input.budgetMin)
+  if (budgetMin !== undefined) safe.budgetMin = budgetMin
+
+  const budgetMax = pickNumber(input.budgetMax)
+  if (budgetMax !== undefined) safe.budgetMax = budgetMax
+
+  const urgency = pickString(input.urgency, 50)
+  if (urgency) safe.urgency = urgency
+
+  const referenceLink = pickString(input.referenceLink, 1000)
+  if (referenceLink) safe.referenceLink = referenceLink
+
+  // 3. Traceability & Product Link / Image Intake Preview
+  const sourceUrl = pickString(input.sourceUrl, 2000)
+  if (sourceUrl) safe.sourceUrl = sourceUrl
+
+  const productImageUrl = pickString(input.productImageUrl, 2000)
+  if (productImageUrl) safe.productImageUrl = productImageUrl
+
+  const refImgPath = pickString(input.reference_image_path, 500)
+  if (refImgPath) safe.reference_image_path = refImgPath
+
+  // 4. Parser Multi-item Passthrough
+  const isMultiple = pickBoolean(input.isMultipleItems)
+  if (isMultiple !== undefined) safe.isMultipleItems = isMultiple
+
+  const items = pickStringArray(input.items, 30, 200)
+  if (items) safe.items = items
+
+  const missingFields = pickStringArray(input.missingFields, 20, 100)
+  if (missingFields) safe.missingFields = missingFields
+
+  // 5. Nested Specs Objects
+  const customSpecs = sanitizeSpecsRecord(input.customSpecs)
+  if (customSpecs) safe.customSpecs = customSpecs
+
+  const advancedSpecs = sanitizeSpecsRecord(input.advancedSpecs)
+  if (advancedSpecs) safe.advancedSpecs = advancedSpecs
+
+  // 6. Server-Controlled Idempotency Key Injection
+  if (idempotencyKey) {
+    safe.idempotency_key = idempotencyKey
+  }
+
+  return safe
 }
 
