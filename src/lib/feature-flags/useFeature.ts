@@ -35,11 +35,23 @@ export function useFeature(key: string): FeatureState {
     // ── Initial Fetch ─────────────────────────────────────────────────────────
     async function fetchFlag() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .from('feature_flags')
+      let { data, error } = await (supabase as any)
+        .from('public_feature_flags')
         .select('enabled, config')
         .eq('key', key)
         .maybeSingle()
+
+      // Graceful fallback to base table if public_feature_flags view is not yet applied
+      if (error && error.code === '42P01') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fallback = await (supabase as any)
+          .from('feature_flags')
+          .select('enabled, config')
+          .eq('key', key)
+          .maybeSingle()
+        data = fallback.data
+        error = fallback.error
+      }
 
       if (cancelled) return
 
@@ -58,7 +70,6 @@ export function useFeature(key: string): FeatureState {
       })
     }
 
-
     fetchFlag()
 
     // ── Realtime Subscription ─────────────────────────────────────────────────
@@ -75,12 +86,14 @@ export function useFeature(key: string): FeatureState {
         (payload) => {
           if (cancelled) return
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const updated = payload.new as any
-          setState({
-            enabled: updated.enabled ?? false,
-            config: (updated.config as Record<string, unknown>) ?? {},
-            loading: false,
-          })
+          const updated = (payload?.new ?? {}) as any
+          if (updated && typeof updated.enabled === 'boolean') {
+            setState({
+              enabled: updated.enabled ?? false,
+              config: (updated.config as Record<string, unknown>) ?? {},
+              loading: false,
+            })
+          }
         }
       )
       .subscribe()
