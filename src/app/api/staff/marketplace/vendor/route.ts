@@ -1,8 +1,35 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { getStaffMemberByAuthUserId, getStaffUiPermissions } from '@/lib/dal/staff'
 import { createVendor } from '@/lib/dal/marketplace'
 
 export async function POST(request: Request) {
   try {
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const staff = await getStaffMemberByAuthUserId(user.id)
+    if (!staff || !staff.is_active) {
+      return NextResponse.json(
+        { error: 'Forbidden' },
+        { status: 403 }
+      )
+    }
+
+    const perms = getStaffUiPermissions(staff)
+    if (!perms.canManageVendors) {
+      return NextResponse.json(
+        { error: 'Forbidden: Insufficient permissions' },
+        { status: 403 }
+      )
+    }
+
     const formData = await request.formData()
     const business_name_en = formData.get('business_name_en') as string
     const business_name_ar = formData.get('business_name_ar') as string

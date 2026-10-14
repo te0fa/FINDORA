@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/dal/customers'
 import { addCustomerPoints } from '@/lib/dal/points'
-import { getStaffMemberByAuthUserId } from '@/lib/dal/staff'
+import { getStaffMemberByAuthUserId, getStaffUiPermissions } from '@/lib/dal/staff'
 import { withRateLimit, AUTH_RATE_LIMIT } from '@/lib/middleware/rate-limiter'
 
 async function approveInsightHandler(request: NextRequest): Promise<NextResponse> {
@@ -13,10 +13,15 @@ async function approveInsightHandler(request: NextRequest): Promise<NextResponse
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify staff role
+    // Verify staff role & capabilities
     const staff = await getStaffMemberByAuthUserId(user.id)
     if (!staff || !staff.is_active) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const perms = getStaffUiPermissions(staff)
+    if (!perms.canManageDeals) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 })
     }
 
     const body = await request.json()
