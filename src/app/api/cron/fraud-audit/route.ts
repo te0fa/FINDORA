@@ -98,53 +98,6 @@ export async function GET(request: Request) {
     // log.error('[FRAUD CRON] Device fingerprint check failed:', err.message)
   }
 
-  // 3. Geo-Mismatch Detection
-  try {
-    const { data: tasks } = await (db as any).from('offline_sourcing_tasks')
-      .select('assigned_to_user_id, target_governorate')
-      .eq('task_status', 'completed')
-      .limit(50)
-
-    if (tasks) {
-      for (const t of tasks) {
-        if (!t.assigned_to_user_id) continue
-        // Fetch contributor's device IP and simulate a check if IP matches the governorate region
-        const { data: fp } = await (db as any).from('contributor_device_fingerprints')
-          .select('ip_address')
-          .eq('contributor_id', t.assigned_to_user_id)
-          .limit(1)
-          .maybeSingle()
-
-        if (fp && fp.ip_address) {
-          // Simulate Geo-IP check: if governorate is Alexandria but IP is Cairo (simplified mock logic)
-          const ipStr = String(fp.ip_address)
-          const isMismatched = t.target_governorate === 'Alexandria' && ipStr.startsWith('192.168.1.') // Cairo range mock
-          if (isMismatched) {
-            const { data: existingAlert } = await (db as any).from('fraud_alerts')
-              .select('id')
-              .eq('contributor_id', t.assigned_to_user_id)
-              .eq('alert_type', 'geo_mismatch')
-              .eq('status', 'open')
-              .limit(1)
-
-            if (!existingAlert || existingAlert.length === 0) {
-              await (db as any).from('fraud_alerts').insert({
-                contributor_id: t.assigned_to_user_id,
-                alert_level: 'warning',
-                alert_type: 'geo_mismatch',
-                description: `AI Audit: Geolocation mismatch. Task submitted in ${t.target_governorate} but device IP is routed from Cairo.`
-              })
-              alertsGenerated++
-              await (db as any).from('contributor_risk_scores').upsert({ contributor_id: t.assigned_to_user_id, risk_score: 60, updated_at: new Date().toISOString() })
-            }
-          }
-        }
-      }
-    }
-  } catch (err: any) {
-    // log.error('[FRAUD CRON] Geo-mismatch check failed:', err.message)
-  }
-
   // 4. Velocity Detection (Earnings Spikes)
   try {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
